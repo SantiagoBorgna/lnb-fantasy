@@ -26,7 +26,7 @@ public class ScraperCronJob {
      * fixedDelay vs cron: usamos cron para tener control horario preciso
      * en producción desde el mismo campo sin cambiar código.
      */
-    @Scheduled(cron = "0 * * * * *")
+    // @Scheduled(cron = "0 * * * * *")
     public void ejecutarScraperDePrueba() {
 
         log.info("==================================================");

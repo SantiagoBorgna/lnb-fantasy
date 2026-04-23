@@ -44,8 +44,9 @@ public class SecurityConfig {
                                                                 "/api/auth/**",
                                                                 "/login/**",
                                                                 "/oauth2/**",
-                                                                "/api/mercado/jugadores", // El mercado es visible sin
-                                                                                          // login
+                                                                "/api/mercado/jugadores/**", // El mercado es visible
+                                                                                             // sin
+                                                                                             // login
                                                                 "/api/lideres/**" // Rankings son públicos
                                                 ).permitAll()
                                                 // Todo lo demás requiere JWT válido
