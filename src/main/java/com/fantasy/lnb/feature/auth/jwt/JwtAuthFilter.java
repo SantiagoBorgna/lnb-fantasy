@@ -1,0 +1,87 @@
+package com.fantasy.lnb.feature.auth.jwt;
+
+import com.fantasy.lnb.feature.usuario.UsuarioRepository;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.lang.NonNull;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.User;
+import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
+import org.springframework.stereotype.Component;
+import org.springframework.web.filter.OncePerRequestFilter;
+
+import java.io.IOException;
+import java.util.List;
+
+@Slf4j
+@Component
+@RequiredArgsConstructor
+public class JwtAuthFilter extends OncePerRequestFilter {
+
+    private final JwtService jwtService;
+    private final UsuarioRepository usuarioRepository;
+
+    @Override
+    protected void doFilterInternal(
+            @NonNull HttpServletRequest request,
+            @NonNull HttpServletResponse response,
+            @NonNull FilterChain filterChain) throws ServletException, IOException {
+
+        final String authHeader = request.getHeader("Authorization");
+
+        // ── DEBUG TEMPORAL ───────────────────────────────────────────────────
+        log.info("[JWT-DEBUG] Header recibido: '{}'", authHeader);
+        // ────────────────────────────────────────────────────────────────────
+
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        final String token = authHeader.substring(7);
+
+        // ── DEBUG TEMPORAL ───────────────────────────────────────────────────
+        log.info("[JWT-DEBUG] Token extraído (primeros 30 chars): '{}'",
+                token.length() > 30 ? token.substring(0, 30) + "..." : token);
+        log.info("[JWT-DEBUG] Resultado de esValido(): {}", jwtService.esValido(token));
+        // ────────────────────────────────────────────────────────────────────
+
+        if (!jwtService.esValido(token)) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        // Solo autenticamos si no hay ya una autenticación en el contexto
+        if (SecurityContextHolder.getContext().getAuthentication() == null) {
+            String email = jwtService.extraerEmail(token);
+
+            // Verificamos que el usuario todavía exista en nuestra BD
+            usuarioRepository.findByEmail(email).ifPresent(usuario -> {
+
+                // Spring Security no usa passwords aquí, pero necesita
+                // un UserDetails — lo construimos inline sin roles por ahora
+                var userDetails = User.withUsername(usuario.getEmail())
+                        .password("")
+                        .authorities(List.of())
+                        .build();
+
+                var authToken = new UsernamePasswordAuthenticationToken(
+                        userDetails,
+                        null,
+                        userDetails.getAuthorities());
+                authToken.setDetails(
+                        new WebAuthenticationDetailsSource().buildDetails(request));
+
+                SecurityContextHolder.getContext().setAuthentication(authToken);
+                log.debug("[JWT] Usuario autenticado: {}", email);
+            });
+        }
+
+        filterChain.doFilter(request, response);
+    }
+}
