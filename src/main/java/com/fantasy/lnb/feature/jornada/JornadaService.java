@@ -5,6 +5,8 @@ import com.fantasy.lnb.feature.jornada.dto.JornadaDto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.fantasy.lnb.feature.estadisticas.EstadisticaPartidoRepository;
 
 import java.time.LocalDateTime;
@@ -22,18 +24,21 @@ public class JornadaService {
 
     // ── Consultas ───────────────────────────────────────────────────────────
 
+    @Transactional(readOnly = true)
     public List<JornadaDto> listarTodas() {
         return jornadaRepo.findAll().stream()
                 .map(this::toDto)
                 .toList();
     }
 
+    @Transactional(readOnly = true)
     public Optional<JornadaDto> obtenerProximaAbierta() {
         return jornadaRepo
                 .findFirstByEstadoOrderByFechaInicioAsc(EstadoJornada.ABIERTA_A_CAMBIOS)
                 .map(this::toDto);
     }
 
+    @Transactional(readOnly = true)
     public Optional<JornadaDto> obtenerEnJuego() {
         return jornadaRepo
                 .findByEstado(EstadoJornada.EN_JUEGO)

@@ -4,6 +4,7 @@ import com.fantasy.lnb.feature.mercado.dto.JugadorMercadoDto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
@@ -16,13 +17,14 @@ public class MercadoService {
     private final JugadorRealRepository jugadorRepo;
 
     // ── Consultas del Mercado ───────────────────────────────────────────────
-
+    @Transactional(readOnly = true)
     public List<JugadorMercadoDto> listarTodos() {
         return jugadorRepo.findAll().stream()
                 .map(this::toDto)
                 .toList();
     }
 
+    @Transactional(readOnly = true)
     public List<JugadorMercadoDto> listarPorPosicion(PosicionJugador posicion) {
         return jugadorRepo
                 .findByPosicionOrderByValorMercadoActualDesc(posicion)
@@ -31,6 +33,7 @@ public class MercadoService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
     public List<JugadorMercadoDto> buscarPorNombre(String nombre) {
         return jugadorRepo
                 .findByNombreCompletoContainingIgnoreCase(nombre)
@@ -39,6 +42,7 @@ public class MercadoService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
     public Optional<JugadorMercadoDto> buscarPorId(Long id) {
         return jugadorRepo.findById(id)
                 .map(this::toDto);

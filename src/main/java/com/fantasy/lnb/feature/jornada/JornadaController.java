@@ -2,6 +2,8 @@ package com.fantasy.lnb.feature.jornada;
 
 import com.fantasy.lnb.feature.jornada.dto.CrearJornadaRequest;
 import com.fantasy.lnb.feature.jornada.dto.JornadaDto;
+
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -40,7 +42,7 @@ public class JornadaController {
     // POST /api/jornadas — crear nueva jornada (admin)
     @PostMapping
     public ResponseEntity<JornadaDto> crearJornada(
-            @RequestBody CrearJornadaRequest request) {
+            @Valid @RequestBody CrearJornadaRequest request) {
         return ResponseEntity.ok(jornadaService.crearJornada(request));
     }
 

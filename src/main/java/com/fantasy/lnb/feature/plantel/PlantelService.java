@@ -48,6 +48,7 @@ public class PlantelService {
          * Devuelve el plantel del usuario para la jornada activa.
          * Si no armó plantel aún, devuelve empty.
          */
+        @Transactional(readOnly = true)
         public Optional<PlantelDto> obtenerPlantelActivo(Long usuarioId) {
                 return jornadaRepo.findByEstado(EstadoJornada.EN_JUEGO)
                                 .or(() -> jornadaRepo.findFirstByEstadoOrderByFechaInicioAsc(
@@ -125,17 +126,25 @@ public class PlantelService {
                                                 "Usuario no encontrado: " + usuarioId));
 
                 // Si ya existe un plantel para esta jornada, lo eliminamos y recreamos
-                // Reemplazar el bloque de delete/save por este patrón:
                 plantelRepo.findByUsuario_IdAndJornada_Id(usuarioId, jornada.getId())
                                 .ifPresent(viejo -> {
-                                        // 1. Reintegrar presupuesto del plantel anterior
-                                        double costoViejo = viejo.getJugadores().stream()
-                                                        .mapToDouble(JugadorPlantel::getPrecioDeCompra).sum();
-                                        equipo.setPresupuestoActual(equipo.getPresupuestoActual() + costoViejo);
 
-                                        // 2. Flush explícito para que el DELETE llegue a BD antes del INSERT
+                                        // Reintegrar el presupuesto gastado en el plantel anterior
+                                        double costoViejo = viejo.getJugadores().stream()
+                                                        .mapToDouble(JugadorPlantel::getPrecioDeCompra)
+                                                        .sum();
+
+                                        // Cargamos el equipo acá porque todavía no lo buscamos
+                                        // en este punto del flujo — lo necesitamos para reintegrar
+                                        equipoVirtualRepo.findByUsuario_Id(usuarioId).ifPresent(eq -> {
+                                                eq.setPresupuestoActual(eq.getPresupuestoActual() + costoViejo);
+                                                equipoVirtualRepo.save(eq);
+                                                log.info("[PLANTEL] Reintegro por reemplazo de plantel: +{} créditos",
+                                                                costoViejo);
+                                        });
+
                                         plantelRepo.delete(viejo);
-                                        plantelRepo.flush();
+                                        plantelRepo.flush(); // Fuerza el DELETE antes del INSERT
                                 });
 
                 PlantelJornada plantel = PlantelJornada.builder()

@@ -23,139 +23,142 @@ import java.util.concurrent.atomic.AtomicInteger;
 @RequiredArgsConstructor
 public class TorneoService {
 
-    private final TorneoRepository torneoRepo;
-    private final TorneoEquipoRepository torneoEquipoRepo;
-    private final UsuarioRepository usuarioRepo;
-    private final EquipoVirtualRepository equipoVirtualRepo;
+        private final TorneoRepository torneoRepo;
+        private final TorneoEquipoRepository torneoEquipoRepo;
+        private final UsuarioRepository usuarioRepo;
+        private final EquipoVirtualRepository equipoVirtualRepo;
 
-    @Value("${app.frontend-url}")
-    private String frontendUrl;
+        @Value("${app.frontend-url}")
+        private String frontendUrl;
 
-    // ── Creación ────────────────────────────────────────────────────────────
+        // ── Creación ────────────────────────────────────────────────────────────
 
-    @Transactional
-    public TorneoDto crearTorneo(Long usuarioId, CrearTorneoRequest request) {
+        @Transactional
+        public TorneoDto crearTorneo(Long usuarioId, CrearTorneoRequest request) {
 
-        Usuario creador = usuarioRepo.findById(usuarioId)
-                .orElseThrow(() -> new IllegalStateException(
-                        "Usuario no encontrado: " + usuarioId));
+                Usuario creador = usuarioRepo.findById(usuarioId)
+                                .orElseThrow(() -> new IllegalStateException(
+                                                "Usuario no encontrado: " + usuarioId));
 
-        Torneo torneo = Torneo.builder()
-                .nombre(request.getNombre())
-                .descripcion(request.getDescripcion())
-                .tipo(request.getTipo())
-                .codigoInvitacion(UUID.randomUUID().toString())
-                .creador(creador)
-                .build();
+                Torneo torneo = Torneo.builder()
+                                .nombre(request.getNombre())
+                                .descripcion(request.getDescripcion())
+                                .tipo(request.getTipo())
+                                .codigoInvitacion(UUID.randomUUID().toString())
+                                .creador(creador)
+                                .build();
 
-        Torneo guardado = torneoRepo.save(torneo);
+                Torneo guardado = torneoRepo.save(torneo);
 
-        // El creador se une automáticamente a su propio torneo
-        unirseATorneo(usuarioId, guardado.getCodigoInvitacion());
+                // El creador se une automáticamente a su propio torneo
+                unirseATorneo(usuarioId, guardado.getCodigoInvitacion());
 
-        log.info("[TORNEO] Creado: '{}' | Tipo: {} | Creador: {} | UUID: {}",
-                guardado.getNombre(), guardado.getTipo(),
-                creador.getEmail(), guardado.getCodigoInvitacion());
+                log.info("[TORNEO] Creado: '{}' | Tipo: {} | Creador: {} | UUID: {}",
+                                guardado.getNombre(), guardado.getTipo(),
+                                creador.getEmail(), guardado.getCodigoInvitacion());
 
-        return toDto(guardado);
-    }
-
-    // ── Unirse a un torneo ──────────────────────────────────────────────────
-
-    @Transactional
-    public TorneoDto unirseATorneo(Long usuarioId, String codigoInvitacion) {
-
-        Torneo torneo = torneoRepo.findByCodigoInvitacion(codigoInvitacion)
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "Torneo no encontrado con código: " + codigoInvitacion));
-
-        EquipoVirtual equipo = equipoVirtualRepo.findByUsuario_Id(usuarioId)
-                .orElseThrow(() -> new IllegalStateException(
-                        "El usuario no tiene equipo virtual creado."));
-
-        // Verificar que no esté ya inscripto
-        if (torneoEquipoRepo.existsByTorneo_IdAndEquipoVirtual_Id(
-                torneo.getId(), equipo.getId())) {
-            log.warn("[TORNEO] Usuario {} ya está inscripto en torneo {}.",
-                    usuarioId, torneo.getNombre());
-            return toDto(torneo);
+                return toDto(guardado);
         }
 
-        TorneoEquipo inscripcion = TorneoEquipo.builder()
-                .torneo(torneo)
-                .equipoVirtual(equipo)
-                .build();
+        // ── Unirse a un torneo ──────────────────────────────────────────────────
 
-        torneoEquipoRepo.save(inscripcion);
+        @Transactional
+        public TorneoDto unirseATorneo(Long usuarioId, String codigoInvitacion) {
 
-        log.info("[TORNEO] Usuario {} se unió a '{}'",
-                usuarioId, torneo.getNombre());
+                Torneo torneo = torneoRepo.findByCodigoInvitacion(codigoInvitacion)
+                                .orElseThrow(() -> new IllegalArgumentException(
+                                                "Torneo no encontrado con código: " + codigoInvitacion));
 
-        return toDto(torneo);
-    }
+                EquipoVirtual equipo = equipoVirtualRepo.findByUsuario_Id(usuarioId)
+                                .orElseThrow(() -> new IllegalStateException(
+                                                "El usuario no tiene equipo virtual creado."));
 
-    // ── Consultas ───────────────────────────────────────────────────────────
+                // Verificar que no esté ya inscripto
+                if (torneoEquipoRepo.existsByTorneo_IdAndEquipoVirtual_Id(
+                                torneo.getId(), equipo.getId())) {
+                        log.warn("[TORNEO] Usuario {} ya está inscripto en torneo {}.",
+                                        usuarioId, torneo.getNombre());
+                        return toDto(torneo);
+                }
 
-    public List<TorneoDto> listarPublicos(String nombre) {
-        if (nombre != null && !nombre.isBlank()) {
-            return torneoRepo
-                    .findByTipoAndNombreContainingIgnoreCase(
-                            TipoTorneo.PUBLICO, nombre)
-                    .stream().map(this::toDto).toList();
+                TorneoEquipo inscripcion = TorneoEquipo.builder()
+                                .torneo(torneo)
+                                .equipoVirtual(equipo)
+                                .build();
+
+                torneoEquipoRepo.save(inscripcion);
+
+                log.info("[TORNEO] Usuario {} se unió a '{}'",
+                                usuarioId, torneo.getNombre());
+
+                return toDto(torneo);
         }
-        return torneoRepo.findByTipoOrderByNombreAsc(TipoTorneo.PUBLICO)
-                .stream().map(this::toDto).toList();
-    }
 
-    public List<TorneoDto> listarMisTorneos(Long usuarioId) {
-        EquipoVirtual equipo = equipoVirtualRepo.findByUsuario_Id(usuarioId)
-                .orElseThrow(() -> new IllegalStateException(
-                        "Equipo virtual no encontrado."));
+        // ── Consultas ───────────────────────────────────────────────────────────
 
-        return torneoEquipoRepo.findByEquipoVirtual_Id(equipo.getId())
-                .stream()
-                .map(te -> toDto(te.getTorneo()))
-                .toList();
-    }
+        @Transactional(readOnly = true)
+        public List<TorneoDto> listarPublicos(String nombre) {
+                if (nombre != null && !nombre.isBlank()) {
+                        return torneoRepo
+                                        .findByTipoAndNombreContainingIgnoreCase(
+                                                        TipoTorneo.PUBLICO, nombre)
+                                        .stream().map(this::toDto).toList();
+                }
+                return torneoRepo.findByTipoOrderByNombreAsc(TipoTorneo.PUBLICO)
+                                .stream().map(this::toDto).toList();
+        }
 
-    public Optional<TorneoDto> obtenerPorCodigo(String codigo) {
-        return torneoRepo.findByCodigoInvitacion(codigo)
-                .map(this::toDto);
-    }
+        @Transactional(readOnly = true)
+        public List<TorneoDto> listarMisTorneos(Long usuarioId) {
+                EquipoVirtual equipo = equipoVirtualRepo.findByUsuario_Id(usuarioId)
+                                .orElseThrow(() -> new IllegalStateException(
+                                                "Equipo virtual no encontrado."));
 
-    // ── Tabla de posiciones ─────────────────────────────────────────────────
+                return torneoEquipoRepo.findByEquipoVirtual_Id(equipo.getId())
+                                .stream()
+                                .map(te -> toDto(te.getTorneo()))
+                                .toList();
+        }
 
-    public List<PosicionTorneoDto> obtenerTablaPosiciones(Long torneoId) {
-        List<TorneoEquipo> participantes = torneoEquipoRepo.findTablaByTorneoId(torneoId);
+        @Transactional(readOnly = true)
+        public Optional<TorneoDto> obtenerPorCodigo(String codigo) {
+                return torneoRepo.findByCodigoInvitacion(codigo)
+                                .map(this::toDto);
+        }
 
-        AtomicInteger posicion = new AtomicInteger(1);
+        // ── Tabla de posiciones ─────────────────────────────────────────────────
 
-        return participantes.stream()
-                .map(te -> PosicionTorneoDto.builder()
-                        .posicion(posicion.getAndIncrement())
-                        .nombreEquipo(te.getEquipoVirtual().getNombre())
-                        .nombreUsuario(te.getEquipoVirtual()
-                                .getUsuario().getNombreDisplay())
-                        .puntajeGlobal(te.getEquipoVirtual().getPuntajeGlobal())
-                        .equipoVirtualId(te.getEquipoVirtual().getId())
-                        .build())
-                .toList();
-    }
+        public List<PosicionTorneoDto> obtenerTablaPosiciones(Long torneoId) {
+                List<TorneoEquipo> participantes = torneoEquipoRepo.findTablaByTorneoId(torneoId);
 
-    // ── Mapper ──────────────────────────────────────────────────────────────
+                AtomicInteger posicion = new AtomicInteger(1);
 
-    private TorneoDto toDto(Torneo t) {
-        return TorneoDto.builder()
-                .id(t.getId())
-                .nombre(t.getNombre())
-                .descripcion(t.getDescripcion())
-                .tipo(t.getTipo())
-                .codigoInvitacion(t.getCodigoInvitacion())
-                .urlInvitacion(frontendUrl + "/torneos/unirse/"
-                        + t.getCodigoInvitacion())
-                .creadorNombre(t.getCreador().getNombreDisplay())
-                .cantidadParticipantes(t.cantidadParticipantes())
-                .creadoEn(t.getCreadoEn())
-                .build();
-    }
+                return participantes.stream()
+                                .map(te -> PosicionTorneoDto.builder()
+                                                .posicion(posicion.getAndIncrement())
+                                                .nombreEquipo(te.getEquipoVirtual().getNombre())
+                                                .nombreUsuario(te.getEquipoVirtual()
+                                                                .getUsuario().getNombreDisplay())
+                                                .puntajeGlobal(te.getEquipoVirtual().getPuntajeGlobal())
+                                                .equipoVirtualId(te.getEquipoVirtual().getId())
+                                                .build())
+                                .toList();
+        }
+
+        // ── Mapper ──────────────────────────────────────────────────────────────
+
+        private TorneoDto toDto(Torneo t) {
+                return TorneoDto.builder()
+                                .id(t.getId())
+                                .nombre(t.getNombre())
+                                .descripcion(t.getDescripcion())
+                                .tipo(t.getTipo())
+                                .codigoInvitacion(t.getCodigoInvitacion())
+                                .urlInvitacion(frontendUrl + "/torneos/unirse/"
+                                                + t.getCodigoInvitacion())
+                                .creadorNombre(t.getCreador().getNombreDisplay())
+                                .cantidadParticipantes(t.cantidadParticipantes())
+                                .creadoEn(t.getCreadoEn())
+                                .build();
+        }
 }

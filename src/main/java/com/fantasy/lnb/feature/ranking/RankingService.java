@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -22,6 +23,7 @@ public class RankingService {
      * 
      * @param limite Cuántos equipos devolver (default 100, max 500)
      */
+    @Transactional(readOnly = true)
     public List<PosicionGlobalDto> obtenerRankingGlobal(int limite) {
         int limiteSeguro = Math.min(limite, 500);
 
