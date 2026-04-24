@@ -4,6 +4,8 @@ import com.fantasy.lnb.exception.FormacionInvalidaException;
 import com.fantasy.lnb.exception.JornadaEnJuegoException;
 import com.fantasy.lnb.exception.PresupuestoInsuficienteException;
 import com.fantasy.lnb.exception.TransferenciasAgotadasException;
+import com.fantasy.lnb.feature.dt.DirectorTecnico;
+import com.fantasy.lnb.feature.dt.DirectorTecnicoRepository;
 import com.fantasy.lnb.feature.jornada.EstadoJornada;
 import com.fantasy.lnb.feature.jornada.Jornada;
 import com.fantasy.lnb.feature.jornada.JornadaRepository;
@@ -38,6 +40,7 @@ public class PlantelService {
         private final UsuarioRepository usuarioRepo;
         private final EquipoVirtualRepository equipoVirtualRepo;
         private final JugadorPlantelRepository jugadorPlantelRepo;
+        private final DirectorTecnicoRepository dtRepo;
 
         // ── Consulta ────────────────────────────────────────────────────────────
 
@@ -93,9 +96,9 @@ public class PlantelService {
 
                 // ── 5. Cargar entidades de jugadores ─────────────────────────────
                 List<JugadorReal> jugadoresReales = cargarJugadores(request.getJugadores());
-                JugadorReal dt = jugadorRepo.findById(request.getDtId())
+                DirectorTecnico dt = dtRepo.findById(request.getDtId())
                                 .orElseThrow(() -> new IllegalArgumentException(
-                                                "DT no encontrado: " + request.getDtId()));
+                                                "Director Técnico no encontrado: " + request.getDtId()));
 
                 // ── 6. Validar formación ─────────────────────────────────────────
                 List<PosicionJugador> posicionesTitulares = obtenerPosicionesTitulares(
@@ -122,8 +125,18 @@ public class PlantelService {
                                                 "Usuario no encontrado: " + usuarioId));
 
                 // Si ya existe un plantel para esta jornada, lo eliminamos y recreamos
+                // Reemplazar el bloque de delete/save por este patrón:
                 plantelRepo.findByUsuario_IdAndJornada_Id(usuarioId, jornada.getId())
-                                .ifPresent(plantelRepo::delete);
+                                .ifPresent(viejo -> {
+                                        // 1. Reintegrar presupuesto del plantel anterior
+                                        double costoViejo = viejo.getJugadores().stream()
+                                                        .mapToDouble(JugadorPlantel::getPrecioDeCompra).sum();
+                                        equipo.setPresupuestoActual(equipo.getPresupuestoActual() + costoViejo);
+
+                                        // 2. Flush explícito para que el DELETE llegue a BD antes del INSERT
+                                        plantelRepo.delete(viejo);
+                                        plantelRepo.flush();
+                                });
 
                 PlantelJornada plantel = PlantelJornada.builder()
                                 .usuario(usuario)
@@ -241,11 +254,16 @@ public class PlantelService {
                                                 .build())
                                 .toList();
 
-                PlantelDto.JugadorPlantelDto dtDto = plantel.getDt() != null
-                                ? PlantelDto.JugadorPlantelDto.builder()
-                                                .jugadorRealId(plantel.getDt().getId())
+                PlantelDto.DtDto dtDto = plantel.getDt() != null
+                                ? PlantelDto.DtDto.builder()
+                                                .dtId(plantel.getDt().getId())
                                                 .nombreCompleto(plantel.getDt().getNombreCompleto())
+                                                .nacionalidad(plantel.getDt().getNacionalidad())
+                                                .equipoNombre(plantel.getDt().getEquipoReal().getNombre())
                                                 .equipoSigla(plantel.getDt().getEquipoReal().getSigla())
+                                                .colorPrincipal(plantel.getDt().getEquipoReal().getColorPrincipal())
+                                                .colorSecundario(plantel.getDt().getEquipoReal().getColorSecundario())
+                                                .estado(plantel.getDt().getEstado())
                                                 .build()
                                 : null;
 
@@ -404,9 +422,9 @@ public class PlantelService {
                 }
 
                 // ── 4. Cargar nuevo DT ───────────────────────────────────────────────
-                JugadorReal nuevoDt = jugadorRepo.findById(nuevoDtId)
+                DirectorTecnico nuevoDt = dtRepo.findById(nuevoDtId)
                                 .orElseThrow(() -> new IllegalArgumentException(
-                                                "DT no encontrado: " + nuevoDtId));
+                                                "Director Técnico no encontrado: " + nuevoDtId));
 
                 String nombreDtSale = plantel.getDt() != null
                                 ? plantel.getDt().getNombreCompleto()

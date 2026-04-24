@@ -1,6 +1,8 @@
 package com.fantasy.lnb.feature.plantel;
 
+import com.fantasy.lnb.feature.dt.DirectorTecnico;
 import com.fantasy.lnb.feature.jornada.Jornada;
+import com.fantasy.lnb.feature.dt.DirectorTecnico;
 import com.fantasy.lnb.feature.mercado.JugadorReal;
 import com.fantasy.lnb.feature.usuario.Usuario;
 import jakarta.persistence.*;
@@ -36,7 +38,7 @@ public class PlantelJornada {
     // porque tiene lógica de puntuación propia (Módulo 5 Paso 4)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "dt_id")
-    private JugadorReal dt;
+    private DirectorTecnico dt;
 
     // Formación activa — validada antes de guardar
     // Formato: "1-2-2", "1-3-1", "2-1-2", "2-2-1", "3-1-1"

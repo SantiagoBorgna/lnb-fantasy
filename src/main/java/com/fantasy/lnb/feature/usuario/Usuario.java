@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
 
+import com.fantasy.lnb.feature.equipo.EquipoReal;
+
 @Entity
 @Table(name = "usuario")
 @Getter
@@ -39,6 +41,10 @@ public class Usuario {
 
     @Column(nullable = false)
     private LocalDateTime ultimoLogin;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "equipo_favorito_id")
+    private EquipoReal equipoFavorito;
 
     @PrePersist
     protected void onCreate() {

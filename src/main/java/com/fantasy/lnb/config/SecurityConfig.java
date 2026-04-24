@@ -48,7 +48,12 @@ public class SecurityConfig {
                                                                 "/api/mercado/jugadores/**",
                                                                 "/api/lideres/**",
                                                                 "/api/jornadas",
-                                                                "/api/jornadas/**")
+                                                                "/api/jornadas/**",
+                                                                "/api/dt",
+                                                                "/api/dt/**",
+                                                                "/api/torneos",
+                                                                "/api/torneos/{id}/tabla",
+                                                                "/api/ranking/**")
                                                 .permitAll()
                                                 // Todo lo demás requiere JWT válido
                                                 .anyRequest().authenticated())

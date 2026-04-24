@@ -20,7 +20,7 @@ public class PlantelDto {
     private Integer transferenciasRestantes;
 
     // DT
-    private JugadorPlantelDto dt;
+    private DtDto dt;
 
     // Los 10 jugadores con sus roles y multiplicadores
     private List<JugadorPlantelDto> jugadores;
@@ -45,5 +45,18 @@ public class PlantelDto {
         private Double precioDeCompra;
         private Double valorMercadoActual;
         private Double promedioPuntosUltimas3;
+    }
+
+    @Data
+    @Builder
+    public static class DtDto {
+        private Long dtId;
+        private String nombreCompleto;
+        private String nacionalidad;
+        private String equipoNombre;
+        private String equipoSigla;
+        private String colorPrincipal;
+        private String colorSecundario;
+        private EstadoJugador estado;
     }
 }
