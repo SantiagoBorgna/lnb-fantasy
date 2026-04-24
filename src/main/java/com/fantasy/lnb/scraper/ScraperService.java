@@ -3,6 +3,7 @@ package com.fantasy.lnb.scraper;
 import com.fantasy.lnb.feature.estadisticas.EstadisticaPartido;
 import com.fantasy.lnb.feature.estadisticas.EstadisticaPartidoRepository;
 import com.fantasy.lnb.feature.estadisticas.MotorPuntuacion;
+import com.fantasy.lnb.feature.jornada.EstadoJornada;
 import com.fantasy.lnb.feature.jornada.Jornada;
 import com.fantasy.lnb.feature.jornada.JornadaRepository;
 import com.fantasy.lnb.feature.mercado.JugadorReal;
@@ -100,63 +101,102 @@ public class ScraperService {
     }
 
     /**
-     * Convierte una lista de DTOs scrapeados en entidades persistidas.
-     * Aplica el motor de puntuación y respeta la regla de unicidad.
+     * Versión final del método de persistencia.
+     * Ya no recibe jornadaId hardcodeado — lo resuelve buscando
+     * la jornada EN_JUEGO activa en el momento de la ejecución.
+     *
+     * @param dtos              Lista de stats scrapeadas del partido
+     * @param gesPartidoId      ID del partido en GES Deportiva
+     * @param fechaPartido      Timestamp real del partido
+     * @param equipoLocalId     ID en nuestra BD del equipo local
+     * @param equipoVisitanteId ID en nuestra BD del equipo visitante
+     * @param equipoLocalGano   true si el local ganó
      */
     public void persistirEstadisticas(
             List<JugadorStatsDto> dtos,
             String gesPartidoId,
             LocalDateTime fechaPartido,
-            boolean equipoLocalGano,
-            Long jornadaId) {
+            Long equipoLocalId,
+            Long equipoVisitanteId,
+            boolean equipoLocalGano) {
 
-        Jornada jornada = jornadaRepo.findById(jornadaId)
-                .orElseThrow(() -> new IllegalArgumentException("Jornada no encontrada: " + jornadaId));
+        // ── Paso 1: Resolver la jornada activa ──────────────────────────────
+        Jornada jornadaActiva = jornadaRepo
+                .findByEstado(EstadoJornada.EN_JUEGO)
+                .orElse(null);
 
+        if (jornadaActiva == null) {
+            log.warn("[SCRAPER] No hay jornada EN_JUEGO. " +
+                    "Estadísticas del partido {} no serán persistidas.", gesPartidoId);
+            return;
+        }
+
+        // ── Paso 2: Regla del fixture asimétrico ────────────────────────────
+        // Verificamos AMBOS equipos antes de procesar un solo jugador.
+        // Si cualquiera de los dos equipos ya tiene estadísticas en esta
+        // jornada, el partido entero se descarta (es el segundo partido).
+        boolean localYaProcesado = estadisticaRepo
+                .existsByEquipoRealIdAndJornadaId(equipoLocalId, jornadaActiva.getId());
+        boolean visitanteYaProcesado = estadisticaRepo
+                .existsByEquipoRealIdAndJornadaId(equipoVisitanteId, jornadaActiva.getId());
+
+        if (localYaProcesado || visitanteYaProcesado) {
+            log.info("[FIXTURE] Partido {} ignorado — alguno de los equipos " +
+                    "ya tiene estadísticas en jornada {}. Segundo partido descartado.",
+                    gesPartidoId, jornadaActiva.getNumero());
+            return;
+        }
+
+        // ── Paso 3: Procesar jugadores ──────────────────────────────────────
         int guardados = 0;
         int omitidos = 0;
 
         for (JugadorStatsDto dto : dtos) {
-            // ── Filtro 1: descartar filas de totales (ID nulo = fila de equipo) ──
+
+            // Filtro: descartar filas de totales (ID nulo = fila de equipo)
             if (dto.getIdJugador() == null) {
-                log.debug("[SCRAPER] Fila de totales omitida (IdJugador null)");
                 omitidos++;
                 continue;
             }
 
-            // ── Filtro 2: buscar el JugadorReal en nuestra BD por su ID de GES ──
-            JugadorReal jugadorReal = jugadorRealRepo.findByGesId(dto.getIdJugador()).orElse(null);
+            // Buscar el jugador en nuestra BD por su ID de GES
+            JugadorReal jugadorReal = jugadorRealRepo
+                    .findByGesId(dto.getIdJugador())
+                    .orElse(null);
 
             if (jugadorReal == null) {
-                log.warn("[SCRAPER] Jugador GES ID {} ({}) no encontrado en BD. Omitido.", dto.getIdJugador(),
-                        dto.getNombre());
+                log.warn("[SCRAPER] GES ID {} ({}) no está en BD. Omitido.",
+                        dto.getIdJugador(), dto.getNombre());
                 omitidos++;
                 continue;
             }
 
-            // ── Filtro 3: regla del primer partido cronológico ──
-            if (estadisticaRepo.existsByJugadorReal_IdAndJornada_Id(jugadorReal.getId(), jornadaId)) {
-                log.info("[SCRAPER] Jugador {} ya tiene stats en jornada {}. Segundo partido ignorado.",
-                        dto.getNombre(), jornadaId);
+            // Doble chequeo a nivel jugador individual (salvaguarda de integridad)
+            if (estadisticaRepo.existsByJugadorReal_IdAndJornada_Id(
+                    jugadorReal.getId(), jornadaActiva.getId())) {
+                log.warn("[SCRAPER] Jugador {} ya tiene stats en jornada {}. Omitido.",
+                        dto.getNombre(), jornadaActiva.getNumero());
                 omitidos++;
                 continue;
             }
 
-            boolean esteJugadorGano = equipoLocalGano;
+            // Determinar si el equipo del jugador ganó
+            boolean esLocal = jugadorReal.getEquipoReal().getId().equals(equipoLocalId);
+            boolean esteJugadorGano = esLocal ? equipoLocalGano : !equipoLocalGano;
 
-            // ── Extracción segura de tiros fallados ──
-            int tiros2Fallados = dto.getTirosDos() != null ? safe(dto.getTirosDos().getFallados()) : 0;
-            int tiros3Fallados = dto.getTirosTres() != null ? safe(dto.getTirosTres().getFallados()) : 0;
-            int tirosLibresFallados = dto.getTirosLibres() != null ? safe(dto.getTirosLibres().getFallados()) : 0;
-            int tirosCampoFallados = tiros2Fallados + tiros3Fallados;
-
-            // ── Calcular puntaje Fantasy ──
+            // Calcular puntaje Fantasy
             double puntaje = MotorPuntuacion.calcular(dto, esteJugadorGano);
 
-            // ── Construir y persistir la entidad ──
+            // Calcular tiros fallados para persistir
+            int tirosCampoFallados = calcularTirosCampoFallados(dto);
+            int tirosLibresFallados = safe(dto.getTirosLibres() != null
+                    ? dto.getTirosLibres().getFallados()
+                    : 0);
+
+            // Construir y persistir
             EstadisticaPartido entidad = EstadisticaPartido.builder()
                     .jugadorReal(jugadorReal)
-                    .jornada(jornada)
+                    .jornada(jornadaActiva)
                     .gesPartidoId(gesPartidoId)
                     .fechaPartido(fechaPartido)
                     .puntos(safe(dto.getPuntos()))
@@ -167,10 +207,10 @@ public class ScraperService {
                     .perdidas(safe(dto.getPerdidas()))
                     .faltasCometidas(safe(dto.getFaltaCometida()))
                     .faltasRecibidas(safe(dto.getFaltaRecibida()))
-                    .tirosCampoFallados(tirosCampoFallados)
-                    .tirosLibresFallados(tirosLibresFallados)
                     .taponesRealizados(safe(dto.getTaponesRealizados()))
                     .taponesRecibidos(safe(dto.getTaponesRecibidos()))
+                    .tirosCampoFallados(tirosCampoFallados)
+                    .tirosLibresFallados(tirosLibresFallados)
                     .fueExpulsadoPorFaltas(safe(dto.getFaltaCometida()) >= 5)
                     .tieneFaltaTecnica(false)
                     .fueDescalificado(false)
@@ -183,13 +223,26 @@ public class ScraperService {
             estadisticaRepo.save(entidad);
             guardados++;
 
-            log.info("[SCRAPER] ✓ Guardado: {} | Puntaje Fantasy: {}", dto.getNombre(), puntaje);
+            log.info("[SCRAPER] ✓ {} | Jornada {} | Puntaje: {}",
+                    dto.getNombre(), jornadaActiva.getNumero(), puntaje);
         }
 
-        log.info("[SCRAPER] Persistencia completada. Guardados: {} | Omitidos: {}", guardados, omitidos);
+        log.info("[SCRAPER] Partido {} procesado → Guardados: {} | Omitidos: {}",
+                gesPartidoId, guardados, omitidos);
     }
 
-    // Helper local para evitar NullPointerExceptions
+    // ── Helpers ─────────────────────────────────────────────────────────────────
+
+    /**
+     * Suma los fallados de TirosDos y TirosTres para obtener
+     * el total de tiros de campo fallados (excluye libres).
+     */
+    private int calcularTirosCampoFallados(JugadorStatsDto dto) {
+        int dosFallados = dto.getTirosDos() != null ? safe(dto.getTirosDos().getFallados()) : 0;
+        int tresFallados = dto.getTirosTres() != null ? safe(dto.getTirosTres().getFallados()) : 0;
+        return dosFallados + tresFallados;
+    }
+
     private int safe(Integer v) {
         return v != null ? v : 0;
     }

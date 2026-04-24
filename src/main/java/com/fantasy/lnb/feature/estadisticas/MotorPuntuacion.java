@@ -122,7 +122,7 @@ public class MotorPuntuacion {
         // if (dto.getFaltaTecnica()) puntaje += PTS_FALTA_TECNICA;
         // if (dto.getDescalificado()) puntaje += PTS_DESCALIFICADO;
 
-        log.debug("[MOTOR] {} → puntaje bruto calculado: {}", dto.getNombre(), puntaje);
+        log.debug("[MOTOR] {} : puntaje bruto calculado: {}", dto.getNombre(), puntaje);
         return Math.round(puntaje * 100.0) / 100.0; // Redondeo a 2 decimales
     }
 

@@ -101,7 +101,7 @@ public class MercadoService {
             jugadorRepo.save(jugador);
             actualizados++;
 
-            log.info("[PRECIOS] {} | Base: {} | Promedio(3): {} | Factor: {} | {} → {}",
+            log.info("[PRECIOS] {} | Base: {} | Promedio(3): {} | Factor: {} | {} a {}",
                     jugador.getNombreCompleto(),
                     valorBase,
                     String.format("%.2f", promedio),
