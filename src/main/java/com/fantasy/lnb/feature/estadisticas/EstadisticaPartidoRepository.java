@@ -40,4 +40,8 @@ public interface EstadisticaPartidoRepository
         boolean existsByEquipoRealIdAndJornadaId(
                         @Param("equipoId") Long equipoId,
                         @Param("jornadaId") Long jornadaId);
+
+        Optional<EstadisticaPartido> findByJugadorReal_IdAndJornada_Id(
+                        Long jugadorRealId,
+                        Long jornadaId);
 }
