@@ -6,6 +6,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import com.fantasy.lnb.feature.mercado.dto.JugadorStatsResumenDto;
+
 import java.util.List;
 import java.util.Optional;
 
@@ -116,4 +118,16 @@ public interface EstadisticaPartidoRepository
                         ORDER BY AVG(e.puntajeFantasyCalculado) DESC
                         """)
         List<Object[]> findLideresPuntajeFantasy(Pageable pageable);
+
+        @Query("SELECT new com.fantasy.lnb.feature.mercado.dto.JugadorStatsResumenDto(" +
+                        "e.jugadorReal.id, AVG(e.puntos), AVG(e.rebotesDefensivos), AVG(e.rebotesOfensivos), " +
+                        "AVG(e.asistencias), AVG(e.recuperaciones), AVG(e.perdidas), " +
+                        "AVG(e.taponesRealizados), AVG(e.taponesRecibidos), " +
+                        "AVG(e.faltasCometidas), AVG(e.faltasRecibidas), " +
+                        "AVG(e.tirosCampoFallados), AVG(e.tirosLibresFallados), " +
+                        "AVG(e.puntajeFantasyCalculado), CAST(COUNT(e) AS int)) " +
+                        "FROM EstadisticaPartido e " +
+                        "WHERE e.jugadorReal.id = :jugadorId " +
+                        "GROUP BY e.jugadorReal.id")
+        Optional<JugadorStatsResumenDto> findPromediosByJugadorId(@Param("jugadorId") Long jugadorId);
 }

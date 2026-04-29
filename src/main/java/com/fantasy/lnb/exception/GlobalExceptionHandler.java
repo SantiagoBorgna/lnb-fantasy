@@ -38,17 +38,28 @@ public class GlobalExceptionHandler {
 
         /**
          * Handler genérico de último recurso.
-         * Evita que stacktraces internos lleguen al cliente.
+         * FIX: Ahora expone el mensaje real para que React lo pueda leer.
          */
         @ExceptionHandler(Exception.class)
         public ResponseEntity<Map<String, Object>> handleGeneric(Exception ex) {
-
                 log.error("[API] Error no manejado: {}", ex.getMessage(), ex);
 
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
                                 "timestamp", LocalDateTime.now().toString(),
                                 "status", 500,
-                                "error", "Error interno del servidor"));
+                                "error", "Error interno del servidor",
+                                "mensaje", ex.getMessage() != null ? ex.getMessage() : "Error interno desconocido"));
+        }
+
+        /**
+         * Captura errores de estado inválido (muy comunes en lógicas de negocio).
+         */
+        @ExceptionHandler(IllegalStateException.class)
+        public ResponseEntity<Map<String, Object>> handleIllegalState(IllegalStateException ex) {
+                return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of(
+                                "status", 409,
+                                "error", "Conflicto de estado",
+                                "mensaje", ex.getMessage()));
         }
 
         @ExceptionHandler(PresupuestoInsuficienteException.class)

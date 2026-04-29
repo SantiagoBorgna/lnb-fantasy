@@ -7,6 +7,10 @@ import io.jsonwebtoken.security.Keys;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import java.security.MessageDigest;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.HexFormat;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
@@ -84,5 +88,31 @@ public class JwtService {
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
+    }
+
+    /**
+     * Genera un hash SHA-256 del token para guardarlo en la blacklist.
+     * Nunca almacenamos el token en claro.
+     */
+    public String hashToken(String token) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(token.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(hash);
+        } catch (Exception e) {
+            throw new RuntimeException("Error al hashear token", e);
+        }
+    }
+
+    /**
+     * Extrae la fecha de expiración del token para guardarla en TokenRevocado.
+     * Necesaria para que el job de limpieza pueda eliminar tokens vencidos.
+     */
+    public LocalDateTime extraerExpiracion(String token) {
+        return parsearClaims(token)
+                .getExpiration()
+                .toInstant()
+                .atZone(ZoneId.systemDefault())
+                .toLocalDateTime();
     }
 }

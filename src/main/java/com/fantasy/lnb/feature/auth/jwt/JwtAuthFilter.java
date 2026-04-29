@@ -25,6 +25,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
     private final UsuarioRepository usuarioRepository;
+    private final TokenRevocadoRepository tokenRevocadoRepo;
 
     @Override
     protected void doFilterInternal(
@@ -52,6 +53,15 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         // ────────────────────────────────────────────────────────────────────
 
         if (!jwtService.esValido(token)) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        // ── Verificar blacklist ──────────────────────────────────────────────
+        String tokenHash = jwtService.hashToken(token);
+        if (tokenRevocadoRepo.existsByTokenHash(tokenHash)) {
+            log.warn("[JWT] Token revocado intentó acceder. Hash: {}",
+                    tokenHash.substring(0, 8) + "...");
             filterChain.doFilter(request, response);
             return;
         }

@@ -18,6 +18,7 @@ public class PlantelDto {
     private Double puntajeObtenidoFecha;
     private Integer transferenciasUsadas;
     private Integer transferenciasRestantes;
+    private String nombreEquipo;
 
     // DT
     private DtDto dt;

@@ -6,6 +6,7 @@ import com.fantasy.lnb.exception.PresupuestoInsuficienteException;
 import com.fantasy.lnb.exception.TransferenciasAgotadasException;
 import com.fantasy.lnb.feature.dt.DirectorTecnico;
 import com.fantasy.lnb.feature.dt.DirectorTecnicoRepository;
+import com.fantasy.lnb.feature.estadisticas.EstadisticaPartidoRepository;
 import com.fantasy.lnb.feature.jornada.EstadoJornada;
 import com.fantasy.lnb.feature.jornada.Jornada;
 import com.fantasy.lnb.feature.jornada.JornadaRepository;
@@ -13,11 +14,13 @@ import com.fantasy.lnb.feature.mercado.JugadorReal;
 import com.fantasy.lnb.feature.mercado.JugadorRealRepository;
 import com.fantasy.lnb.feature.mercado.PosicionJugador;
 import com.fantasy.lnb.feature.plantel.dto.GuardarPlantelRequest;
+import com.fantasy.lnb.feature.plantel.dto.JugadorEstadisticaDto;
 import com.fantasy.lnb.feature.plantel.dto.PlantelDto;
 import com.fantasy.lnb.feature.plantel.dto.TransferenciaRequest;
 import com.fantasy.lnb.feature.plantel.dto.TransferenciaResultadoDto;
 import com.fantasy.lnb.feature.usuario.EquipoVirtual;
 import com.fantasy.lnb.feature.usuario.EquipoVirtualRepository;
+import com.fantasy.lnb.feature.usuario.OnboardingService;
 import com.fantasy.lnb.feature.usuario.Usuario;
 import com.fantasy.lnb.feature.usuario.UsuarioRepository;
 import lombok.RequiredArgsConstructor;
@@ -41,21 +44,116 @@ public class PlantelService {
         private final EquipoVirtualRepository equipoVirtualRepo;
         private final JugadorPlantelRepository jugadorPlantelRepo;
         private final DirectorTecnicoRepository dtRepo;
+        private final OnboardingService onboardingService;
+        private final EstadisticaPartidoRepository estadisticaRepo;
 
         // ── Consulta ────────────────────────────────────────────────────────────
 
         /**
          * Devuelve el plantel del usuario para la jornada activa.
-         * Si no armó plantel aún, devuelve empty.
+         *
+         * Lógica de resolución:
+         * 1. Buscar jornada activa (EN_JUEGO o ABIERTA_A_CAMBIOS)
+         * 2. Si existe plantel para esa jornada → devolverlo
+         * 3. Si NO existe → buscar plantel de la jornada anterior
+         * 3a. Si existe plantel anterior → clonarlo y devolverlo
+         * 3b. Si no hay plantel anterior → devolver empty (primera vez)
          */
-        @Transactional(readOnly = true)
+        @Transactional
         public Optional<PlantelDto> obtenerPlantelActivo(Long usuarioId) {
-                return jornadaRepo.findByEstado(EstadoJornada.EN_JUEGO)
+
+                // Resolver la jornada activa
+                Jornada jornadaActiva = jornadaRepo
+                                .findByEstado(EstadoJornada.EN_JUEGO)
                                 .or(() -> jornadaRepo.findFirstByEstadoOrderByFechaInicioAsc(
                                                 EstadoJornada.ABIERTA_A_CAMBIOS))
-                                .flatMap(jornada -> plantelRepo.findByUsuario_IdAndJornada_Id(
-                                                usuarioId, jornada.getId()))
-                                .map(plantel -> toDto(plantel, obtenerPresupuesto(usuarioId)));
+                                .orElse(null);
+
+                if (jornadaActiva == null)
+                        return Optional.empty();
+
+                // Buscar plantel existente para la jornada activa
+                Optional<PlantelJornada> plantelExistente = plantelRepo
+                                .findByUsuario_IdAndJornada_Id(usuarioId, jornadaActiva.getId());
+
+                if (plantelExistente.isPresent()) {
+                        return plantelExistente.map(p -> toDto(p, obtenerPresupuesto(usuarioId)));
+                }
+
+                // No hay plantel para esta jornada — intentar clonar del anterior
+                Jornada jornadaAnterior = jornadaRepo
+                                .findFirstByEstadoOrderByNumeroDesc(EstadoJornada.FINALIZADA)
+                                .orElse(null);
+
+                if (jornadaAnterior == null)
+                        return Optional.empty();
+
+                boolean tieneAnterior = plantelRepo.existsByUsuario_IdAndJornada_Id(
+                                usuarioId, jornadaAnterior.getId());
+
+                if (!tieneAnterior)
+                        return Optional.empty();
+
+                // Clonar
+                Usuario usuario = usuarioRepo.findById(usuarioId)
+                                .orElseThrow(() -> new IllegalStateException(
+                                                "Usuario no encontrado: " + usuarioId));
+
+                PlantelJornada clonado = clonarPlantelAnterior(
+                                usuario, jornadaAnterior, jornadaActiva);
+
+                return Optional.of(toDto(clonado, obtenerPresupuesto(usuarioId)));
+        }
+
+        @Transactional(readOnly = true)
+        public List<JugadorEstadisticaDto> obtenerEstadisticasJornada(
+                        Long usuarioId, Long jornadaId) {
+
+                PlantelJornada plantel = plantelRepo
+                                .findByUsuario_IdAndJornada_Id(usuarioId, jornadaId)
+                                .orElseThrow(() -> new IllegalArgumentException(
+                                                "No existe plantel para esa jornada."));
+
+                return plantel.getJugadores().stream()
+                                .map(jp -> {
+                                        Long jugadorId = jp.getJugadorReal().getId();
+
+                                        return estadisticaRepo
+                                                        .findByJugadorReal_IdAndJornada_Id(jugadorId, jornadaId)
+                                                        .map(e -> JugadorEstadisticaDto.builder()
+                                                                        .jugadorRealId(jugadorId)
+                                                                        .puntajeFantasy(e.getPuntajeFantasyCalculado())
+                                                                        .puntos(e.getPuntos())
+                                                                        .rebotesDefensivos(e.getRebotesDefensivos())
+                                                                        .rebotesOfensivos(e.getRebotesOfensivos())
+                                                                        .asistencias(e.getAsistencias())
+                                                                        .recuperaciones(e.getRecuperaciones())
+                                                                        .perdidas(e.getPerdidas())
+                                                                        .faltasCometidas(e.getFaltasCometidas())
+                                                                        .faltasRecibidas(e.getFaltasRecibidas())
+                                                                        .fueTitular(e.getFueTitularEnPartidoReal())
+                                                                        .gano(e.getEquipoGano())
+                                                                        .taponesRealizados(e.getTaponesRealizados())
+                                                                        .taponesRecibidos(e.getTaponesRecibidos())
+                                                                        .tirosDeCampoFallados(e.getTirosCampoFallados())
+                                                                        .tirosLibresFallados(e.getTirosLibresFallados())
+                                                                        .jugó(true)
+                                                                        .build())
+                                                        .orElse(JugadorEstadisticaDto.builder()
+                                                                        .jugadorRealId(jugadorId)
+                                                                        .jugó(false)
+                                                                        .build());
+                                })
+                                .toList();
+        }
+
+        /**
+         * Devuelve el plantel histórico de un usuario para una jornada específica.
+         */
+        @Transactional(readOnly = true)
+        public Optional<PlantelDto> obtenerPlantelHistorico(Long usuarioId, Long jornadaId) {
+                return plantelRepo.findByUsuario_IdAndJornada_Id(usuarioId, jornadaId)
+                                .map(p -> toDto(p, obtenerPresupuesto(usuarioId)));
         }
 
         // ── Armado del plantel ──────────────────────────────────────────────────
@@ -71,115 +169,109 @@ public class PlantelService {
          * 5. Formación válida y compatible con posiciones de titulares
          * 6. Presupuesto suficiente
          */
+        /**
+         * POST /api/plantel
+         * Arma el plantel inicial o actualiza la formación y roles del existente.
+         */
         @Transactional
-        public PlantelDto guardarPlantel(Long usuarioId,
-                        GuardarPlantelRequest request) {
+        public PlantelDto guardarPlantel(Long usuarioId, GuardarPlantelRequest request) {
 
-                // ── 1. Resolver jornada ──────────────────────────────────────────
+                // ── 1. Resolver jornada y validar estado ─────────────────────────
                 Jornada jornada = jornadaRepo
                                 .findFirstByEstadoOrderByFechaInicioAsc(EstadoJornada.ABIERTA_A_CAMBIOS)
                                 .orElseThrow(() -> new IllegalStateException(
                                                 "No hay jornada abierta para armar el plantel."));
 
-                // ── 2. Bloquear si está EN_JUEGO ─────────────────────────────────
                 if (jornada.estaEnJuego()) {
                         throw new JornadaEnJuegoException();
                 }
 
-                // ── 3. Validar cantidad de jugadores ─────────────────────────────
+                // ── 2. Validaciones básicas ──────────────────────────────────────
                 if (request.getJugadores() == null || request.getJugadores().size() != 10) {
-                        throw new IllegalArgumentException(
-                                        "El plantel debe tener exactamente 10 jugadores.");
+                        throw new IllegalArgumentException("El plantel debe tener exactamente 10 jugadores.");
                 }
 
-                // ── 4. Validar roles únicos ──────────────────────────────────────
-                validarRolesUnicos(request.getJugadores());
-
-                // ── 5. Cargar entidades de jugadores ─────────────────────────────
                 List<JugadorReal> jugadoresReales = cargarJugadores(request.getJugadores());
+                validarRolesUnicos(request.getJugadores());
+                validarComposicionBanco(request.getJugadores(), jugadoresReales);
+
                 DirectorTecnico dt = dtRepo.findById(request.getDtId())
-                                .orElseThrow(() -> new IllegalArgumentException(
-                                                "Director Técnico no encontrado: " + request.getDtId()));
+                                .orElseThrow(() -> new IllegalArgumentException("Director Técnico no encontrado."));
 
-                // ── 6. Validar formación ─────────────────────────────────────────
-                List<PosicionJugador> posicionesTitulares = obtenerPosicionesTitulares(
-                                request.getJugadores(), jugadoresReales);
-
+                List<PosicionJugador> posicionesTitulares = obtenerPosicionesTitulares(request.getJugadores(),
+                                jugadoresReales);
                 if (!FormacionValidator.esValida(request.getFormacion(), posicionesTitulares)) {
                         throw new FormacionInvalidaException(request.getFormacion());
                 }
 
-                // ── 7. Validar presupuesto ───────────────────────────────────────
                 EquipoVirtual equipo = equipoVirtualRepo.findByUsuario_Id(usuarioId)
-                                .orElseThrow(() -> new IllegalStateException(
-                                                "Equipo virtual no encontrado para usuario: " + usuarioId));
+                                .orElseThrow(() -> new IllegalStateException("Equipo virtual no encontrado."));
 
-                double costoTotal = calcularCostoTotal(jugadoresReales);
-                if (equipo.getPresupuestoActual() < costoTotal) {
-                        throw new PresupuestoInsuficienteException(
-                                        equipo.getPresupuestoActual(), costoTotal);
+                // ── 3. Verificar si ya existe un plantel ─────────────────────────
+                Optional<PlantelJornada> optPlantel = plantelRepo.findByUsuario_IdAndJornada_Id(usuarioId,
+                                jornada.getId());
+                PlantelJornada plantelAGuardar;
+
+                if (optPlantel.isPresent()) {
+                        // =========================================================
+                        // MODO ACTUALIZACIÓN (Autoguardado desde la canchita)
+                        // =========================================================
+                        plantelAGuardar = optPlantel.get();
+                        plantelAGuardar.setFormacion(request.getFormacion());
+
+                        // Solo actualizamos los roles de los jugadores existentes
+                        for (GuardarPlantelRequest.SlotJugadorRequest slot : request.getJugadores()) {
+                                plantelAGuardar.getJugadores().stream()
+                                                .filter(jp -> jp.getJugadorReal().getId()
+                                                                .equals(slot.getJugadorRealId()))
+                                                .findFirst()
+                                                .ifPresent(jp -> jp.setRol(slot.getRol()));
+                        }
+
+                        log.info("[PLANTEL] Usuario {} actualizó su táctica/roles.", usuarioId);
+
+                } else {
+                        // =========================================================
+                        // MODO CREACIÓN (Onboarding)
+                        // =========================================================
+                        double costoTotal = calcularCostoTotal(jugadoresReales);
+                        if (equipo.getPresupuestoActual() < costoTotal) {
+                                throw new PresupuestoInsuficienteException(equipo.getPresupuestoActual(), costoTotal);
+                        }
+
+                        plantelAGuardar = PlantelJornada.builder()
+                                        .usuario(usuarioRepo.findById(usuarioId).orElseThrow())
+                                        .jornada(jornada)
+                                        .dt(dt)
+                                        .formacion(request.getFormacion())
+                                        .transferenciasUsadas(0) // Inicializamos en 0 explícitamente
+                                        .build();
+
+                        List<JugadorPlantel> slots = new ArrayList<>();
+                        for (int i = 0; i < request.getJugadores().size(); i++) {
+                                GuardarPlantelRequest.SlotJugadorRequest slot = request.getJugadores().get(i);
+                                JugadorReal jugador = jugadoresReales.get(i);
+
+                                slots.add(JugadorPlantel.builder()
+                                                .plantelJornada(plantelAGuardar)
+                                                .jugadorReal(jugador)
+                                                .rol(slot.getRol())
+                                                .precioDeCompra(jugador.getValorMercadoActual())
+                                                .build());
+                        }
+                        plantelAGuardar.setJugadores(slots);
+
+                        // Descontamos presupuesto SOLO en la creación inicial
+                        equipo.setPresupuestoActual(equipo.getPresupuestoActual() - costoTotal);
+                        equipoVirtualRepo.save(equipo);
+
+                        // Marcamos como activo
+                        onboardingService.marcarActivo(usuarioId);
+
+                        log.info("[PLANTEL] Usuario {} armó plantel inicial. Costo: {}", usuarioId, costoTotal);
                 }
 
-                // ── 8. Crear o reemplazar el plantel ─────────────────────────────
-                Usuario usuario = usuarioRepo.findById(usuarioId)
-                                .orElseThrow(() -> new IllegalStateException(
-                                                "Usuario no encontrado: " + usuarioId));
-
-                // Si ya existe un plantel para esta jornada, lo eliminamos y recreamos
-                plantelRepo.findByUsuario_IdAndJornada_Id(usuarioId, jornada.getId())
-                                .ifPresent(viejo -> {
-
-                                        // Reintegrar el presupuesto gastado en el plantel anterior
-                                        double costoViejo = viejo.getJugadores().stream()
-                                                        .mapToDouble(JugadorPlantel::getPrecioDeCompra)
-                                                        .sum();
-
-                                        // Cargamos el equipo acá porque todavía no lo buscamos
-                                        // en este punto del flujo — lo necesitamos para reintegrar
-                                        equipoVirtualRepo.findByUsuario_Id(usuarioId).ifPresent(eq -> {
-                                                eq.setPresupuestoActual(eq.getPresupuestoActual() + costoViejo);
-                                                equipoVirtualRepo.save(eq);
-                                                log.info("[PLANTEL] Reintegro por reemplazo de plantel: +{} créditos",
-                                                                costoViejo);
-                                        });
-
-                                        plantelRepo.delete(viejo);
-                                        plantelRepo.flush(); // Fuerza el DELETE antes del INSERT
-                                });
-
-                PlantelJornada plantel = PlantelJornada.builder()
-                                .usuario(usuario)
-                                .jornada(jornada)
-                                .dt(dt)
-                                .formacion(request.getFormacion())
-                                .build();
-
-                // Construir los JugadorPlantel con precio congelado al momento de compra
-                List<JugadorPlantel> slots = new ArrayList<>();
-                for (int i = 0; i < request.getJugadores().size(); i++) {
-                        GuardarPlantelRequest.SlotJugadorRequest slot = request.getJugadores().get(i);
-                        JugadorReal jugador = jugadoresReales.get(i);
-
-                        slots.add(JugadorPlantel.builder()
-                                        .plantelJornada(plantel)
-                                        .jugadorReal(jugador)
-                                        .rol(slot.getRol())
-                                        .precioDeCompra(jugador.getValorMercadoActual())
-                                        .build());
-                }
-
-                plantel.setJugadores(slots);
-                PlantelJornada guardado = plantelRepo.save(plantel);
-
-                // ── 9. Descontar presupuesto ─────────────────────────────────────
-                equipo.setPresupuestoActual(equipo.getPresupuestoActual() - costoTotal);
-                equipoVirtualRepo.save(equipo);
-
-                log.info("[PLANTEL] Usuario {} armó plantel para jornada {}. " +
-                                "Costo: {} | Presupuesto restante: {}",
-                                usuarioId, jornada.getNumero(),
-                                costoTotal, equipo.getPresupuestoActual());
-
+                PlantelJornada guardado = plantelRepo.save(plantelAGuardar);
                 return toDto(guardado, equipo.getPresupuestoActual());
         }
 
@@ -286,6 +378,13 @@ public class PlantelService {
                                 .dt(dtDto)
                                 .jugadores(jugadoresDto)
                                 .presupuestoRestante(presupuestoRestante)
+                                // ---> ¡ACÁ SE AGREGA LA LÍNEA NUEVA! <---
+                                .nombreEquipo(plantel.getUsuario() != null
+                                                ? equipoVirtualRepo
+                                                                .findByUsuario_Id(plantel.getUsuario().getId())
+                                                                .map(EquipoVirtual::getNombre)
+                                                                .orElse("Mi Equipo")
+                                                : "Mi Equipo")
                                 .build();
         }
 
@@ -460,5 +559,95 @@ public class PlantelService {
                                 .transferenciasUsadas(plantel.getTransferenciasUsadas())
                                 .transferenciasRestantes(plantel.transferenciasRestantes())
                                 .build();
+        }
+
+        /**
+         * Clona el plantel de la jornada anterior a la jornada activa.
+         * Se llama desde obtenerPlantelActivo() cuando no existe plantel
+         * para la jornada activa pero sí existe uno de la jornada anterior.
+         *
+         * Copia: jugadores, roles (incluye capitán), formación, DT.
+         * Resetea: transferenciasUsadas → 0, puntajeObtenidoFecha → 0.
+         */
+        @Transactional
+        public PlantelJornada clonarPlantelAnterior(
+                        Usuario usuario,
+                        Jornada jornadaAnterior,
+                        Jornada jornadaNueva) {
+
+                PlantelJornada anterior = plantelRepo
+                                .findByUsuario_IdAndJornada_Id(
+                                                usuario.getId(), jornadaAnterior.getId())
+                                .orElseThrow(() -> new IllegalStateException(
+                                                "No existe plantel anterior para clonar."));
+
+                // Construir el nuevo plantel
+                PlantelJornada nuevo = PlantelJornada.builder()
+                                .usuario(usuario)
+                                .jornada(jornadaNueva)
+                                .dt(anterior.getDt())
+                                .formacion(anterior.getFormacion())
+                                .puntajeObtenidoFecha(0.0)
+                                .transferenciasUsadas(0) // ← Reset
+                                .build();
+
+                // Clonar cada jugador con su rol exacto (capitán incluido)
+                List<JugadorPlantel> slots = anterior.getJugadores().stream()
+                                .map(jp -> JugadorPlantel.builder()
+                                                .plantelJornada(nuevo)
+                                                .jugadorReal(jp.getJugadorReal())
+                                                .rol(jp.getRol()) // Preserva CAPITAN
+                                                .precioDeCompra(jp.getPrecioDeCompra())
+                                                .build())
+                                .collect(java.util.stream.Collectors.toList());
+
+                nuevo.setJugadores(slots);
+                PlantelJornada guardado = plantelRepo.save(nuevo);
+
+                log.info("[PLANTEL] Plantel clonado: Usuario {} | J{} → J{}",
+                                usuario.getEmail(),
+                                jornadaAnterior.getNumero(),
+                                jornadaNueva.getNumero());
+
+                return guardado;
+        }
+
+        /**
+         * Valida que el banco tenga al menos 1 jugador por cada zona.
+         * Regla: mínimo 1 GUARD, 1 FORWARD, 1 CENTER entre los 5 suplentes.
+         */
+        private void validarComposicionBanco(
+                        List<GuardarPlantelRequest.SlotJugadorRequest> slots,
+                        List<JugadorReal> jugadores) {
+
+                // Filtrar solo los slots del banco
+                List<PosicionJugador> posicionesBanco = new ArrayList<>();
+                for (int i = 0; i < slots.size(); i++) {
+                        GuardarPlantelRequest.SlotJugadorRequest slot = slots.get(i);
+                        if (slot.getRol() == RolPlantel.SEXTO_HOMBRE ||
+                                        slot.getRol() == RolPlantel.SUPLENTE) {
+                                posicionesBanco.add(jugadores.get(i).getPosicion());
+                        }
+                }
+
+                boolean tieneGuard = posicionesBanco.stream()
+                                .anyMatch(p -> p == PosicionJugador.BASE || p == PosicionJugador.ESCOLTA);
+                boolean tieneForward = posicionesBanco.stream()
+                                .anyMatch(p -> p == PosicionJugador.ALERO || p == PosicionJugador.ALA_PIVOT);
+                boolean tieneCenter = posicionesBanco.stream().anyMatch(p -> p == PosicionJugador.PIVOT);
+
+                if (!tieneGuard || !tieneForward || !tieneCenter) {
+                        List<String> faltantes = new ArrayList<>();
+                        if (!tieneGuard)
+                                faltantes.add("un Base o Escolta");
+                        if (!tieneForward)
+                                faltantes.add("un Alero o Ala-Pivot");
+                        if (!tieneCenter)
+                                faltantes.add("un Pivot");
+
+                        throw new FormacionInvalidaException(
+                                        "El banco debe tener al menos: " +
+                                                        String.join(", ", faltantes) + ".");
+                }
         }
 }

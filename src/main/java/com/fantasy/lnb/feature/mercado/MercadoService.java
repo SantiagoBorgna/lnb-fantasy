@@ -1,6 +1,9 @@
 package com.fantasy.lnb.feature.mercado;
 
+import com.fantasy.lnb.feature.estadisticas.EstadisticaPartidoRepository;
 import com.fantasy.lnb.feature.mercado.dto.JugadorMercadoDto;
+import com.fantasy.lnb.feature.mercado.dto.JugadorStatsResumenDto;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -15,6 +18,7 @@ import java.util.Optional;
 public class MercadoService {
 
     private final JugadorRealRepository jugadorRepo;
+    private final EstadisticaPartidoRepository estadisticaRepo;
 
     // ── Consultas del Mercado ───────────────────────────────────────────────
     @Transactional(readOnly = true)
@@ -46,6 +50,19 @@ public class MercadoService {
     public Optional<JugadorMercadoDto> buscarPorId(Long id) {
         return jugadorRepo.findById(id)
                 .map(this::toDto);
+    }
+
+    @Transactional(readOnly = true)
+    public JugadorStatsResumenDto obtenerStatsResumen(Long jugadorId) {
+        List<Double> ultimos = jugadorRepo.findUltimosPuntajes(jugadorId, 10);
+
+        // Query directa para promedios por categoría
+        return estadisticaRepo
+                .findPromediosByJugadorId(jugadorId)
+                .orElse(JugadorStatsResumenDto.builder()
+                        .jugadorRealId(jugadorId)
+                        .partidosJugados(0)
+                        .build());
     }
 
     // ── Algoritmo de variación dinámica de precios ─────────────────────────

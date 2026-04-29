@@ -2,6 +2,7 @@ package com.fantasy.lnb.feature.jornada;
 
 import com.fantasy.lnb.feature.jornada.dto.CrearJornadaRequest;
 import com.fantasy.lnb.feature.jornada.dto.JornadaDto;
+import com.fantasy.lnb.feature.plantel.PlantelClonadoService;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -9,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/jornadas")
@@ -16,6 +18,7 @@ import java.util.List;
 public class JornadaController {
 
     private final JornadaService jornadaService;
+    private final PlantelClonadoService plantelClonadoService;
 
     // GET /api/jornadas — lista todas (historial completo)
     @GetMapping
@@ -44,6 +47,28 @@ public class JornadaController {
     public ResponseEntity<JornadaDto> crearJornada(
             @Valid @RequestBody CrearJornadaRequest request) {
         return ResponseEntity.ok(jornadaService.crearJornada(request));
+    }
+
+    /**
+     * POST /api/jornadas/clonar-planteles
+     * Dispara el clonado masivo manualmente.
+     * Idempotente — no duplica si ya fue clonado.
+     * Proteger con rol ADMIN en el Módulo 6 extendido.
+     */
+    @PostMapping("/clonar-planteles")
+    public ResponseEntity<?> clonarPlanteles() {
+        int clonados = plantelClonadoService.clonarJornadaFinalizadaHaciaAbierta();
+
+        if (clonados == -1) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", "No se encontró el par de jornadas para clonar.",
+                    "detalle", "Verificar que exista una jornada FINALIZADA " +
+                            "y una ABIERTA_A_CAMBIOS."));
+        }
+
+        return ResponseEntity.ok(Map.of(
+                "mensaje", "Clonado completado.",
+                "clonados", clonados));
     }
 
     /**

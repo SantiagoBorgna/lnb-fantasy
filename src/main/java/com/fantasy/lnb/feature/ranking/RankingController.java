@@ -3,8 +3,12 @@ package com.fantasy.lnb.feature.ranking;
 import com.fantasy.lnb.feature.ranking.dto.PosicionGlobalDto;
 import com.fantasy.lnb.feature.torneo.TorneoService;
 import com.fantasy.lnb.feature.torneo.dto.PosicionTorneoDto;
+import com.fantasy.lnb.feature.usuario.UsuarioRepository;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -16,6 +20,7 @@ public class RankingController {
 
     private final RankingService rankingService;
     private final TorneoService torneoService;
+    private final UsuarioRepository usuarioRepository;
 
     /**
      * GET /api/ranking/global
@@ -40,5 +45,48 @@ public class RankingController {
             @PathVariable Long torneoId) {
         return ResponseEntity.ok(
                 torneoService.obtenerTablaPosiciones(torneoId));
+    }
+
+    /**
+     * GET /api/ranking/jornada/{jornadaId}
+     * Ranking de una jornada específica — ordenado por puntajeObtenidoFecha.
+     */
+    @GetMapping("/jornada/{jornadaId}")
+    public ResponseEntity<List<PosicionGlobalDto>> rankingJornada(
+            @PathVariable Long jornadaId,
+            @RequestParam(defaultValue = "100") int limite) {
+        return ResponseEntity.ok(
+                rankingService.obtenerRankingJornada(jornadaId, limite));
+    }
+
+    /**
+     * GET /api/ranking/mi-posicion
+     * Devuelve la posición del usuario autenticado en el ranking global.
+     */
+    /**
+     * GET /api/ranking/mi-posicion
+     * Devuelve la posición del usuario autenticado en el ranking global.
+     */
+    @GetMapping("/mi-posicion")
+    public ResponseEntity<PosicionGlobalDto> miPosicion(
+            @AuthenticationPrincipal UserDetails userDetails) {
+
+        // 1. Verificamos que haya alguien logueado
+        if (userDetails == null) {
+            return ResponseEntity.status(401).build();
+        }
+
+        // 2. Buscamos al usuario en la BD usando su email
+        var userOpt = usuarioRepository.findByEmail(userDetails.getUsername());
+        if (userOpt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        // 3. Extraemos el ID y llamamos al servicio
+        Long usuarioId = userOpt.get().getId();
+
+        return rankingService.obtenerMiPosicion(usuarioId)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.noContent().build());
     }
 }

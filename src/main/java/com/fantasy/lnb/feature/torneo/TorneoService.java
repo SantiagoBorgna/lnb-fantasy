@@ -1,6 +1,7 @@
 package com.fantasy.lnb.feature.torneo;
 
 import com.fantasy.lnb.feature.torneo.dto.CrearTorneoRequest;
+import com.fantasy.lnb.feature.torneo.dto.EditarTorneoRequest;
 import com.fantasy.lnb.feature.torneo.dto.PosicionTorneoDto;
 import com.fantasy.lnb.feature.torneo.dto.TorneoDto;
 import com.fantasy.lnb.feature.usuario.EquipoVirtual;
@@ -160,5 +161,97 @@ public class TorneoService {
                                 .cantidadParticipantes(t.cantidadParticipantes())
                                 .creadoEn(t.getCreadoEn())
                                 .build();
+        }
+
+        public TorneoDto toDtoConPermisos(Torneo torneo, Long usuarioId) {
+                TorneoDto dto = toDto(torneo);
+                dto.setEsAdmin(
+                                usuarioId != null &&
+                                                torneo.getCreador().getId().equals(usuarioId));
+                return dto;
+        }
+
+        // ── SALIR DE UN TORNEO ─────────────────────────────────────────────
+        @Transactional
+        public void salirDeTorneo(Long torneoId, Long usuarioId) {
+                Torneo torneo = torneoRepo.findById(torneoId)
+                                .orElseThrow(() -> new IllegalArgumentException(
+                                                "Torneo no encontrado: " + torneoId));
+
+                // El creador no puede salir
+                if (torneo.getCreador().getId().equals(usuarioId)) {
+                        throw new IllegalStateException(
+                                        "El creador no puede salir del torneo. " +
+                                                        "Eliminá el torneo desde ajustes.");
+                }
+
+                EquipoVirtual equipo = equipoVirtualRepo.findByUsuario_Id(usuarioId)
+                                .orElseThrow(() -> new IllegalStateException(
+                                                "Equipo virtual no encontrado."));
+
+                torneoEquipoRepo.findAll().stream()
+                                .filter(te -> te.getTorneo().getId().equals(torneoId)
+                                                && te.getEquipoVirtual().getId().equals(equipo.getId()))
+                                .findFirst()
+                                .ifPresent(torneoEquipoRepo::delete);
+
+                log.info("[TORNEO] Usuario {} salió del torneo {}", usuarioId, torneoId);
+        }
+
+        // ── Editar datos del torneo ──────────────────────────────────────────────────
+        @Transactional
+        public TorneoDto editarTorneo(Long torneoId, Long usuarioId,
+                        EditarTorneoRequest request) {
+                Torneo torneo = torneoRepo.findById(torneoId)
+                                .orElseThrow(() -> new IllegalArgumentException(
+                                                "Torneo no encontrado: " + torneoId));
+
+                if (!torneo.getCreador().getId().equals(usuarioId)) {
+                        throw new IllegalStateException("Solo el admin puede editar el torneo.");
+                }
+
+                if (request.getNombre() != null && !request.getNombre().isBlank()) {
+                        torneo.setNombre(request.getNombre());
+                }
+                if (request.getDescripcion() != null) {
+                        torneo.setDescripcion(request.getDescripcion());
+                }
+                if (request.getTipo() != null) {
+                        torneo.setTipo(request.getTipo());
+                }
+
+                return toDtoConPermisos(torneoRepo.save(torneo), usuarioId);
+        }
+
+        // ── Expulsar participante ────────────────────────────────────────────────────
+        @Transactional
+        public void expulsarParticipante(Long torneoId, Long adminId,
+                        Long equipoVirtualId) {
+                Torneo torneo = torneoRepo.findById(torneoId)
+                                .orElseThrow(() -> new IllegalArgumentException(
+                                                "Torneo no encontrado: " + torneoId));
+
+                if (!torneo.getCreador().getId().equals(adminId)) {
+                        throw new IllegalStateException("Solo el admin puede expulsar participantes.");
+                }
+
+                // No puede expulsarse a sí mismo
+                EquipoVirtual equipoAdmin = equipoVirtualRepo
+                                .findByUsuario_Id(adminId)
+                                .orElseThrow(() -> new IllegalStateException("Equipo admin no encontrado."));
+
+                if (equipoAdmin.getId().equals(equipoVirtualId)) {
+                        throw new IllegalStateException(
+                                        "El admin no puede expulsarse a sí mismo.");
+                }
+
+                torneoEquipoRepo.findAll().stream()
+                                .filter(te -> te.getTorneo().getId().equals(torneoId)
+                                                && te.getEquipoVirtual().getId().equals(equipoVirtualId))
+                                .findFirst()
+                                .ifPresent(torneoEquipoRepo::delete);
+
+                log.info("[TORNEO] Admin {} expulsó equipo {} del torneo {}",
+                                adminId, equipoVirtualId, torneoId);
         }
 }

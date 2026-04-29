@@ -69,8 +69,6 @@ public class EstadisticaPartido {
     @Column(nullable = false, columnDefinition = "INT DEFAULT 0")
     private Integer tirosLibresFallados;
 
-    // Tapones: GES NO los expone en este endpoint.
-    // Se persisten en 0 hasta encontrar fuente alternativa.
     @Column(nullable = false, columnDefinition = "INT DEFAULT 0")
     private Integer taponesRealizados;
 

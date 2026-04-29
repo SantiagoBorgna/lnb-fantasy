@@ -46,10 +46,21 @@ public class Usuario {
     @JoinColumn(name = "equipo_favorito_id")
     private EquipoReal equipoFavorito;
 
+    /**
+     * Estado del onboarding del usuario.
+     * NUEVO → acaba de registrarse, no completó el perfil
+     * PERFIL_COMPLETO → eligió equipo favorito y nombre de equipo virtual
+     * ACTIVO → completó el onboarding completo (armó su primer plantel)
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private EstadoOnboarding estadoOnboarding;
+
     @PrePersist
     protected void onCreate() {
         this.creadoEn = LocalDateTime.now();
         this.ultimoLogin = LocalDateTime.now();
+        this.estadoOnboarding = EstadoOnboarding.NUEVO; // ← todo usuario empieza NUEVO
     }
 
     @PreUpdate

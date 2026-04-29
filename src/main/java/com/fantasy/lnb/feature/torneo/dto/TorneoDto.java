@@ -18,4 +18,5 @@ public class TorneoDto {
     private String creadorNombre;
     private Integer cantidadParticipantes;
     private LocalDateTime creadoEn;
+    private Boolean esAdmin;
 }

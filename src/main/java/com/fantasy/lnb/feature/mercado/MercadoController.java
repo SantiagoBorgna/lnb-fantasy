@@ -1,6 +1,8 @@
 package com.fantasy.lnb.feature.mercado;
 
 import com.fantasy.lnb.feature.mercado.dto.JugadorMercadoDto;
+import com.fantasy.lnb.feature.mercado.dto.JugadorStatsResumenDto;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -50,5 +52,15 @@ public class MercadoController {
         return mercadoService.buscarPorId(id)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
+    }
+
+    /**
+     * GET /api/mercado/jugadores/{id}/stats
+     * Promedios históricos del jugador para mostrar en el modal del Mercado.
+     */
+    @GetMapping("/jugadores/{id}/stats")
+    public ResponseEntity<JugadorStatsResumenDto> obtenerStats(
+            @PathVariable Long id) {
+        return ResponseEntity.ok(mercadoService.obtenerStatsResumen(id));
     }
 }

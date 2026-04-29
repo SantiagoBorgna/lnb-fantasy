@@ -3,6 +3,7 @@ package com.fantasy.lnb.scraper;
 import com.fantasy.lnb.feature.jornada.EstadoJornada;
 import com.fantasy.lnb.feature.jornada.JornadaRepository;
 import com.fantasy.lnb.feature.jornada.JornadaService;
+import com.fantasy.lnb.feature.plantel.PlantelClonadoService;
 import com.fantasy.lnb.feature.plantel.PuntuacionService;
 
 import lombok.RequiredArgsConstructor;
@@ -20,6 +21,7 @@ public class JornadaTransicionCronJob {
         private final JornadaRepository jornadaRepo;
         private final JornadaService jornadaService;
         private final PuntuacionService puntuacionService;
+        private final PlantelClonadoService plantelClonadoService;
 
         /**
          * Corre cada 5 minutos.
@@ -50,20 +52,28 @@ public class JornadaTransicionCronJob {
                 jornadaRepo
                                 .findByEstadoAndFechaFinLessThan(EstadoJornada.EN_JUEGO, ahora)
                                 .ifPresent(jornada -> {
-                                        log.info("[TRANSICION] Jornada {} superó su fechaFin. " +
-                                                        "Cerrando ventana...", jornada.getNumero());
+                                        log.info("[TRANSICION] Jornada {} → FINALIZADA", jornada.getNumero());
 
-                                        // 1 — Transicionar estado
+                                        // 1. Finalizar jornada
                                         jornadaService.finalizarJornada(jornada.getId());
 
-                                        // 2 — Calcular puntajes de todos los planteles
+                                        // 2. Calcular puntajes de todos los planteles
                                         puntuacionService.calcularPuntajesDeJornada(jornada.getId());
 
-                                        // 3 — Actualizar precios del mercado para la próxima jornada
-                                        // (PreciosCronJob ya corre a las 4 AM, pero lo encadenamos
-                                        // aquí también por si la jornada finaliza fuera de horario)
-                                        log.info("[TRANSICION] Puntajes calculados. " +
-                                                        "PreciosCronJob actualizará valores a las 4 AM.");
+                                        log.info("[TRANSICION] Puntajes calculados para J{}.",
+                                                        jornada.getNumero());
+                                });
+                // C — clonar al abrir la nueva jornada
+                jornadaRepo
+                                .findFirstByEstadoOrderByFechaInicioAsc(EstadoJornada.ABIERTA_A_CAMBIOS)
+                                .ifPresent(jornadaAbierta -> {
+                                        int clonados = plantelClonadoService
+                                                        .clonarJornadaFinalizadaHaciaAbierta();
+
+                                        if (clonados > 0) {
+                                                log.info("[TRANSICION] Clonado masivo completado: {} planteles → J{}",
+                                                                clonados, jornadaAbierta.getNumero());
+                                        }
                                 });
         }
 }

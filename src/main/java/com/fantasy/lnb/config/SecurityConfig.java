@@ -41,7 +41,6 @@ public class SecurityConfig {
                                 .authorizeHttpRequests(auth -> auth
                                                 // Endpoints públicos
                                                 .requestMatchers(
-                                                                "/api/auth/**",
                                                                 "/login/**",
                                                                 "/oauth2/**",
                                                                 "/api/mercado/jugadores",
@@ -53,11 +52,21 @@ public class SecurityConfig {
                                                                 "/api/dt/**",
                                                                 "/api/torneos",
                                                                 "/api/torneos/{id}/tabla",
-                                                                "/api/ranking/**")
+                                                                "/api/torneos/{id}",
+                                                                "/api/ranking/**",
+                                                                "/api/onboarding/equipos")
                                                 .permitAll()
                                                 // Todo lo demás requiere JWT válido
                                                 .anyRequest().authenticated())
 
+                                // ── Manejo de excepciones: Devolver 401 en vez de HTML ───────────
+                                .exceptionHandling(exc -> exc
+                                                .authenticationEntryPoint((request, response, authException) -> {
+                                                        response.setStatus(401);
+                                                        response.setContentType("application/json");
+                                                        response.getWriter().write(
+                                                                        "{\"error\": \"Token invalido o revocado\"}");
+                                                }))
                                 // ── Configuración OAuth2 ─────────────────────────────────────────
                                 .oauth2Login(oauth2 -> oauth2
                                                 .userInfoEndpoint(endpoint -> endpoint.userService(oAuth2UserService))

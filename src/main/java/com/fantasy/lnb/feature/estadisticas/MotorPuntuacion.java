@@ -27,6 +27,7 @@ import lombok.extern.slf4j.Slf4j;
  * -3 si fue expulsado por 5ta falta
  * -3 por falta técnica/antideportiva
  * -5 por descalificación
+ * MVP del partido (jugador con mas valoracion en la planilla) +10 puntos
  */
 @Slf4j
 public class MotorPuntuacion {
