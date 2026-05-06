@@ -351,6 +351,7 @@ public class PlantelService {
                                                 .colorPrincipal(jp.getJugadorReal().getEquipoReal().getColorPrincipal())
                                                 .colorSecundario(jp.getJugadorReal().getEquipoReal()
                                                                 .getColorSecundario())
+                                                .modeloCamiseta(jp.getJugadorReal().getEquipoReal().getModeloCamiseta())
                                                 .posicion(jp.getJugadorReal().getPosicion())
                                                 .estado(jp.getJugadorReal().getEstado())
                                                 .rol(jp.getRol())

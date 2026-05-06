@@ -41,13 +41,22 @@ public class MercadoService {
     }
 
     @Transactional(readOnly = true)
-    public List<JugadorMercadoDto> buscarPorNombre(String nombre) {
-        // Buscamos por nombre, pero filtrando a los DESCONOCIDO
-        return jugadorRepo
-                .findByNombreCompletoContainingIgnoreCaseAndPosicionNot(nombre, PosicionJugador.DESCONOCIDO)
-                .stream()
-                .map(this::toDto)
-                .toList();
+    public List<JugadorMercadoDto> buscarPorNombre(String nombre, PosicionJugador posicion) {
+        if (posicion == null) {
+            // Búsqueda general sin filtro de posición ("Todos")
+            return jugadorRepo
+                    .buscarPorJugadorOEquipo(nombre, PosicionJugador.DESCONOCIDO)
+                    .stream()
+                    .map(this::toDto)
+                    .toList();
+        } else {
+            // Búsqueda inteligente + Filtro de posición estricto ("Bases", "Aleros", etc.)
+            return jugadorRepo
+                    .buscarPorJugadorOEquipoYPosicion(nombre, posicion)
+                    .stream()
+                    .map(this::toDto)
+                    .toList();
+        }
     }
 
     @Transactional(readOnly = true)
@@ -167,6 +176,7 @@ public class MercadoService {
                 .equipoSigla(j.getEquipoReal().getSigla())
                 .colorPrincipal(j.getEquipoReal().getColorPrincipal())
                 .colorSecundario(j.getEquipoReal().getColorSecundario())
+                .modeloCamiseta(j.getEquipoReal().getModeloCamiseta())
                 .posicion(j.getPosicion())
                 .estado(j.getEstado())
                 .valorMercadoActual(j.getValorMercadoActual())

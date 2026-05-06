@@ -56,11 +56,16 @@ public class Usuario {
     @Column(nullable = false)
     private EstadoOnboarding estadoOnboarding;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private RolUsuario rol;
+
     @PrePersist
     protected void onCreate() {
         this.creadoEn = LocalDateTime.now();
         this.ultimoLogin = LocalDateTime.now();
-        this.estadoOnboarding = EstadoOnboarding.NUEVO; // ← todo usuario empieza NUEVO
+        this.estadoOnboarding = EstadoOnboarding.NUEVO;
+        this.rol = RolUsuario.USER; // ← todo usuario empieza como USER
     }
 
     @PreUpdate

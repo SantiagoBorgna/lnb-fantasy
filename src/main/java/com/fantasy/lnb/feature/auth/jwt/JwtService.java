@@ -7,6 +7,9 @@ import io.jsonwebtoken.security.Keys;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+
+import com.fantasy.lnb.feature.usuario.RolUsuario;
+
 import java.security.MessageDigest;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -41,7 +44,8 @@ public class JwtService {
      * Incluimos el id y el nombre como claims extras para que el
      * frontend no necesite hacer un request adicional al cargar.
      */
-    public String generarToken(Long usuarioId, String email, String nombreDisplay) {
+    public String generarToken(Long usuarioId, String email,
+            String nombreDisplay, RolUsuario rol) {
         Date ahora = new Date();
         Date expiracion = new Date(ahora.getTime() + expirationMs);
 
@@ -49,10 +53,21 @@ public class JwtService {
                 .subject(email)
                 .claim("id", usuarioId)
                 .claim("nombre", nombreDisplay)
+                .claim("rol", rol.name())
                 .issuedAt(ahora)
                 .expiration(expiracion)
-                .signWith(secretKey) // jjwt 0.12 infiere HS256 automáticamente
+                .signWith(secretKey)
                 .compact();
+    }
+
+    // Agregar método de extracción:
+    public RolUsuario extraerRol(String token) {
+        String rolStr = parsearClaims(token).get("rol", String.class);
+        try {
+            return RolUsuario.valueOf(rolStr);
+        } catch (Exception e) {
+            return RolUsuario.USER; // Fallback seguro
+        }
     }
 
     // ── Validación y extracción ─────────────────────────────────────────────

@@ -39,6 +39,7 @@ public class PlantelDto {
         private String equipoSigla;
         private String colorPrincipal;
         private String colorSecundario;
+        private Integer modeloCamiseta;
         private PosicionJugador posicion;
         private EstadoJugador estado;
         private RolPlantel rol;

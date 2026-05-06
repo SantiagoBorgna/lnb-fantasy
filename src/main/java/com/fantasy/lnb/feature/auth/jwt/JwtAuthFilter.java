@@ -9,11 +9,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
 import java.io.IOException;
 import java.util.List;
@@ -73,11 +75,13 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             // Verificamos que el usuario todavía exista en nuestra BD
             usuarioRepository.findByEmail(email).ifPresent(usuario -> {
 
-                // Spring Security no usa passwords aquí, pero necesita
-                // un UserDetails — lo construimos inline sin roles por ahora
+                // Construir authorities con el rol del token
+                String rolStr = jwtService.extraerRol(token).name(); // "USER" o "ADMIN"
+                var authority = new SimpleGrantedAuthority("ROLE_" + rolStr);
+
                 var userDetails = User.withUsername(usuario.getEmail())
                         .password("")
-                        .authorities(List.of())
+                        .authorities(authority) // ← rol real en lugar de lista vacía
                         .build();
 
                 var authToken = new UsernamePasswordAuthenticationToken(
@@ -86,9 +90,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                         userDetails.getAuthorities());
                 authToken.setDetails(
                         new WebAuthenticationDetailsSource().buildDetails(request));
-
                 SecurityContextHolder.getContext().setAuthentication(authToken);
-                log.debug("[JWT] Usuario autenticado: {}", email);
             });
         }
 

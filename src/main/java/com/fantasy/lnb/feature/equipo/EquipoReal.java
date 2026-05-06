@@ -28,4 +28,7 @@ public class EquipoReal {
 
     @Column(nullable = false, length = 7)
     private String colorSecundario; // Ej: "#FFFFFF"
+
+    @Column(name = "modelo_camiseta")
+    private Integer modeloCamiseta = 1;
 }

@@ -19,6 +19,7 @@ public class JugadorMercadoDto {
     private Long equipoId;
     private String equipoNombre;
     private String equipoSigla;
+    private Integer modeloCamiseta;
     private String colorPrincipal;
     private String colorSecundario;
 

@@ -20,24 +20,28 @@ public class MercadoController {
      * GET /api/mercado/jugadores
      * GET /api/mercado/jugadores?posicion=BASE
      * GET /api/mercado/jugadores?nombre=brocal
+     * GET /api/mercado/jugadores?nombre=boc&posicion=BASE (Nueva búsqueda
+     * combinada)
      *
      * Endpoint principal del Mercado — público según SecurityConfig.
-     * Los parámetros son opcionales y mutuamente excluyentes:
-     * si vienen los dos a la vez, la posición tiene prioridad.
      */
     @GetMapping("/jugadores")
     public ResponseEntity<List<JugadorMercadoDto>> listarJugadores(
             @RequestParam(required = false) PosicionJugador posicion,
             @RequestParam(required = false) String nombre) {
 
+        // Si el usuario escribió algo en la barra de búsqueda, combinamos texto y
+        // posición
+        if (nombre != null && !nombre.isBlank()) {
+            return ResponseEntity.ok(mercadoService.buscarPorNombre(nombre, posicion));
+        }
+
+        // Si la barra está vacía pero tocó una pastillita de posición
         if (posicion != null) {
             return ResponseEntity.ok(mercadoService.listarPorPosicion(posicion));
         }
 
-        if (nombre != null && !nombre.isBlank()) {
-            return ResponseEntity.ok(mercadoService.buscarPorNombre(nombre));
-        }
-
+        // Si no hay texto ni pastillita seleccionada, traemos a todos
         return ResponseEntity.ok(mercadoService.listarTodos());
     }
 

@@ -20,6 +20,7 @@ public class UsuarioPerfilDto {
     private String equipoFavoritoSigla;
     private String colorPrincipal;
     private String colorSecundario;
+    private Integer modeloCamiseta;
 
     // Datos del equipo virtual
     private Long equipoVirtualId;

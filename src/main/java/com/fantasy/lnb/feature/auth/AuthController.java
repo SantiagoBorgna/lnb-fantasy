@@ -52,18 +52,17 @@ public class AuthController {
                 respuesta.put("email", usuario.getEmail());
                 respuesta.put("nombreDisplay", usuario.getNombreDisplay());
                 respuesta.put("avatarUrl", usuario.getAvatarUrl() != null ? usuario.getAvatarUrl() : "");
+                respuesta.put("rol", usuario.getRol().name());
 
                 // ← Campo nuevo: el frontend decide a dónde redirigir
                 respuesta.put("estadoOnboarding", usuario.getEstadoOnboarding());
 
                 // Agregar equipo favorito si existe
                 if (usuario.getEquipoFavorito() != null) {
-                        respuesta.put("equipoFavorito", Map.of(
-                                        "id", usuario.getEquipoFavorito().getId(),
-                                        "nombre", usuario.getEquipoFavorito().getNombre(),
-                                        "sigla", usuario.getEquipoFavorito().getSigla(),
-                                        "colorPrincipal", usuario.getEquipoFavorito().getColorPrincipal(),
-                                        "colorSecundario", usuario.getEquipoFavorito().getColorSecundario()));
+                        respuesta.put("equipoFavoritoId", usuario.getEquipoFavorito().getId());
+                        respuesta.put("colorPrincipal", usuario.getEquipoFavorito().getColorPrincipal());
+                        respuesta.put("colorSecundario", usuario.getEquipoFavorito().getColorSecundario());
+                        respuesta.put("modeloCamiseta", usuario.getEquipoFavorito().getModeloCamiseta());
                 } else {
                         respuesta.put("equipoFavorito", null);
                 }

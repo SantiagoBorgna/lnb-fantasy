@@ -7,6 +7,7 @@ import com.fantasy.lnb.feature.auth.oauth2.OAuth2UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -14,6 +15,7 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
+@EnableMethodSecurity
 @Configuration
 @EnableWebSecurity
 @RequiredArgsConstructor
@@ -39,8 +41,10 @@ public class SecurityConfig {
 
                                 // ── Rutas públicas vs protegidas ─────────────────────────────────
                                 .authorizeHttpRequests(auth -> auth
-                                                // Endpoints públicos
+
+                                                // ── Rutas completamente públicas ─────────────────────────────
                                                 .requestMatchers(
+                                                                "/api/auth/login",
                                                                 "/login/**",
                                                                 "/oauth2/**",
                                                                 "/api/mercado/jugadores",
@@ -48,15 +52,18 @@ public class SecurityConfig {
                                                                 "/api/lideres/**",
                                                                 "/api/jornadas",
                                                                 "/api/jornadas/**",
+                                                                "/api/ranking/**",
+                                                                "/api/torneos",
+                                                                "/api/torneos/*/tabla",
                                                                 "/api/dt",
                                                                 "/api/dt/**",
-                                                                "/api/torneos",
-                                                                "/api/torneos/{id}/tabla",
-                                                                "/api/torneos/{id}",
-                                                                "/api/ranking/**",
                                                                 "/api/onboarding/equipos")
                                                 .permitAll()
-                                                // Todo lo demás requiere JWT válido
+
+                                                // ── Rutas exclusivas de ADMIN ─────────────────────────────────
+                                                .requestMatchers("/api/admin/**").hasRole("ADMIN")
+
+                                                // ── Todo lo demás requiere JWT válido (cualquier rol) ─────────
                                                 .anyRequest().authenticated())
 
                                 // ── Manejo de excepciones: Devolver 401 en vez de HTML ───────────
