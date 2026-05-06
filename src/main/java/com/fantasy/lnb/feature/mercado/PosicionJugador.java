@@ -10,5 +10,6 @@ public enum PosicionJugador {
     ESCOLTA,
     ALERO,
     ALA_PIVOT,
-    PIVOT
+    PIVOT,
+    DESCONOCIDO // ← Asignado por el scraper cuando la posición no está disponible
 }

@@ -10,6 +10,8 @@ import com.fantasy.lnb.feature.estadisticas.EstadisticaPartidoRepository;
 import com.fantasy.lnb.feature.jornada.EstadoJornada;
 import com.fantasy.lnb.feature.jornada.Jornada;
 import com.fantasy.lnb.feature.jornada.JornadaRepository;
+import com.fantasy.lnb.feature.jornada.Partido;
+import com.fantasy.lnb.feature.jornada.PartidoRepository;
 import com.fantasy.lnb.feature.mercado.JugadorReal;
 import com.fantasy.lnb.feature.mercado.JugadorRealRepository;
 import com.fantasy.lnb.feature.mercado.PosicionJugador;
@@ -29,6 +31,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
@@ -46,6 +49,8 @@ public class PlantelService {
         private final DirectorTecnicoRepository dtRepo;
         private final OnboardingService onboardingService;
         private final EstadisticaPartidoRepository estadisticaRepo;
+        private final PartidoRepository partidoRepo;
+        private final MotorPuntuacionPlantel motorPuntuacionPlantel;
 
         // ── Consulta ────────────────────────────────────────────────────────────
 
@@ -352,6 +357,7 @@ public class PlantelService {
                                                 .multiplicador(jp.getMultiplicador())
                                                 .precioDeCompra(jp.getPrecioDeCompra())
                                                 .valorMercadoActual(jp.getJugadorReal().getValorMercadoActual())
+                                                .puntajeDt(calcularPuntajeDtDelPlantel(plantel))
                                                 .build())
                                 .toList();
 
@@ -649,5 +655,47 @@ public class PlantelService {
                                         "El banco debe tener al menos: " +
                                                         String.join(", ", faltantes) + ".");
                 }
+        }
+
+        /**
+         * Reconstruye el puntaje del DT buscando el partido de su equipo
+         * en la jornada del plantel.
+         * Devuelve null si la jornada está abierta o no hay datos del partido.
+         * REGLA: Si el equipo juega múltiples veces, solo se evalúa el PRIMER partido.
+         */
+        private Double calcularPuntajeDtDelPlantel(PlantelJornada plantel) {
+                if (plantel.getDt() == null)
+                        return null;
+                if (plantel.getJornada().estaAbierta())
+                        return null;
+
+                Long equipoDtId = plantel.getDt().getEquipoReal().getId();
+                Long jornadaId = plantel.getJornada().getId();
+
+                // 1. Obtenemos TODOS los partidos de ese equipo en la jornada (evita error 500)
+                List<Partido> partidos = partidoRepo.findByJornadaIdAndEquipoId(jornadaId, equipoDtId);
+
+                if (partidos.isEmpty())
+                        return null;
+
+                // 2. Ordenamos por fecha para agarrar siempre el primero cronológicamente
+                partidos.sort(Comparator.comparing(Partido::getFechaHora));
+
+                // 3. Tomamos SOLO el primer partido
+                Partido primerPartido = partidos.get(0);
+
+                if (primerPartido.getPuntosLocal() == null)
+                        return null;
+
+                int puntosEquipoDt = primerPartido.getEquipoLocal().getId().equals(equipoDtId)
+                                ? primerPartido.getPuntosLocal()
+                                : primerPartido.getPuntosVisitante();
+
+                int puntosRival = primerPartido.getEquipoLocal().getId().equals(equipoDtId)
+                                ? primerPartido.getPuntosVisitante()
+                                : primerPartido.getPuntosLocal();
+
+                // 4. Calculamos y devolvemos solo ese puntaje
+                return motorPuntuacionPlantel.calcularPuntajeDt(puntosEquipoDt, puntosRival);
         }
 }

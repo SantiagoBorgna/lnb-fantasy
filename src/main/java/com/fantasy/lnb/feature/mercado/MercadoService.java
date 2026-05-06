@@ -21,15 +21,18 @@ public class MercadoService {
     private final EstadisticaPartidoRepository estadisticaRepo;
 
     // ── Consultas del Mercado ───────────────────────────────────────────────
+
     @Transactional(readOnly = true)
     public List<JugadorMercadoDto> listarTodos() {
-        return jugadorRepo.findAll().stream()
+        // En vez de findAll(), traemos todos los que NO sean DESCONOCIDO
+        return jugadorRepo.findByPosicionNot(PosicionJugador.DESCONOCIDO).stream()
                 .map(this::toDto)
                 .toList();
     }
 
     @Transactional(readOnly = true)
     public List<JugadorMercadoDto> listarPorPosicion(PosicionJugador posicion) {
+        // Este queda igual porque ya filtra por una posición específica (ej: BASE)
         return jugadorRepo
                 .findByPosicionOrderByValorMercadoActualDesc(posicion)
                 .stream()
@@ -39,8 +42,9 @@ public class MercadoService {
 
     @Transactional(readOnly = true)
     public List<JugadorMercadoDto> buscarPorNombre(String nombre) {
+        // Buscamos por nombre, pero filtrando a los DESCONOCIDO
         return jugadorRepo
-                .findByNombreCompletoContainingIgnoreCase(nombre)
+                .findByNombreCompletoContainingIgnoreCaseAndPosicionNot(nombre, PosicionJugador.DESCONOCIDO)
                 .stream()
                 .map(this::toDto)
                 .toList();

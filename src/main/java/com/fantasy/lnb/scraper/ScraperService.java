@@ -6,6 +6,7 @@ import com.fantasy.lnb.feature.estadisticas.MotorPuntuacion;
 import com.fantasy.lnb.feature.jornada.EstadoJornada;
 import com.fantasy.lnb.feature.jornada.Jornada;
 import com.fantasy.lnb.feature.jornada.JornadaRepository;
+import com.fantasy.lnb.feature.jornada.PartidoRepository;
 import com.fantasy.lnb.feature.mercado.JugadorReal;
 import com.fantasy.lnb.feature.mercado.JugadorRealRepository;
 import com.fantasy.lnb.scraper.dto.JugadorStatsDto;

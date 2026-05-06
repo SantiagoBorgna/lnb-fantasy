@@ -1,8 +1,11 @@
 package com.fantasy.lnb.scraper;
 
 import com.fantasy.lnb.feature.jornada.EstadoJornada;
+import com.fantasy.lnb.feature.jornada.EstadoPartido;
 import com.fantasy.lnb.feature.jornada.JornadaRepository;
 import com.fantasy.lnb.feature.jornada.JornadaService;
+import com.fantasy.lnb.feature.jornada.Partido;
+import com.fantasy.lnb.feature.jornada.PartidoRepository;
 import com.fantasy.lnb.feature.plantel.PlantelClonadoService;
 import com.fantasy.lnb.feature.plantel.PuntuacionService;
 
@@ -12,6 +15,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Slf4j
 @Component
@@ -22,6 +26,7 @@ public class JornadaTransicionCronJob {
         private final JornadaService jornadaService;
         private final PuntuacionService puntuacionService;
         private final PlantelClonadoService plantelClonadoService;
+        private final PartidoRepository partidoRepo;
 
         /**
          * Corre cada 5 minutos.
@@ -74,6 +79,23 @@ public class JornadaTransicionCronJob {
                                                 log.info("[TRANSICION] Clonado masivo completado: {} planteles → J{}",
                                                                 clonados, jornadaAbierta.getNumero());
                                         }
+                                });
+                // ── D: PROGRAMADO → FINALIZADO (partidos que ya deberían haber terminado) ──
+                List<Partido> programados = partidoRepo
+                                .findByEstado(EstadoPartido.PROGRAMADO);
+
+                LocalDateTime hace3Horas = ahora.minusHours(3);
+
+                programados.stream()
+                                .filter(p -> p.getFechaHora() != null &&
+                                                p.getFechaHora().isBefore(hace3Horas))
+                                .forEach(p -> {
+                                        p.setEstado(EstadoPartido.FINALIZADO);
+                                        partidoRepo.save(p);
+                                        log.info("[TRANSICION] Partido {} vs {} → FINALIZADO (fecha: {})",
+                                                        p.getEquipoLocal().getSigla(),
+                                                        p.getEquipoVisitante().getSigla(),
+                                                        p.getFechaHora());
                                 });
         }
 }

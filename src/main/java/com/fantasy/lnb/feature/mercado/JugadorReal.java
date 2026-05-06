@@ -57,6 +57,17 @@ public class JugadorReal {
     @Column(nullable = false)
     private LocalDateTime actualizadoEn;
 
+    // URL del perfil en GES (para re-scraping futuro)
+    @Column(length = 500)
+    private String gesPerfilUrl;
+
+    // Foto de perfil de GES (guardamos la URL, no la imagen)
+    @Column(length = 500)
+    private String fotoUrl;
+
+    @Column
+    private java.time.LocalDate fechaNacimiento;
+
     @PrePersist
     protected void onCreate() {
         this.creadoEn = LocalDateTime.now();

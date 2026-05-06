@@ -46,6 +46,7 @@ public class PlantelDto {
         private Double precioDeCompra;
         private Double valorMercadoActual;
         private Double promedioPuntosUltimas3;
+        private Double puntajeDt;
     }
 
     @Data
