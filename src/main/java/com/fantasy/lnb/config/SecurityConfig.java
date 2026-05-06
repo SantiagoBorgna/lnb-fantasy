@@ -24,6 +24,7 @@ public class SecurityConfig {
         private final JwtAuthFilter jwtAuthFilter;
         private final OAuth2SuccessHandler oAuth2SuccessHandler;
         private final OAuth2UserService oAuth2UserService;
+        private final RateLimitFilter rateLimitFilter;
 
         @Bean
         public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -80,7 +81,8 @@ public class SecurityConfig {
                                                 .successHandler(oAuth2SuccessHandler))
 
                                 // ── JWT Filter antes del filtro estándar de username/password ────
-                                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+                                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                                .addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter.class);
 
                 return http.build();
         }
