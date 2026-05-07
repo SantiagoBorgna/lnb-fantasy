@@ -151,6 +151,7 @@ public class LideresService {
                                                                         .getColorPrincipal())
                                                         .colorSecundario(jugador.getEquipoReal()
                                                                         .getColorSecundario())
+                                                        .modeloCamiseta(jugador.getEquipoReal().getModeloCamiseta())
                                                         .numeroCamiseta(jugador.getNumeroCamiseta())
                                                         .promedio(Math.round(promedio * 100.0) / 100.0)
                                                         .partidosJugados(partidos)

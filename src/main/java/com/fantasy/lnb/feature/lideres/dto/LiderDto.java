@@ -12,6 +12,7 @@ public class LiderDto {
     private String equipoSigla;
     private String colorPrincipal;
     private String colorSecundario;
+    private Integer modeloCamiseta;
     private Integer numeroCamiseta;
     private Double promedio; // Promedio de la categoría por partido
     private Integer partidosJugados;

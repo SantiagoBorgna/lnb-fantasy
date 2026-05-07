@@ -181,15 +181,12 @@ public class PlantelService {
         @Transactional
         public PlantelDto guardarPlantel(Long usuarioId, GuardarPlantelRequest request) {
 
-                // ── 1. Resolver jornada y validar estado ─────────────────────────
+                // ── 1. Resolver jornada destino ─────────────────────────
+                // Buscamos la primera jornada disponible para recibir cambios
                 Jornada jornada = jornadaRepo
-                                .findFirstByEstadoOrderByFechaInicioAsc(EstadoJornada.ABIERTA_A_CAMBIOS)
+                                .findFirstByEstadoOrderByNumeroAsc(EstadoJornada.ABIERTA_A_CAMBIOS)
                                 .orElseThrow(() -> new IllegalStateException(
-                                                "No hay jornada abierta para armar el plantel."));
-
-                if (jornada.estaEnJuego()) {
-                        throw new JornadaEnJuegoException();
-                }
+                                                "No hay ninguna jornada abierta para cambios ahora mismo."));
 
                 // ── 2. Validaciones básicas ──────────────────────────────────────
                 if (request.getJugadores() == null || request.getJugadores().size() != 10) {
@@ -358,7 +355,6 @@ public class PlantelService {
                                                 .multiplicador(jp.getMultiplicador())
                                                 .precioDeCompra(jp.getPrecioDeCompra())
                                                 .valorMercadoActual(jp.getJugadorReal().getValorMercadoActual())
-                                                .puntajeDt(calcularPuntajeDtDelPlantel(plantel))
                                                 .build())
                                 .toList();
 
@@ -392,6 +388,7 @@ public class PlantelService {
                                                                 .map(EquipoVirtual::getNombre)
                                                                 .orElse("Mi Equipo")
                                                 : "Mi Equipo")
+                                .puntajeDt(calcularPuntajeDtDelPlantel(plantel))
                                 .build();
         }
 
@@ -673,30 +670,24 @@ public class PlantelService {
                 Long equipoDtId = plantel.getDt().getEquipoReal().getId();
                 Long jornadaId = plantel.getJornada().getId();
 
-                // 1. Obtenemos TODOS los partidos de ese equipo en la jornada (evita error 500)
                 List<Partido> partidos = partidoRepo.findByJornadaIdAndEquipoId(jornadaId, equipoDtId);
 
                 if (partidos.isEmpty())
                         return null;
 
-                // 2. Ordenamos por fecha para agarrar siempre el primero cronológicamente
                 partidos.sort(Comparator.comparing(Partido::getFechaHora));
-
-                // 3. Tomamos SOLO el primer partido
                 Partido primerPartido = partidos.get(0);
 
-                if (primerPartido.getPuntosLocal() == null)
+                if (primerPartido.getPuntosLocal() == null || primerPartido.getPuntosVisitante() == null)
                         return null;
 
-                int puntosEquipoDt = primerPartido.getEquipoLocal().getId().equals(equipoDtId)
-                                ? primerPartido.getPuntosLocal()
-                                : primerPartido.getPuntosVisitante();
+                // Corregimos la lógica: primero identificamos si el equipo del DT es local o
+                // visitante
+                boolean esLocal = primerPartido.getEquipoLocal().getId().equals(equipoDtId);
 
-                int puntosRival = primerPartido.getEquipoLocal().getId().equals(equipoDtId)
-                                ? primerPartido.getPuntosVisitante()
-                                : primerPartido.getPuntosLocal();
+                int puntosEquipoDt = esLocal ? primerPartido.getPuntosLocal() : primerPartido.getPuntosVisitante();
+                int puntosRival = esLocal ? primerPartido.getPuntosVisitante() : primerPartido.getPuntosLocal();
 
-                // 4. Calculamos y devolvemos solo ese puntaje
                 return motorPuntuacionPlantel.calcularPuntajeDt(puntosEquipoDt, puntosRival);
         }
 }

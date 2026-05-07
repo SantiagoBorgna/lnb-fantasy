@@ -19,6 +19,7 @@ public class PlantelDto {
     private Integer transferenciasUsadas;
     private Integer transferenciasRestantes;
     private String nombreEquipo;
+    private Double puntajeDt;
 
     // DT
     private DtDto dt;
@@ -47,7 +48,6 @@ public class PlantelDto {
         private Double precioDeCompra;
         private Double valorMercadoActual;
         private Double promedioPuntosUltimas3;
-        private Double puntajeDt;
     }
 
     @Data

@@ -35,6 +35,9 @@ public interface JornadaRepository extends JpaRepository<Jornada, Long> {
          */
         Optional<Jornada> findFirstByEstadoOrderByNumeroDesc(EstadoJornada estado);
 
+        // Agregá esto al final de las consultas de tipo "findFirst"
+        Optional<Jornada> findFirstByEstadoOrderByNumeroAsc(EstadoJornada estado);
+
         /**
          * Encuentra la jornada más reciente con un estado dado
          * cuyo número sea menor al indicado.
