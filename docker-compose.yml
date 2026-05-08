@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: fantasy-db
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: lnb_fantasy
+      # Cambiá esto por una contraseña fuerte antes de subirlo
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-password_secreta_aca}
+    ports:
+      - "3306:3306"
+    volumes:
+      # Esto asegura que si apagás Docker, los datos (planteles, usuarios) no se borren
+      - db_data:/var/lib/mysql
+
+  backend:
+    build: .
+    container_name: fantasy-backend
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+    environment:
+      # Spring Boot lee estas variables y pisa tu application.properties
+      SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/lnb_fantasy?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-password_secreta_aca}
+      # Poné una clave larguísima acá para los tokens en producción
+      JWT_SECRET: ${JWT_SECRET:-clave_super_secreta_y_larga_para_jwt_en_produccion}
+
+volumes:
+  db_data:
