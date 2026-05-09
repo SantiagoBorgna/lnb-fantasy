@@ -18,7 +18,9 @@ import java.util.concurrent.CompletableFuture;
 public class AdminScraperController {
 
     private final JugadorCrawlerService jugadorCrawlerService;
-    private final FixtureCrawlerService fixtureCrawlerService; // Punto 6
+    private final FixtureCrawlerService fixtureCrawlerService;
+    private final ScraperCronJob scraperCronJob;
+    private final JornadaTransicionCronJob jornadaTransicionCronJob;
 
     /**
      * POST /api/admin/scraper/jugadores/sincronizar
@@ -65,5 +67,38 @@ public class AdminScraperController {
         return ResponseEntity.accepted().body(Map.of(
                 "mensaje", "Sincronización de fixture iniciada.",
                 "jornadaId", jornadaId));
+    }
+
+    /**
+     * GET /api/admin/scraper/forzar-cron
+     * Ejecuta manualmente la transición de estados y la recolección de
+     * estadísticas.
+     */
+    @GetMapping("/forzar-cron")
+    public ResponseEntity<Map<String, Object>> forzarCronScraper() {
+        log.info("[ADMIN] Ejecución manual de CronJobs solicitada.");
+
+        CompletableFuture.runAsync(() -> {
+            try {
+                // 1. Primero forzamos la evaluación de estados (esto pasa partidos a
+                // FINALIZADO)
+                log.info("[ADMIN] 1. Evaluando transiciones de Jornadas y Partidos...");
+                jornadaTransicionCronJob.evaluarTransiciones();
+
+                // 2. Luego forzamos el Scraper (busca los FINALIZADOS y les carga las
+                // estadísticas)
+                log.info("[ADMIN] 2. Recolectando estadísticas...");
+                scraperCronJob.procesarPartidosDeJornadaActiva();
+
+                log.info("[ADMIN] Secuencia manual finalizada.");
+            } catch (Exception e) {
+                log.error("[ADMIN] Error forzando los cron: {}", e.getMessage());
+            }
+        });
+
+        return ResponseEntity.accepted().body(Map.of(
+                "mensaje", "Secuencia de actualización iniciada.",
+                "orden", "1. Actualizar Estados -> 2. Recolectar Estadísticas",
+                "detalle", "Revisá los logs de Render para confirmar."));
     }
 }
