@@ -52,6 +52,25 @@ public class ScraperService {
      */
     public List<JugadorStatsDto> extraerEstadisticasDePartido(String urlPartido) {
 
+        // --- NUEVO: INTERCEPTOR DE IFRAMES ---
+        // Si la URL es la "cáscara" general del partido, la transformamos para apuntar
+        // directo a la tabla de estadísticas
+        if (urlPartido.contains("/partido/") && !urlPartido.contains("/partido/estadisticas/")) {
+            try {
+                // Separamos la URL. Ejemplo: https://.../partido/ID_DEL_PARTIDO/nombres-equipos
+                String[] partes = urlPartido.split("/partido/");
+                String idYSong = partes[1]; // Queda: "bHi-NtwpQM_q0vQEtnKdLQ==/regatas-c-vs-ferro"
+                String gesId = idYSong.split("/")[0]; // Queda: "bHi-NtwpQM_q0vQEtnKdLQ=="
+
+                // Armamos la URL secreta del Iframe
+                urlPartido = "https://www.laliganacional.com.ar/laliga/partido/estadisticas/" + gesId;
+                log.info("[SCRAPER] URL detectada como cáscara. Re-escribiendo a la URL del iframe: {}", urlPartido);
+            } catch (Exception e) {
+                log.warn("[SCRAPER] Falló la re-escritura de URL, usando la original: {}", urlPartido);
+            }
+        }
+        // --- FIN INTERCEPTOR ---
+
         List<JugadorStatsDto> resultado = new ArrayList<>();
         Document doc;
 
@@ -68,20 +87,6 @@ public class ScraperService {
             log.error("[SCRAPER] Error al conectar con GES Deportiva. URL: {} | Error: {}", urlPartido, e.getMessage());
             return resultado;
         }
-
-        // --- INICIO DE LA TRAMPA PARA DEBUGGEAR ---
-        log.info("[DEBUG-SCRAPER] Título de la página leída: {}", doc.title());
-
-        // Vamos a buscar todas las filas de la tabla para ver qué tienen ahora
-        Elements todasLasFilas = doc.select("tr");
-        log.info("[DEBUG-SCRAPER] Total de <tr> en la página: {}", todasLasFilas.size());
-
-        if (todasLasFilas.size() > 5) {
-            // Imprimimos el HTML crudo de una de las primeras filas de datos para ver la
-            // nueva estructura
-            log.info("[DEBUG-SCRAPER] HTML de una fila de ejemplo: \n{}", todasLasFilas.get(2).outerHtml());
-        }
-        // --- FIN DE LA TRAMPA ---
 
         Elements filas = doc.select("tr[onclick]");
         log.debug("[SCRAPER] Filas con onclick encontradas: {}", filas.size());
