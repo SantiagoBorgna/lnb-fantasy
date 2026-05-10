@@ -3,6 +3,7 @@ package com.fantasy.lnb.feature.plantel;
 import com.fantasy.lnb.exception.PlantelIncompletoException;
 import com.fantasy.lnb.feature.jornada.Jornada;
 import com.fantasy.lnb.feature.jornada.JornadaRepository;
+import com.fantasy.lnb.feature.jornada.PartidoRepository;
 import com.fantasy.lnb.feature.jornada.EstadoJornada;
 import com.fantasy.lnb.feature.usuario.EquipoVirtual;
 import com.fantasy.lnb.feature.usuario.EquipoVirtualRepository;
@@ -22,6 +23,7 @@ public class PuntuacionService {
     private final MotorPuntuacionPlantel motor;
     private final JornadaRepository jornadaRepo;
     private final EquipoVirtualRepository equipoVirtualRepo;
+    private final PartidoRepository partidoRepo;
 
     /**
      * Calcula y persiste el puntaje de TODOS los planteles
@@ -113,31 +115,25 @@ public class PuntuacionService {
      * por todos los jugadores de ese equipo en sus estadísticas de la jornada.
      */
     private double calcularPuntajeDtDesdeBD(PlantelJornada plantel, Long jornadaId) {
+        if (plantel.getDt() == null)
+            return 0.0;
+
         Long equipoDtId = plantel.getDt().getEquipoReal().getId();
 
-        // Usamos la suma de puntos reales de todos los jugadores del equipo
-        // en esta jornada para reconstruir el marcador
-        int puntosEquipoDt = plantelRepo
-                .findAllByJornadaIdWithJugadores(jornadaId)
-                .stream()
-                .flatMap(p -> p.getJugadores().stream())
-                .filter(jp -> jp.getJugadorReal().getEquipoReal().getId()
-                        .equals(equipoDtId))
-                .mapToInt(jp -> {
-                    // Buscamos las estadísticas reales del jugador
-                    // para obtener sus puntos anotados en el partido
-                    return 0; // Placeholder — ver nota debajo
-                })
-                .sum();
+        // Buscamos el partido de esta jornada donde juegue el equipo del DT
+        return partidoRepo.findByJornada_Id(jornadaId).stream()
+                .filter(p -> p.getEquipoLocal().getId().equals(equipoDtId) ||
+                        p.getEquipoVisitante().getId().equals(equipoDtId))
+                .findFirst()
+                .map(p -> {
+                    // Identificamos quién es el equipo del DT en este partido
+                    boolean esLocal = p.getEquipoLocal().getId().equals(equipoDtId);
+                    int puntosDT = esLocal ? p.getPuntosLocal() : p.getPuntosVisitante();
+                    int puntosRival = esLocal ? p.getPuntosVisitante() : p.getPuntosLocal();
 
-        // NOTA ARQUITECTURAL:
-        // El marcador exacto requiere una entidad `PartidoReal` con
-        // puntosLocal y puntosVisitante que implementaremos en una
-        // iteración futura del Módulo 4 al agregar el scraper de fixture.
-        // Por ahora el DT suma 0 hasta tener esa entidad disponible.
-        // El método está estructurado para recibir los datos reales
-        // sin cambiar la firma cuando estén disponibles.
-        log.debug("[PUNTUACION-DT] Puntaje DT pendiente de entidad PartidoReal.");
-        return 0.0;
+                    // Usamos el motor de puntuación que ya tenés inyectado
+                    return motor.calcularPuntajeDt(puntosDT, puntosRival);
+                })
+                .orElse(0.0);
     }
 }
