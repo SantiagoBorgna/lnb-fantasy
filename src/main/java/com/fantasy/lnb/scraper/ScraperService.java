@@ -69,6 +69,20 @@ public class ScraperService {
             return resultado;
         }
 
+        // --- INICIO DE LA TRAMPA PARA DEBUGGEAR ---
+        log.info("[DEBUG-SCRAPER] Título de la página leída: {}", doc.title());
+
+        // Vamos a buscar todas las filas de la tabla para ver qué tienen ahora
+        Elements todasLasFilas = doc.select("tr");
+        log.info("[DEBUG-SCRAPER] Total de <tr> en la página: {}", todasLasFilas.size());
+
+        if (todasLasFilas.size() > 5) {
+            // Imprimimos el HTML crudo de una de las primeras filas de datos para ver la
+            // nueva estructura
+            log.info("[DEBUG-SCRAPER] HTML de una fila de ejemplo: \n{}", todasLasFilas.get(2).outerHtml());
+        }
+        // --- FIN DE LA TRAMPA ---
+
         Elements filas = doc.select("tr[onclick]");
         log.debug("[SCRAPER] Filas con onclick encontradas: {}", filas.size());
 
