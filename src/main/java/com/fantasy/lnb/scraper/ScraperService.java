@@ -139,42 +139,34 @@ public class ScraperService {
             Long equipoLocalId,
             Long equipoVisitanteId,
             boolean equipoLocalGano,
-            Jornada jornada) {
+            Jornada jornada) { // <-- Ahora recibe la jornada por parámetro
 
-        // ── Paso 1: Resolver la jornada activa ──────────────────────────────
-        Jornada jornadaActiva = jornadaRepo
-                .findByEstado(EstadoJornada.EN_JUEGO)
-                .orElse(null);
-
-        if (jornadaActiva == null) {
-            log.warn("[SCRAPER] No hay jornada EN_JUEGO. " +
-                    "Estadísticas del partido {} no serán persistidas.", gesPartidoId);
+        if (jornada == null) {
+            log.error("[SCRAPER] Error crítico: Se intentó persistir estadísticas sin una jornada asociada.");
             return;
         }
 
-        // ── Paso 2: Regla del fixture asimétrico ────────────────────────────
-        // Verificamos AMBOS equipos antes de procesar un solo jugador.
-        // Si cualquiera de los dos equipos ya tiene estadísticas en esta
-        // jornada, el partido entero se descarta (es el segundo partido).
+        // ── Paso 1: Regla del fixture asimétrico ────────────────────────────
+        // Si cualquiera de los dos equipos ya tiene estadísticas en esta jornada,
+        // el partido se descarta (evita duplicar puntos en equipos que juegan 2 veces).
         boolean localYaProcesado = estadisticaRepo
-                .existsByEquipoRealIdAndJornadaId(equipoLocalId, jornadaActiva.getId());
+                .existsByEquipoRealIdAndJornadaId(equipoLocalId, jornada.getId());
         boolean visitanteYaProcesado = estadisticaRepo
-                .existsByEquipoRealIdAndJornadaId(equipoVisitanteId, jornadaActiva.getId());
+                .existsByEquipoRealIdAndJornadaId(equipoVisitanteId, jornada.getId());
 
         if (localYaProcesado || visitanteYaProcesado) {
-            log.info("[FIXTURE] Partido {} ignorado — alguno de los equipos " +
-                    "ya tiene estadísticas en jornada {}. Segundo partido descartado.",
-                    gesPartidoId, jornadaActiva.getNumero());
+            log.info("[FIXTURE] Partido {} ignorado — uno de los equipos ya tiene estadísticas en J{}.",
+                    gesPartidoId, jornada.getNumero());
             return;
         }
 
-        // ── Paso 3: Procesar jugadores ──────────────────────────────────────
+        // ── Paso 2: Procesar jugadores ──────────────────────────────────────
         int guardados = 0;
         int omitidos = 0;
 
         for (JugadorStatsDto dto : dtos) {
 
-            // Filtro: descartar filas de totales (ID nulo = fila de equipo)
+            // Descartar filas de totales (ID nulo)
             if (dto.getIdJugador() == null) {
                 omitidos++;
                 continue;
@@ -186,17 +178,14 @@ public class ScraperService {
                     .orElse(null);
 
             if (jugadorReal == null) {
-                log.warn("[SCRAPER] GES ID {} ({}) no está en BD. Omitido.",
-                        dto.getIdJugador(), dto.getNombre());
+                log.warn("[SCRAPER] Jugador con GES ID {} no encontrado en BD. Omitido.", dto.getIdJugador());
                 omitidos++;
                 continue;
             }
 
-            // Doble chequeo a nivel jugador individual (salvaguarda de integridad)
-            if (estadisticaRepo.existsByJugadorReal_IdAndJornada_Id(
-                    jugadorReal.getId(), jornadaActiva.getId())) {
-                log.warn("[SCRAPER] Jugador {} ya tiene stats en jornada {}. Omitido.",
-                        dto.getNombre(), jornadaActiva.getNumero());
+            // Doble chequeo de integridad individual
+            if (estadisticaRepo.existsByJugadorReal_IdAndJornada_Id(jugadorReal.getId(), jornada.getId())) {
+                log.warn("[SCRAPER] {} ya tiene stats en J{}. Omitido.", dto.getNombre(), jornada.getNumero());
                 omitidos++;
                 continue;
             }
@@ -205,19 +194,17 @@ public class ScraperService {
             boolean esLocal = jugadorReal.getEquipoReal().getId().equals(equipoLocalId);
             boolean esteJugadorGano = esLocal ? equipoLocalGano : !equipoLocalGano;
 
-            // Calcular puntaje Fantasy
+            // Calcular puntaje Fantasy usando el motor
             double puntaje = MotorPuntuacion.calcular(dto, esteJugadorGano);
 
-            // Calcular tiros fallados para persistir
+            // Calcular fallos para persistencia
             int tirosCampoFallados = calcularTirosCampoFallados(dto);
-            int tirosLibresFallados = safe(dto.getTirosLibres() != null
-                    ? dto.getTirosLibres().getFallados()
-                    : 0);
+            int tirosLibresFallados = safe(dto.getTirosLibres() != null ? dto.getTirosLibres().getFallados() : 0);
 
-            // Construir y persistir
+            // Construir Entidad y Persistir
             EstadisticaPartido entidad = EstadisticaPartido.builder()
                     .jugadorReal(jugadorReal)
-                    .jornada(jornadaActiva)
+                    .jornada(jornada) // <-- Asignamos la jornada recibida
                     .gesPartidoId(gesPartidoId)
                     .fechaPartido(fechaPartido)
                     .puntos(safe(dto.getPuntos()))
@@ -244,8 +231,7 @@ public class ScraperService {
             estadisticaRepo.save(entidad);
             guardados++;
 
-            log.info("[SCRAPER] ✓ {} | Jornada {} | Puntaje: {}",
-                    dto.getNombre(), jornadaActiva.getNumero(), puntaje);
+            log.info("[SCRAPER] ✓ {} | J{} | Pts Fantasy: {}", dto.getNombre(), jornada.getNumero(), puntaje);
         }
 
         log.info("[SCRAPER] Partido {} procesado → Guardados: {} | Omitidos: {}",
