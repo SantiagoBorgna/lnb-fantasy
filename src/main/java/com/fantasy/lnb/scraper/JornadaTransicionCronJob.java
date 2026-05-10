@@ -13,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -38,7 +39,8 @@ public class JornadaTransicionCronJob {
          * B) ¿Hay alguna jornada EN_JUEGO cuya fechaFin ya pasó?
          * → Transiciona a FINALIZADA (habilita el CronJob de precios)
          */
-        @Scheduled(cron = "0 */5 * * * *")
+        @Scheduled(cron = "0 */20 * * * *")
+        @Transactional
         public void evaluarTransiciones() {
                 LocalDateTime ahora = LocalDateTime.now();
                 log.debug("[TRANSICION] Evaluando estados de jornadas en {}", ahora);
