@@ -119,7 +119,8 @@ public class ScraperService {
             LocalDateTime fechaPartido,
             Long equipoLocalId,
             Long equipoVisitanteId,
-            boolean equipoLocalGano) {
+            boolean equipoLocalGano,
+            Jornada jornada) {
 
         // ── Paso 1: Resolver la jornada activa ──────────────────────────────
         Jornada jornadaActiva = jornadaRepo

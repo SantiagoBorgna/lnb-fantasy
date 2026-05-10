@@ -95,7 +95,8 @@ public class ScraperCronJob {
                                 partido.getFechaHora(),
                                 partido.getEquipoLocal().getId(),
                                 partido.getEquipoVisitante().getId(),
-                                equipoLocalGano);
+                                equipoLocalGano,
+                                partido.getJornada());
 
                 // 4. Calcular puntos del DT
                 marcador.ifPresent(m -> calcularPuntajeDt(partido, m));
