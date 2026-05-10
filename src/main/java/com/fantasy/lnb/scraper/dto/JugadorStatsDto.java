@@ -64,12 +64,9 @@ public class JugadorStatsDto {
     @JsonProperty("CincoInicial")
     private Boolean cincoInicial; // true = fue titular en el partido real
 
-    @JsonProperty("TaponesRealizados")
+    @JsonProperty("TaponCometido")
     private Integer taponesRealizados;
 
-    @JsonProperty("TaponesRecibidos")
+    @JsonProperty("TaponRecibido")
     private Integer taponesRecibidos;
-    // --- Campos que NO vienen en el JSON pero calculamos después ---
-    // equipoGano, taponesRealizados, etc. se enriquecen en la capa de Service
-    // cuando procesemos el marcador del partido completo
 }
