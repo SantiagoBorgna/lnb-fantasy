@@ -80,15 +80,15 @@ public class AdminScraperController {
 
         CompletableFuture.runAsync(() -> {
             try {
-                // 1. Primero forzamos la evaluación de estados (esto pasa partidos a
-                // FINALIZADO)
-                log.info("[ADMIN] 1. Evaluando transiciones de Jornadas y Partidos...");
-                jornadaTransicionCronJob.evaluarTransiciones();
-
-                // 2. Luego forzamos el Scraper (busca los FINALIZADOS y les carga las
-                // estadísticas)
-                log.info("[ADMIN] 2. Recolectando estadísticas...");
+                // 1. PRIMERO forzamos el Scraper (busca los partidos FINALIZADOS que no tienen
+                // stats y las carga)
+                log.info("[ADMIN] 1. Recolectando estadísticas pendientes...");
                 scraperCronJob.procesarPartidosDeJornadaActiva();
+
+                // 2. LUEGO forzamos la evaluación de estados (cierra la jornada y calcula
+                // puntos CON LA DATA YA CARGADA)
+                log.info("[ADMIN] 2. Evaluando transiciones de Jornadas y Partidos...");
+                jornadaTransicionCronJob.evaluarTransiciones();
 
                 log.info("[ADMIN] Secuencia manual finalizada.");
             } catch (Exception e) {
@@ -98,7 +98,7 @@ public class AdminScraperController {
 
         return ResponseEntity.accepted().body(Map.of(
                 "mensaje", "Secuencia de actualización iniciada.",
-                "orden", "1. Actualizar Estados -> 2. Recolectar Estadísticas",
+                "orden", "1. Recolectar Estadísticas -> 2. Actualizar Estados y Puntos",
                 "detalle", "Revisá los logs de Render para confirmar."));
     }
 }
