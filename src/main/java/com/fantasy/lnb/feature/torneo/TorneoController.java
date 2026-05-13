@@ -69,6 +69,11 @@ public class TorneoController {
                                 .orElse(ResponseEntity.notFound().build());
         }
 
+        @GetMapping("/codigo/{codigo}")
+        public ResponseEntity<TorneoDto> obtenerPorCodigo(@PathVariable String codigo) {
+                return ResponseEntity.ok(torneoService.obtenerTorneoPorCodigo(codigo));
+        }
+
         // POST /api/torneos — crear un torneo nuevo
         @PostMapping
         public ResponseEntity<TorneoDto> crear(

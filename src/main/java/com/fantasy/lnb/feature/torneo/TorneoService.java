@@ -95,6 +95,17 @@ public class TorneoService {
                 return toDto(torneo);
         }
 
+        @Transactional(readOnly = true)
+        public TorneoDto obtenerTorneoPorCodigo(String codigo) {
+                Torneo torneo = torneoRepo.findByCodigoInvitacion(codigo)
+                                .orElseThrow(() -> new IllegalArgumentException(
+                                                "El link de invitación no es válido o el torneo no existe."));
+
+                // Devolvemos el DTO (usá el mapper o el armado manual que ya tengas para
+                // getTorneo)
+                return toDto(torneo);
+        }
+
         // ── Consultas ───────────────────────────────────────────────────────────
 
         @Transactional(readOnly = true)
