@@ -46,4 +46,8 @@ public interface JornadaRepository extends JpaRepository<Jornada, Long> {
         Optional<Jornada> findFirstByEstadoAndNumeroLessThanOrderByNumeroDesc(
                         EstadoJornada estado,
                         Integer numero);
+
+        Optional<Jornada> findFirstByEstadoAndNumeroGreaterThanOrderByNumeroAsc(
+                        EstadoJornada estado,
+                        Integer numero);
 }

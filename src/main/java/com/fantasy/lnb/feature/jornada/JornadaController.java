@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/jornadas")
@@ -19,6 +20,7 @@ public class JornadaController {
 
     private final JornadaService jornadaService;
     private final PlantelClonadoService plantelClonadoService;
+    private final JornadaRepository jornadaRepo;
 
     // GET /api/jornadas — lista todas (historial completo)
     @GetMapping
@@ -57,13 +59,25 @@ public class JornadaController {
      */
     @PostMapping("/clonar-planteles")
     public ResponseEntity<?> clonarPlanteles() {
-        int clonados = plantelClonadoService.clonarJornadaFinalizadaHaciaAbierta();
+
+        // 1. Buscamos la última jornada que haya finalizado
+        Optional<Jornada> ultimaFinalizada = jornadaRepo.findFirstByEstadoOrderByNumeroDesc(EstadoJornada.FINALIZADA);
+
+        if (ultimaFinalizada.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", "No se encontró una jornada finalizada.",
+                    "detalle",
+                    "Debe existir al menos una jornada en estado FINALIZADA para poder clonar sus equipos hacia la próxima."));
+        }
+
+        // 2. Ejecutamos el clonado usando la nueva lógica segura
+        int clonados = plantelClonadoService.clonarDesdeJornadaFinalizada(ultimaFinalizada.get());
 
         if (clonados == -1) {
             return ResponseEntity.badRequest().body(Map.of(
                     "error", "No se encontró el par de jornadas para clonar.",
-                    "detalle", "Verificar que exista una jornada FINALIZADA " +
-                            "y una ABIERTA_A_CAMBIOS."));
+                    "detalle", "Asegurate de tener creada una jornada en estado ABIERTA_A_CAMBIOS posterior a la J"
+                            + ultimaFinalizada.get().getNumero()));
         }
 
         return ResponseEntity.ok(Map.of(

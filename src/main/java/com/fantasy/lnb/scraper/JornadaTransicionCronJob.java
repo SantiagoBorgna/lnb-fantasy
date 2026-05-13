@@ -47,11 +47,10 @@ public class JornadaTransicionCronJob {
 
                 // ── A: ABIERTA → EN_JUEGO ───────────────────────────────────────────
                 jornadaRepo
-                                .findByEstadoAndFechaInicioLessThanEqual(
-                                                EstadoJornada.ABIERTA_A_CAMBIOS, ahora)
+                                .findByEstadoAndFechaInicioLessThanEqual(EstadoJornada.ABIERTA_A_CAMBIOS, ahora)
                                 .ifPresent(jornada -> {
-                                        log.info("[TRANSICION] Jornada {} alcanzó su fechaInicio. " +
-                                                        "Iniciando ventana de juego...", jornada.getNumero());
+                                        log.info("[TRANSICION] Jornada {} alcanzó su fechaInicio. Iniciando ventana de juego...",
+                                                        jornada.getNumero());
                                         jornadaService.iniciarJornada(jornada.getId());
                                 });
 
@@ -64,33 +63,25 @@ public class JornadaTransicionCronJob {
                                         // 1. Finalizar jornada
                                         jornadaService.finalizarJornada(jornada.getId());
 
-                                        // 2. Calcular puntajes de todos los planteles
+                                        // 2. Calcular puntajes de todos los planteles (Cierre definitivo)
                                         puntuacionService.calcularPuntajesDeJornada(jornada.getId(), true);
-
-                                        log.info("[TRANSICION] Puntajes calculados para J{}.",
+                                        log.info("[TRANSICION] Puntajes definitivos calculados para J{}.",
                                                         jornada.getNumero());
-                                });
-                // C — clonar al abrir la nueva jornada
-                jornadaRepo
-                                .findFirstByEstadoOrderByFechaInicioAsc(EstadoJornada.ABIERTA_A_CAMBIOS)
-                                .ifPresent(jornadaAbierta -> {
-                                        int clonados = plantelClonadoService
-                                                        .clonarJornadaFinalizadaHaciaAbierta();
 
+                                        // 3. Clona los equipos de la jornada que acaba de terminar hacia la próxima.
+                                        int clonados = plantelClonadoService.clonarDesdeJornadaFinalizada(jornada);
                                         if (clonados > 0) {
-                                                log.info("[TRANSICION] Clonado masivo completado: {} planteles → J{}",
-                                                                clonados, jornadaAbierta.getNumero());
+                                                log.info("[TRANSICION] Clonado masivo completado. J{} fue base para {} planteles nuevos.",
+                                                                jornada.getNumero(), clonados);
                                         }
                                 });
-                // ── D: PROGRAMADO → FINALIZADO (partidos que ya deberían haber terminado) ──
-                List<Partido> programados = partidoRepo
-                                .findByEstado(EstadoPartido.PROGRAMADO);
 
+                // ── C: PROGRAMADO → FINALIZADO (partidos) ───────────────────────────
+                List<Partido> programados = partidoRepo.findByEstado(EstadoPartido.PROGRAMADO);
                 LocalDateTime hace3Horas = ahora.minusHours(3);
 
                 programados.stream()
-                                .filter(p -> p.getFechaHora() != null &&
-                                                p.getFechaHora().isBefore(hace3Horas))
+                                .filter(p -> p.getFechaHora() != null && p.getFechaHora().isBefore(hace3Horas))
                                 .forEach(p -> {
                                         p.setEstado(EstadoPartido.FINALIZADO);
                                         partidoRepo.save(p);
