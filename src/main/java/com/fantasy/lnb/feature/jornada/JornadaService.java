@@ -2,6 +2,8 @@ package com.fantasy.lnb.feature.jornada;
 
 import com.fantasy.lnb.feature.jornada.dto.CrearJornadaRequest;
 import com.fantasy.lnb.feature.jornada.dto.JornadaDto;
+import com.fantasy.lnb.feature.jornada.dto.PartidoDto;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -11,6 +13,7 @@ import com.fantasy.lnb.feature.estadisticas.EstadisticaPartidoRepository;
 
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
@@ -21,6 +24,7 @@ public class JornadaService {
 
     private final JornadaRepository jornadaRepo;
     private final EstadisticaPartidoRepository estadisticaRepo;
+    private final PartidoRepository partidoRepo;
 
     // ── Consultas ───────────────────────────────────────────────────────────
 
@@ -47,6 +51,25 @@ public class JornadaService {
 
     public Optional<Jornada> obtenerJornadaEnJuegoEntidad() {
         return jornadaRepo.findByEstado(EstadoJornada.EN_JUEGO);
+    }
+
+    @Transactional(readOnly = true)
+    public List<PartidoDto> obtenerPartidosDeJornada(Long jornadaId) {
+        return partidoRepo.findByJornada_Id(jornadaId).stream()
+                // Ordenamos cronológicamente
+                .sorted(Comparator.comparing(Partido::getFechaHora))
+                .map(p -> PartidoDto.builder()
+                        .id(p.getId())
+                        .equipoLocal(p.getEquipoLocal().getNombre())
+                        .siglaLocal(p.getEquipoLocal().getSigla())
+                        .equipoVisitante(p.getEquipoVisitante().getNombre())
+                        .siglaVisitante(p.getEquipoVisitante().getSigla())
+                        .fechaHora(p.getFechaHora())
+                        .estado(p.getEstado().name())
+                        .puntosLocal(p.getPuntosLocal())
+                        .puntosVisitante(p.getPuntosVisitante())
+                        .build())
+                .toList();
     }
 
     // ── Creación (administración del fixture) ───────────────────────────────

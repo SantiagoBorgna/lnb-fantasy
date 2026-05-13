@@ -2,6 +2,7 @@ package com.fantasy.lnb.feature.jornada;
 
 import com.fantasy.lnb.feature.jornada.dto.CrearJornadaRequest;
 import com.fantasy.lnb.feature.jornada.dto.JornadaDto;
+import com.fantasy.lnb.feature.jornada.dto.PartidoDto;
 import com.fantasy.lnb.feature.plantel.PlantelClonadoService;
 
 import jakarta.validation.Valid;
@@ -42,6 +43,11 @@ public class JornadaController {
         return jornadaService.obtenerProximaAbierta()
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.noContent().build());
+    }
+
+    @GetMapping("/{id}/partidos")
+    public ResponseEntity<List<PartidoDto>> obtenerPartidosDeJornada(@PathVariable Long id) {
+        return ResponseEntity.ok(jornadaService.obtenerPartidosDeJornada(id));
     }
 
     // POST /api/jornadas — crear nueva jornada (admin)
