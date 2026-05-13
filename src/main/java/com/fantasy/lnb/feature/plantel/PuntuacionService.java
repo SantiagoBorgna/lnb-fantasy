@@ -40,7 +40,7 @@ public class PuntuacionService {
      * 5. Acumula al puntajeGlobal del EquipoVirtual
      */
     @Transactional
-    public void calcularPuntajesDeJornada(Long jornadaId) {
+    public void calcularPuntajesDeJornada(Long jornadaId, boolean esCierreDefinitivo) {
 
         List<PlantelJornada> planteles = plantelRepo
                 .findAllByJornadaIdWithJugadores(jornadaId);
@@ -50,23 +50,28 @@ public class PuntuacionService {
             return;
         }
 
-        log.info("[PUNTUACION] Calculando puntajes de {} planteles " +
-                "para jornada {}...", planteles.size(), jornadaId);
+        String tipoCalculo = esCierreDefinitivo ? "CIERRE DEFINITIVO" : "PARCIAL EN VIVO";
+        log.info("[PUNTUACION] [{}] Calculando puntajes para jornada {}...", tipoCalculo, jornadaId);
 
         for (PlantelJornada plantel : planteles) {
             try {
                 double puntajeTotal = calcularPuntajePlantel(plantel, jornadaId);
 
+                // 1. Siempre actualizamos el puntaje de la jornada (lo que se ve en la
+                // canchita)
                 plantel.setPuntajeObtenidoFecha(puntajeTotal);
                 plantelRepo.save(plantel);
 
-                // Acumular al puntaje global del equipo virtual
-                equipoVirtualRepo.findByUsuario_Id(plantel.getUsuario().getId())
-                        .ifPresent(equipo -> {
-                            equipo.setPuntajeGlobal(
-                                    equipo.getPuntajeGlobal() + puntajeTotal);
-                            equipoVirtualRepo.save(equipo);
-                        });
+                // 2. Solo sumamos al ranking global si la jornada terminó de verdad
+                if (esCierreDefinitivo) {
+                    equipoVirtualRepo.findByUsuario_Id(plantel.getUsuario().getId())
+                            .ifPresent(equipo -> {
+                                equipo.setPuntajeGlobal(equipo.getPuntajeGlobal() + puntajeTotal);
+                                equipoVirtualRepo.save(equipo);
+                                log.debug("[PUNTUACION] Ranking actualizado para {}: +{}",
+                                        plantel.getUsuario().getEmail(), puntajeTotal);
+                            });
+                }
 
                 log.info("[PUNTUACION] Usuario {} | Jornada {} | Puntaje: {}",
                         plantel.getUsuario().getEmail(),
@@ -74,13 +79,12 @@ public class PuntuacionService {
                         puntajeTotal);
 
             } catch (Exception e) {
-                // Un plantel que falla no interrumpe el cálculo del resto
                 log.error("[PUNTUACION] Error calculando puntaje del plantel {}: {}",
                         plantel.getId(), e.getMessage(), e);
             }
         }
 
-        log.info("[PUNTUACION] Cálculo de jornada {} completado.", jornadaId);
+        log.info("[PUNTUACION] Cálculo de jornada {} completado ({})", jornadaId, tipoCalculo);
     }
 
     // ── Privados ────────────────────────────────────────────────────────────

@@ -9,6 +9,7 @@ import com.fantasy.lnb.feature.jornada.Partido;
 import com.fantasy.lnb.feature.jornada.PartidoRepository;
 import com.fantasy.lnb.feature.plantel.MotorPuntuacionPlantel;
 import com.fantasy.lnb.feature.plantel.PlantelJornadaRepository;
+import com.fantasy.lnb.feature.plantel.PuntuacionService;
 import com.fantasy.lnb.scraper.dto.JugadorStatsDto;
 
 import jakarta.transaction.Transactional;
@@ -32,6 +33,7 @@ public class ScraperCronJob {
         private final PartidoRepository partidoRepo;
         private final PlantelJornadaRepository plantelJornadaRepo;
         private final MotorPuntuacionPlantel motorPuntuacionPlantel;
+        private final PuntuacionService puntuacionService;
 
         /**
          * Corre todos los días a las 2 AM.
@@ -59,6 +61,8 @@ public class ScraperCronJob {
 
                 log.info("[CRON] Partidos pendientes: {}", pendientes.size());
 
+                Long jornadaIdActiva = pendientes.get(0).getJornada().getId();
+
                 for (Partido partido : pendientes) {
                         try {
                                 procesarPartido(partido);
@@ -67,6 +71,12 @@ public class ScraperCronJob {
                                                 partido.getGesHash(), e.getMessage(), e);
                         }
                 }
+
+                // Una vez procesados los partidos pendientes, recalculamos toda la fecha
+                log.info("[CRON] Actualizando puntajes parciales en vivo para la Jornada {}...", jornadaIdActiva);
+                // Le pasamos "false" para indicarle que es un cálculo parcial, no el cierre
+                // definitivo
+                puntuacionService.calcularPuntajesDeJornada(jornadaIdActiva, false);
         }
 
         private void procesarPartido(Partido partido) {
@@ -99,7 +109,7 @@ public class ScraperCronJob {
                                 partido.getJornada());
 
                 // 4. Calcular puntos del DT
-                marcador.ifPresent(m -> calcularPuntajeDt(partido, m));
+                // marcador.ifPresent(m -> calcularPuntajeDt(partido, m));
 
                 // 5. Marcar partido como procesado
                 partido.setEstadisticasProcesadas(true);

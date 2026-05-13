@@ -65,7 +65,7 @@ public class JornadaTransicionCronJob {
                                         jornadaService.finalizarJornada(jornada.getId());
 
                                         // 2. Calcular puntajes de todos los planteles
-                                        puntuacionService.calcularPuntajesDeJornada(jornada.getId());
+                                        puntuacionService.calcularPuntajesDeJornada(jornada.getId(), true);
 
                                         log.info("[TRANSICION] Puntajes calculados para J{}.",
                                                         jornada.getNumero());
