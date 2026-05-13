@@ -67,47 +67,47 @@ public class PlantelService {
         @Transactional
         public Optional<PlantelDto> obtenerPlantelActivo(Long usuarioId) {
 
-                // Resolver la jornada activa
-                Jornada jornadaActiva = jornadaRepo
-                                .findByEstado(EstadoJornada.EN_JUEGO)
-                                .or(() -> jornadaRepo.findFirstByEstadoOrderByFechaInicioAsc(
-                                                EstadoJornada.ABIERTA_A_CAMBIOS))
-                                .orElse(null);
-
-                if (jornadaActiva == null)
-                        return Optional.empty();
-
-                // Buscar plantel existente para la jornada activa
-                Optional<PlantelJornada> plantelExistente = plantelRepo
-                                .findByUsuario_IdAndJornada_Id(usuarioId, jornadaActiva.getId());
-
-                if (plantelExistente.isPresent()) {
-                        return plantelExistente.map(p -> toDto(p, obtenerPresupuesto(usuarioId)));
+                // 1. Buscamos primero en la jornada EN_JUEGO
+                Jornada jornadaEnJuego = jornadaRepo.findByEstado(EstadoJornada.EN_JUEGO).orElse(null);
+                if (jornadaEnJuego != null) {
+                        Optional<PlantelJornada> plantelEnJuego = plantelRepo.findByUsuario_IdAndJornada_Id(usuarioId,
+                                        jornadaEnJuego.getId());
+                        if (plantelEnJuego.isPresent()) {
+                                return plantelEnJuego.map(p -> toDto(p, obtenerPresupuesto(usuarioId)));
+                        }
                 }
 
-                // No hay plantel para esta jornada — intentar clonar del anterior
-                Jornada jornadaAnterior = jornadaRepo
-                                .findFirstByEstadoOrderByNumeroDesc(EstadoJornada.FINALIZADA)
-                                .orElse(null);
+                // 2. Si no tiene en juego (ej: usuario nuevo), buscamos en la próxima
+                // ABIERTA_A_CAMBIOS
+                Jornada jornadaAbierta = jornadaRepo
+                                .findFirstByEstadoOrderByFechaInicioAsc(EstadoJornada.ABIERTA_A_CAMBIOS).orElse(null);
+                if (jornadaAbierta != null) {
+                        Optional<PlantelJornada> plantelAbierto = plantelRepo.findByUsuario_IdAndJornada_Id(usuarioId,
+                                        jornadaAbierta.getId());
+                        if (plantelAbierto.isPresent()) {
+                                return plantelAbierto.map(p -> toDto(p, obtenerPresupuesto(usuarioId)));
+                        }
 
-                if (jornadaAnterior == null)
-                        return Optional.empty();
+                        // 3. Si tampoco tiene para la abierta, intentamos clonarle el de la última
+                        // FINALIZADA
+                        Jornada jornadaAnterior = jornadaRepo
+                                        .findFirstByEstadoOrderByNumeroDesc(EstadoJornada.FINALIZADA).orElse(null);
+                        if (jornadaAnterior != null) {
+                                boolean tieneAnterior = plantelRepo.existsByUsuario_IdAndJornada_Id(usuarioId,
+                                                jornadaAnterior.getId());
+                                if (tieneAnterior) {
+                                        Usuario usuario = usuarioRepo.findById(usuarioId)
+                                                        .orElseThrow(() -> new IllegalStateException(
+                                                                        "Usuario no encontrado: " + usuarioId));
+                                        PlantelJornada clonado = clonarPlantelAnterior(usuario, jornadaAnterior,
+                                                        jornadaAbierta);
+                                        return Optional.of(toDto(clonado, obtenerPresupuesto(usuarioId)));
+                                }
+                        }
+                }
 
-                boolean tieneAnterior = plantelRepo.existsByUsuario_IdAndJornada_Id(
-                                usuarioId, jornadaAnterior.getId());
-
-                if (!tieneAnterior)
-                        return Optional.empty();
-
-                // Clonar
-                Usuario usuario = usuarioRepo.findById(usuarioId)
-                                .orElseThrow(() -> new IllegalStateException(
-                                                "Usuario no encontrado: " + usuarioId));
-
-                PlantelJornada clonado = clonarPlantelAnterior(
-                                usuario, jornadaAnterior, jornadaActiva);
-
-                return Optional.of(toDto(clonado, obtenerPresupuesto(usuarioId)));
+                // Si llega acá, es un usuario nuevo que todavía no completó el onboarding
+                return Optional.empty();
         }
 
         @Transactional(readOnly = true)
