@@ -16,16 +16,17 @@ public interface JugadorRealRepository extends JpaRepository<JugadorReal, Long> 
 
         // ── Filtros del Mercado (Paso 2) ────────────────────────────────────────
 
-        // Todos los jugadores de una posición, ordenados por precio descendente
-        List<JugadorReal> findByPosicionOrderByValorMercadoActualDesc(
-                        PosicionJugador posicion);
+        // Todos los jugadores de una posición (CON SU EQUIPO INCLUIDO)
+        @Query("SELECT j FROM JugadorReal j JOIN FETCH j.equipoReal WHERE j.posicion = :posicion ORDER BY j.valorMercadoActual DESC")
+        List<JugadorReal> findByPosicionOrderByValorMercadoActualDesc(@Param("posicion") PosicionJugador posicion);
 
-        // Trae todos los jugadores EXCEPTO los de la posición indicada
-        List<JugadorReal> findByPosicionNot(PosicionJugador posicion);
+        // Trae todos los jugadores EXCEPTO los de la posición (CON SU EQUIPO INCLUIDO)
+        @Query("SELECT j FROM JugadorReal j JOIN FETCH j.equipoReal WHERE j.posicion != :posicion")
+        List<JugadorReal> findByPosicionNot(@Param("posicion") PosicionJugador posicion);
 
-        // NUEVO: Búsqueda inteligente por nombre de jugador, equipo o sigla (excluyendo
-        // una posición)
-        @Query("SELECT j FROM JugadorReal j WHERE " +
+        // Búsqueda inteligente por nombre de jugador, equipo o sigla (excluyendo una
+        // posición)
+        @Query("SELECT j FROM JugadorReal j JOIN FETCH j.equipoReal WHERE " +
                         "(LOWER(j.nombreCompleto) LIKE LOWER(CONCAT('%', :termino, '%')) " +
                         "OR LOWER(j.equipoReal.nombre) LIKE LOWER(CONCAT('%', :termino, '%')) " +
                         "OR LOWER(j.equipoReal.sigla) LIKE LOWER(CONCAT('%', :termino, '%'))) " +
@@ -34,8 +35,8 @@ public interface JugadorRealRepository extends JpaRepository<JugadorReal, Long> 
                         @Param("termino") String termino,
                         @Param("posicionExcluida") PosicionJugador posicionExcluida);
 
-        // Agregá esta nueva query justo abajo de la otra que hicimos antes:
-        @Query("SELECT j FROM JugadorReal j WHERE " +
+        // Búsqueda inteligente por nombre de jugador, equipo o sigla (CON posición)
+        @Query("SELECT j FROM JugadorReal j JOIN FETCH j.equipoReal WHERE " +
                         "(LOWER(j.nombreCompleto) LIKE LOWER(CONCAT('%', :termino, '%')) " +
                         "OR LOWER(j.equipoReal.nombre) LIKE LOWER(CONCAT('%', :termino, '%')) " +
                         "OR LOWER(j.equipoReal.sigla) LIKE LOWER(CONCAT('%', :termino, '%'))) " +
