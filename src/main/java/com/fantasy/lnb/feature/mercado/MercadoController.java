@@ -56,4 +56,14 @@ public class MercadoController {
             @PathVariable Long id) {
         return ResponseEntity.ok(mercadoService.obtenerStatsResumen(id));
     }
+
+    /**
+     * ENDPOINT TEMPORAL PARA SINCRONIZAR PROMEDIOS
+     * Borrar o comentar después de usar.
+     */
+    @GetMapping("/forzar-actualizacion")
+    public ResponseEntity<String> forzarActualizacion() {
+        mercadoService.actualizarPreciosTodos();
+        return ResponseEntity.ok("¡Todos los promedios y precios fueron recalculados y guardados en la base de datos!");
+    }
 }
