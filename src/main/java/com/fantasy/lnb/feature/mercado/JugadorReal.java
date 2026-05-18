@@ -68,6 +68,9 @@ public class JugadorReal {
     @Column
     private java.time.LocalDate fechaNacimiento;
 
+    @Column(name = "promedio_fantasy")
+    private Double promedioFantasy = 0.0;
+
     @PrePersist
     protected void onCreate() {
         this.creadoEn = LocalDateTime.now();

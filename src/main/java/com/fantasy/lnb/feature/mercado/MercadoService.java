@@ -106,6 +106,7 @@ public class MercadoService {
             }
 
             double promedio = calcularPromedio(ultimos3);
+            jugador.setPromedioFantasy(promedio);
             double valorBase = jugador.getValorBase();
             double precioActual = jugador.getValorMercadoActual();
 
@@ -180,7 +181,7 @@ public class MercadoService {
                 .posicion(j.getPosicion())
                 .estado(j.getEstado())
                 .valorMercadoActual(j.getValorMercadoActual())
-                .promedioPuntosUltimas3(calcularPromedioUltimas3(j.getId()))
+                .promedioPuntosUltimas3(j.getPromedioFantasy() != null ? j.getPromedioFantasy() : 0.0)
                 .build();
     }
 }
