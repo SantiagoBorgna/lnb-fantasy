@@ -4,6 +4,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.data.domain.Sort;
 
 import java.util.List;
 import java.util.Optional;
@@ -17,12 +18,12 @@ public interface JugadorRealRepository extends JpaRepository<JugadorReal, Long> 
         // ── Filtros del Mercado (Paso 2) ────────────────────────────────────────
 
         // Todos los jugadores de una posición (CON SU EQUIPO INCLUIDO)
-        @Query("SELECT j FROM JugadorReal j JOIN FETCH j.equipoReal WHERE j.posicion = :posicion ORDER BY j.valorMercadoActual DESC")
-        List<JugadorReal> findByPosicionOrderByValorMercadoActualDesc(@Param("posicion") PosicionJugador posicion);
+        @Query("SELECT j FROM JugadorReal j JOIN FETCH j.equipoReal WHERE j.posicion = :posicion")
+        List<JugadorReal> findByPosicion(@Param("posicion") PosicionJugador posicion, Sort sort);
 
         // Trae todos los jugadores EXCEPTO los de la posición (CON SU EQUIPO INCLUIDO)
         @Query("SELECT j FROM JugadorReal j JOIN FETCH j.equipoReal WHERE j.posicion != :posicion")
-        List<JugadorReal> findByPosicionNot(@Param("posicion") PosicionJugador posicion);
+        List<JugadorReal> findByPosicionNot(@Param("posicion") PosicionJugador posicion, Sort sort);
 
         // Búsqueda inteligente por nombre de jugador, equipo o sigla (excluyendo una
         // posición)
@@ -33,7 +34,8 @@ public interface JugadorRealRepository extends JpaRepository<JugadorReal, Long> 
                         "AND j.posicion != :posicionExcluida")
         List<JugadorReal> buscarPorJugadorOEquipo(
                         @Param("termino") String termino,
-                        @Param("posicionExcluida") PosicionJugador posicionExcluida);
+                        @Param("posicionExcluida") PosicionJugador posicionExcluida,
+                        Sort sort);
 
         // Búsqueda inteligente por nombre de jugador, equipo o sigla (CON posición)
         @Query("SELECT j FROM JugadorReal j JOIN FETCH j.equipoReal WHERE " +
@@ -43,7 +45,8 @@ public interface JugadorRealRepository extends JpaRepository<JugadorReal, Long> 
                         "AND j.posicion = :posicionBuscada")
         List<JugadorReal> buscarPorJugadorOEquipoYPosicion(
                         @Param("termino") String termino,
-                        @Param("posicionBuscada") PosicionJugador posicionBuscada);
+                        @Param("posicionBuscada") PosicionJugador posicionBuscada,
+                        Sort sort);
 
         // Jugadores disponibles de un equipo real (para scouting)
         List<JugadorReal> findByEquipoReal_IdAndEstado(Long equipoId, EstadoJugador estado);

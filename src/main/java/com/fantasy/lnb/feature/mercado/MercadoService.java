@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.Sort;
 
 import java.util.List;
 import java.util.Optional;
@@ -23,36 +24,38 @@ public class MercadoService {
     // ── Consultas del Mercado ───────────────────────────────────────────────
 
     @Transactional(readOnly = true)
-    public List<JugadorMercadoDto> listarTodos() {
-        // En vez de findAll(), traemos todos los que NO sean DESCONOCIDO
-        return jugadorRepo.findByPosicionNot(PosicionJugador.DESCONOCIDO).stream()
+    public List<JugadorMercadoDto> listarTodos(String orden) {
+        Sort sort = crearSort(orden);
+        // Traemos todos los que NO sean DESCONOCIDO, aplicando el orden dinámico
+        return jugadorRepo.findByPosicionNot(PosicionJugador.DESCONOCIDO, sort).stream()
                 .map(this::toDto)
                 .toList();
     }
 
     @Transactional(readOnly = true)
-    public List<JugadorMercadoDto> listarPorPosicion(PosicionJugador posicion) {
-        // Este queda igual porque ya filtra por una posición específica (ej: BASE)
+    public List<JugadorMercadoDto> listarPorPosicion(PosicionJugador posicion, String orden) {
+        Sort sort = crearSort(orden);
         return jugadorRepo
-                .findByPosicionOrderByValorMercadoActualDesc(posicion)
+                .findByPosicion(posicion, sort)
                 .stream()
                 .map(this::toDto)
                 .toList();
     }
 
     @Transactional(readOnly = true)
-    public List<JugadorMercadoDto> buscarPorNombre(String nombre, PosicionJugador posicion) {
+    public List<JugadorMercadoDto> buscarPorNombre(String nombre, PosicionJugador posicion, String orden) {
+        Sort sort = crearSort(orden);
         if (posicion == null) {
             // Búsqueda general sin filtro de posición ("Todos")
             return jugadorRepo
-                    .buscarPorJugadorOEquipo(nombre, PosicionJugador.DESCONOCIDO)
+                    .buscarPorJugadorOEquipo(nombre, PosicionJugador.DESCONOCIDO, sort)
                     .stream()
                     .map(this::toDto)
                     .toList();
         } else {
             // Búsqueda inteligente + Filtro de posición estricto ("Bases", "Aleros", etc.)
             return jugadorRepo
-                    .buscarPorJugadorOEquipoYPosicion(nombre, posicion)
+                    .buscarPorJugadorOEquipoYPosicion(nombre, posicion, sort)
                     .stream()
                     .map(this::toDto)
                     .toList();
@@ -67,8 +70,6 @@ public class MercadoService {
 
     @Transactional(readOnly = true)
     public JugadorStatsResumenDto obtenerStatsResumen(Long jugadorId) {
-        List<Double> ultimos = jugadorRepo.findUltimosPuntajes(jugadorId, 10);
-
         // Query directa para promedios por categoría
         return estadisticaRepo
                 .findPromediosByJugadorId(jugadorId)
@@ -80,17 +81,6 @@ public class MercadoService {
 
     // ── Algoritmo de variación dinámica de precios ─────────────────────────
 
-    /**
-     * Se llama desde el CronJob de actualización de precios,
-     * DESPUÉS de que el scraper ya persistió las estadísticas de la jornada.
-     *
-     * Lógica del PRD:
-     * 1. Calcula el promedio de puntos Fantasy de las últimas 3 jornadas.
-     * 2. Lo compara contra el valorBase del jugador (nunca cambia).
-     * 3. Ajusta el valorMercadoActual proporcionalmente.
-     * 4. Aplica un techo (+30%) y un piso (-30%) para evitar valores absurdos.
-     * 5. Nunca baja de 1.0 crédito (precio mínimo absoluto).
-     */
     public void actualizarPreciosTodos() {
         List<JugadorReal> jugadores = jugadorRepo.findAll();
         int actualizados = 0;
@@ -98,7 +88,6 @@ public class MercadoService {
         for (JugadorReal jugador : jugadores) {
             List<Double> ultimos3 = jugadorRepo.findUltimosPuntajes(jugador.getId(), 3);
 
-            // Sin historial suficiente: el precio no cambia esta jornada
             if (ultimos3.isEmpty()) {
                 log.debug("[PRECIOS] {} sin historial, precio sin cambios.",
                         jugador.getNombreCompleto());
@@ -106,30 +95,21 @@ public class MercadoService {
             }
 
             double promedio = calcularPromedio(ultimos3);
-            jugador.setPromedioFantasy(promedio);
+            jugador.setPromedioFantasy(promedio); // Guardamos el promedio en la BD
+
             double valorBase = jugador.getValorBase();
             double precioActual = jugador.getValorMercadoActual();
 
-            // Factor de rendimiento: cuánto rindió vs lo esperado
-            // Ejemplo: promedio=18, valorBase=10 → factor=1.8 (rindió 80% más)
             double factorRendimiento = (valorBase > 0) ? promedio / valorBase : 1.0;
-
-            // Ajuste proporcional suavizado (factor - 1 da el delta, * 0.1 lo suaviza)
-            // Ejemplo: factorRendimiento=1.8 → delta=+0.08 → sube 8% del precio actual
             double delta = (factorRendimiento - 1.0) * 0.1;
             double nuevoPrecio = precioActual * (1.0 + delta);
 
-            // Techo: no puede subir más del 30% del precio actual en una jornada
             double techo = precioActual * 1.30;
             double piso = precioActual * 0.70;
 
             nuevoPrecio = Math.min(nuevoPrecio, techo);
             nuevoPrecio = Math.max(nuevoPrecio, piso);
-
-            // Precio mínimo absoluto del PRD: 1.0 crédito
             nuevoPrecio = Math.max(nuevoPrecio, 1.0);
-
-            // Redondeo a 2 decimales
             nuevoPrecio = Math.round(nuevoPrecio * 100.0) / 100.0;
 
             jugador.setValorMercadoActual(nuevoPrecio);
@@ -157,15 +137,6 @@ public class MercadoService {
                 .orElse(0.0);
     }
 
-    private double calcularPromedioUltimas3(Long jugadorId) {
-        List<Double> ultimos = jugadorRepo.findUltimosPuntajes(jugadorId, 3);
-        return calcularPromedio(ultimos);
-    }
-
-    /**
-     * Mapper entidad → DTO.
-     * Incluye el promedio de puntos para mostrarlo en el Mercado.
-     */
     private JugadorMercadoDto toDto(JugadorReal j) {
         return JugadorMercadoDto.builder()
                 .id(j.getId())
@@ -183,5 +154,18 @@ public class MercadoService {
                 .valorMercadoActual(j.getValorMercadoActual())
                 .promedioPuntosUltimas3(j.getPromedioFantasy() != null ? j.getPromedioFantasy() : 0.0)
                 .build();
+    }
+
+    private Sort crearSort(String orden) {
+        if (orden == null)
+            return Sort.by(Sort.Direction.DESC, "valorMercadoActual"); // Default
+
+        return switch (orden) {
+            case "precio_asc" -> Sort.by(Sort.Direction.ASC, "valorMercadoActual");
+            case "promedio_desc" -> Sort.by(Sort.Direction.DESC, "promedioFantasy");
+            case "promedio_asc" -> Sort.by(Sort.Direction.ASC, "promedioFantasy");
+            case "nombre_asc" -> Sort.by(Sort.Direction.ASC, "nombreCompleto");
+            default -> Sort.by(Sort.Direction.DESC, "valorMercadoActual"); // precio_desc
+        };
     }
 }
