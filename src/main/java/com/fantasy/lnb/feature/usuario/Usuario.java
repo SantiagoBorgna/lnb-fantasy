@@ -5,6 +5,9 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 import com.fantasy.lnb.feature.equipo.EquipoReal;
+import com.fantasy.lnb.feature.notificaciones.SuscripcionPush;
+import java.util.List;
+import java.util.ArrayList;
 
 @Entity
 @Table(name = "usuario")
@@ -59,6 +62,9 @@ public class Usuario {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private RolUsuario rol;
+
+    @OneToMany(mappedBy = "usuario", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<SuscripcionPush> suscripcionesPush = new ArrayList<>();
 
     @PrePersist
     protected void onCreate() {

@@ -39,7 +39,7 @@ public class JornadaTransicionCronJob {
          * B) ¿Hay alguna jornada EN_JUEGO cuya fechaFin ya pasó?
          * → Transiciona a FINALIZADA (habilita el CronJob de precios)
          */
-        @Scheduled(cron = "0 */20 * * * *")
+        @Scheduled(cron = "0 */5 * * * *")
         @Transactional
         public void evaluarTransiciones() {
                 LocalDateTime ahora = LocalDateTime.now();
