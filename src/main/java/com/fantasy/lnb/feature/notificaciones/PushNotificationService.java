@@ -22,7 +22,8 @@ import java.util.Map;
 public class PushNotificationService {
 
     private final SuscripcionPushRepository suscripcionRepo;
-    private final ObjectMapper objectMapper; // Para convertir mapas a JSON string
+    // Inicialización explícita para evitar que Spring Boot intente autowirearlo
+    private final ObjectMapper objectMapper = new ObjectMapper();
     private PushService pushService;
 
     @Value("${app.webpush.public-key}")
