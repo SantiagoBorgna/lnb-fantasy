@@ -8,6 +8,7 @@ import com.fantasy.lnb.feature.jornada.Partido;
 import com.fantasy.lnb.feature.jornada.PartidoRepository;
 import com.fantasy.lnb.feature.plantel.PlantelClonadoService;
 import com.fantasy.lnb.feature.plantel.PuntuacionService;
+import com.fantasy.lnb.feature.notificaciones.PushNotificationService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,6 +29,7 @@ public class JornadaTransicionCronJob {
         private final PuntuacionService puntuacionService;
         private final PlantelClonadoService plantelClonadoService;
         private final PartidoRepository partidoRepo;
+        private final PushNotificationService pushNotificationService;
 
         /**
          * Corre cada 5 minutos.
@@ -68,6 +70,12 @@ public class JornadaTransicionCronJob {
                                         log.info("[TRANSICION] Puntajes definitivos calculados para J{}.",
                                                         jornada.getNumero());
 
+                                        // Notificación de final de jornada
+                                        pushNotificationService.enviarNotificacionMasiva(
+                                                "Jornada finalizada 🏀", 
+                                                "La jornada terminó, vení a ver cómo sumó tu equipo."
+                                        );
+
                                         // 3. Clona los equipos de la jornada que acaba de terminar hacia la próxima.
                                         int clonados = plantelClonadoService.clonarDesdeJornadaFinalizada(jornada);
                                         if (clonados > 0) {
@@ -89,6 +97,21 @@ public class JornadaTransicionCronJob {
                                                         p.getEquipoLocal().getSigla(),
                                                         p.getEquipoVisitante().getSigla(),
                                                         p.getFechaHora());
+                                });
+
+                // ── D: RECORDATORIO 5 HORAS ANTES ──────────────────────────────────────────
+                LocalDateTime en5Horas = ahora.plusHours(5);
+                jornadaRepo.findFirstByEstadoAndFechaInicioLessThanEqualAndNotificacionPreviaEnviadaFalse(
+                                EstadoJornada.ABIERTA_A_CAMBIOS, en5Horas)
+                                .ifPresent(jornada -> {
+                                        log.info("[TRANSICION] Enviando notificación de 5 horas para jornada {}", jornada.getNumero());
+                                        String horaStr = String.format("%02d:%02d", jornada.getFechaInicio().getHour(), jornada.getFechaInicio().getMinute());
+                                        pushNotificationService.enviarNotificacionMasiva(
+                                                "¡Prepará tu equipo! ⏱️",
+                                                "Hoy a las " + horaStr + " horas empieza una nueva jornada, no olvides alistar tu equipo"
+                                        );
+                                        jornada.setNotificacionPreviaEnviada(true);
+                                        jornadaRepo.save(jornada);
                                 });
         }
 }

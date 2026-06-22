@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 import jakarta.annotation.PostConstruct;
 import java.security.Security;
 import java.util.Map;
+import java.util.List;
 
 @Slf4j
 @Service
@@ -104,6 +105,21 @@ public class PushNotificationService {
         } catch (Exception e) {
             log.error("[PUSH] Falló el envío al endpoint del usuario {}: {}",
                     suscripcion.getUsuario().getEmail(), e.getMessage());
+        }
+    }
+
+    /**
+     * Envía una notificación push a todos los usuarios suscritos.
+     */
+    public void enviarNotificacionMasiva(String titulo, String mensaje) {
+        List<SuscripcionPush> suscripciones = suscripcionRepo.findAll();
+        log.info("[PUSH] Enviando notificación masiva a {} dispositivos", suscripciones.size());
+        
+        for (SuscripcionPush sub : suscripciones) {
+            // Enviar de forma asincrónica usando un hilo o directamente (lo ideal sería usar @Async)
+            // Para simplicidad en este CronJob lo mandamos síncrono o se podría mandar en un Executor
+            // Pero como son notificaciones, vamos a mandarlas iterando.
+            enviarNotificacion(sub, titulo, mensaje);
         }
     }
 }

@@ -26,6 +26,10 @@ public interface JornadaRepository extends JpaRepository<Jornada, Long> {
         // La próxima jornada abierta para mostrar el countdown
         Optional<Jornada> findFirstByEstadoOrderByFechaInicioAsc(EstadoJornada estado);
 
+    Optional<Jornada> findFirstByEstadoAndFechaInicioLessThanEqual(EstadoJornada estado, LocalDateTime fecha);
+
+    Optional<Jornada> findFirstByEstadoAndFechaInicioLessThanEqualAndNotificacionPreviaEnviadaFalse(EstadoJornada estado, LocalDateTime fecha);
+
         // Jornada más reciente finalizada (para mostrar resultados)
         Optional<Jornada> findFirstByEstadoOrderByFechaFinDesc(EstadoJornada estado);
 

@@ -38,6 +38,9 @@ public class Jornada {
     @Column(nullable = false)
     private LocalDateTime actualizadoEn;
 
+    @Column(nullable = false, columnDefinition = "boolean default false")
+    private boolean notificacionPreviaEnviada = false;
+
     @PrePersist
     protected void onCreate() {
         this.creadoEn = LocalDateTime.now();
