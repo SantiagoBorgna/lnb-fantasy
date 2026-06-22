@@ -135,4 +135,33 @@ public class PlantelController {
                 return ResponseEntity.ok(
                                 plantelService.obtenerEstadisticasJornada(usuarioId, jornadaId));
         }
+
+        /**
+         * GET /api/plantel/equipo/{equipoId}/jornada/{jornadaId}
+         * Devuelve el plantel de otro jugador para una jornada específica.
+         * Seguro: Solo si la jornada está EN_JUEGO o FINALIZADA.
+         */
+        @GetMapping("/equipo/{equipoId}/jornada/{jornadaId}")
+        public ResponseEntity<PlantelDto> obtenerPlantelAjeno(
+                        @PathVariable Long equipoId,
+                        @PathVariable Long jornadaId) {
+
+                return plantelService.obtenerPlantelAjeno(equipoId, jornadaId)
+                                .map(ResponseEntity::ok)
+                                .orElse(ResponseEntity.noContent().build());
+        }
+
+        /**
+         * GET /api/plantel/equipo/{equipoId}/estadisticas/{jornadaId}
+         * Devuelve las estadísticas de otro jugador para una jornada específica.
+         * Seguro: Solo si la jornada está EN_JUEGO o FINALIZADA.
+         */
+        @GetMapping("/equipo/{equipoId}/estadisticas/{jornadaId}")
+        public ResponseEntity<List<JugadorEstadisticaDto>> obtenerEstadisticasAjenas(
+                        @PathVariable Long equipoId,
+                        @PathVariable Long jornadaId) {
+
+                return ResponseEntity.ok(
+                                plantelService.obtenerEstadisticasAjenas(equipoId, jornadaId));
+        }
 }

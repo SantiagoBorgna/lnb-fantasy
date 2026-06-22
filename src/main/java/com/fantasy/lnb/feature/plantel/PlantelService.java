@@ -161,6 +161,59 @@ public class PlantelService {
                                 .map(p -> toDto(p, obtenerPresupuesto(usuarioId)));
         }
 
+        /**
+         * Devuelve el plantel de otro jugador para una jornada específica.
+         * Requiere que la jornada esté EN_JUEGO o FINALIZADA por seguridad.
+         */
+        @Transactional(readOnly = true)
+        public Optional<PlantelDto> obtenerPlantelAjeno(Long equipoVirtualId, Long jornadaId) {
+                Jornada jornada = jornadaRepo.findById(jornadaId)
+                                .orElseThrow(() -> new IllegalArgumentException("Jornada no encontrada"));
+                
+                if (jornada.getEstado() == EstadoJornada.ABIERTA_A_CAMBIOS) {
+                        throw new IllegalStateException("No podés ver el equipo de otro jugador mientras la jornada está abierta a cambios.");
+                }
+
+                if (jornada.getEstado() == EstadoJornada.FINALIZADA) {
+                        Jornada ultimaFinalizada = jornadaRepo.findFirstByEstadoOrderByNumeroDesc(EstadoJornada.FINALIZADA).orElse(null);
+                        if (ultimaFinalizada != null && !jornada.getId().equals(ultimaFinalizada.getId())) {
+                                throw new IllegalStateException("Solo podés ver el equipo de la última jornada finalizada o la jornada en juego.");
+                        }
+                }
+
+                EquipoVirtual equipo = equipoVirtualRepo.findById(equipoVirtualId)
+                                .orElseThrow(() -> new IllegalArgumentException("Equipo virtual no encontrado"));
+                
+                return plantelRepo.findByUsuario_IdAndJornada_Id(equipo.getUsuario().getId(), jornadaId)
+                                .map(p -> toDto(p, equipo.getPresupuestoActual()));
+        }
+
+        /**
+         * Devuelve las estadísticas de otro jugador para una jornada específica.
+         * Requiere que la jornada esté EN_JUEGO o FINALIZADA por seguridad.
+         */
+        @Transactional(readOnly = true)
+        public List<JugadorEstadisticaDto> obtenerEstadisticasAjenas(Long equipoVirtualId, Long jornadaId) {
+                Jornada jornada = jornadaRepo.findById(jornadaId)
+                                .orElseThrow(() -> new IllegalArgumentException("Jornada no encontrada"));
+                
+                if (jornada.getEstado() == EstadoJornada.ABIERTA_A_CAMBIOS) {
+                        throw new IllegalStateException("No podés ver las estadísticas de otro jugador mientras la jornada está abierta a cambios.");
+                }
+
+                if (jornada.getEstado() == EstadoJornada.FINALIZADA) {
+                        Jornada ultimaFinalizada = jornadaRepo.findFirstByEstadoOrderByNumeroDesc(EstadoJornada.FINALIZADA).orElse(null);
+                        if (ultimaFinalizada != null && !jornada.getId().equals(ultimaFinalizada.getId())) {
+                                throw new IllegalStateException("Solo podés ver las estadísticas de la última jornada finalizada o la jornada en juego.");
+                        }
+                }
+
+                EquipoVirtual equipo = equipoVirtualRepo.findById(equipoVirtualId)
+                                .orElseThrow(() -> new IllegalArgumentException("Equipo virtual no encontrado"));
+
+                return obtenerEstadisticasJornada(equipo.getUsuario().getId(), jornadaId);
+        }
+
         // ── Armado del plantel ──────────────────────────────────────────────────
 
         /**
