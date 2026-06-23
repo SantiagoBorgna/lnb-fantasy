@@ -248,6 +248,7 @@ public class PlantelService {
 
                 List<JugadorReal> jugadoresReales = cargarJugadores(request.getJugadores());
                 validarRolesUnicos(request.getJugadores());
+                validarLimiteJugadoresPorEquipo(jugadoresReales);
                 validarComposicionBanco(request.getJugadores(), jugadoresReales);
 
                 DirectorTecnico dt = dtRepo.findById(request.getDtId())
@@ -347,6 +348,23 @@ public class PlantelService {
                 if (sextosHombre != 1) {
                         throw new IllegalArgumentException(
                                         "El plantel debe tener exactamente 1 Sexto Hombre.");
+                }
+        }
+
+        private void validarLimiteJugadoresPorEquipo(List<JugadorReal> jugadores) {
+                java.util.Map<Long, Long> conteoPorEquipo = jugadores.stream()
+                                .collect(java.util.stream.Collectors.groupingBy(j -> j.getEquipoReal().getId(), java.util.stream.Collectors.counting()));
+
+                for (java.util.Map.Entry<Long, Long> entry : conteoPorEquipo.entrySet()) {
+                        if (entry.getValue() > 2) {
+                                String nombreEquipo = jugadores.stream()
+                                                .filter(j -> j.getEquipoReal().getId().equals(entry.getKey()))
+                                                .findFirst()
+                                                .map(j -> j.getEquipoReal().getNombre())
+                                                .orElse("Desconocido");
+                                throw new IllegalArgumentException(
+                                                "No podés tener más de 2 jugadores del mismo equipo (" + nombreEquipo + ").");
+                        }
                 }
         }
 
@@ -536,6 +554,10 @@ public class PlantelService {
                 if (!FormacionValidator.esValida(plantel.getFormacion(), posicionesTitulares)) {
                         throw new FormacionInvalidaException(plantel.getFormacion());
                 }
+
+                validarLimiteJugadoresPorEquipo(plantel.getJugadores().stream()
+                                .map(JugadorPlantel::getJugadorReal)
+                                .toList());
 
                 // Si pasó la validación, persistimos en la base de datos
                 jugadorPlantelRepo.save(slotSaliente);
