@@ -3,6 +3,8 @@ package com.fantasy.lnb.feature.auth;
 import com.fantasy.lnb.feature.auth.jwt.JwtService;
 import com.fantasy.lnb.feature.equipo.EquipoReal;
 import com.fantasy.lnb.feature.equipo.EquipoRealRepository;
+import com.fantasy.lnb.feature.usuario.EquipoVirtual;
+import com.fantasy.lnb.feature.usuario.EquipoVirtualRepository;
 import com.fantasy.lnb.feature.usuario.Usuario;
 import com.fantasy.lnb.feature.usuario.UsuarioRepository;
 import lombok.RequiredArgsConstructor;
@@ -20,15 +22,23 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.Map;
 import java.util.Optional;
 
+import com.fantasy.lnb.feature.usuario.UsuarioService;
+import com.fantasy.lnb.feature.usuario.dto.ActualizarPerfilRequest;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import jakarta.validation.Valid;
+
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
 public class AuthController {
 
         private final UsuarioRepository usuarioRepository;
+        private final EquipoVirtualRepository equipoVirtualRepo;
         private final EquipoRealRepository equipoRealRepo;
         private final LogoutService logoutService;
         private final JwtService jwtService;
+        private final UsuarioService usuarioService;
 
         @GetMapping("/me")
         public ResponseEntity<?> me(@AuthenticationPrincipal UserDetails userDetails) {
@@ -66,6 +76,11 @@ public class AuthController {
                 } else {
                         respuesta.put("equipoFavorito", null);
                 }
+
+                // Agregar nombre del equipo virtual si existe
+                equipoVirtualRepo.findByUsuario_Id(usuario.getId()).ifPresent(ev -> {
+                        respuesta.put("nombreEquipoVirtual", ev.getNombre());
+                });
 
                 return ResponseEntity.ok(respuesta);
         }
@@ -117,5 +132,21 @@ public class AuthController {
                 }
 
                 return ResponseEntity.ok(Map.of("mensaje", "Sesión cerrada correctamente."));
+        }
+
+        @PutMapping("/perfil")
+        public ResponseEntity<?> actualizarPerfil(
+                        @AuthenticationPrincipal UserDetails userDetails,
+                        @Valid @RequestBody ActualizarPerfilRequest request) {
+                if (userDetails == null) {
+                        return ResponseEntity.status(401).build();
+                }
+
+                Optional<Usuario> userOpt = usuarioRepository.findByEmail(userDetails.getUsername());
+                if (userOpt.isEmpty()) {
+                        return ResponseEntity.status(401).build();
+                }
+
+                return ResponseEntity.ok(usuarioService.actualizarPerfil(userOpt.get().getId(), request));
         }
 }
