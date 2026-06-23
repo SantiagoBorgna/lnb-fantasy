@@ -23,9 +23,15 @@ public class CorsConfig {
         config.setAllowedOrigins(List.of(frontendUrl, "http://localhost:5173"));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
 
-        // Ponemos "*" para evitar que cualquier header raro de ngrok o Vercel te
-        // bloquee
-        config.setAllowedHeaders(List.of("*"));
+        // Restringimos los encabezados permitidos por seguridad
+        config.setAllowedHeaders(List.of(
+            "Authorization", 
+            "Content-Type", 
+            "Accept", 
+            "X-Requested-With", 
+            "Origin",
+            "ngrok-skip-browser-warning"
+        ));
         config.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

@@ -35,8 +35,11 @@ public class RateLimitFilter extends OncePerRequestFilter {
     @Value("${rate-limit.publico.requests-por-minuto:60}")
     private int limitePublico;
 
-    @Value("${rate-limit.auth.requests-por-minuto:10}")
+    @Value("${rate-limit.auth.requests-por-minuto:15}")
     private int limiteAuth;
+
+    @Value("${rate-limit.privado.requests-por-minuto:200}")
+    private int limitePrivado;
 
     @Override
     protected void doFilterInternal(
@@ -47,14 +50,26 @@ public class RateLimitFilter extends OncePerRequestFilter {
         String ip = extraerIp(request);
         String path = request.getRequestURI();
 
-        // Solo aplicar rate limiting a rutas específicas
-        if (!debeAplicarLimite(path)) {
+        // Todos los endpoints de la API pasan por el rate limiter
+        if (!path.startsWith("/api") && !path.startsWith("/login") && !path.startsWith("/oauth2")) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        int limite = esRutaAuth(path) ? limiteAuth : limitePublico;
-        String clave = ip + ":" + (esRutaAuth(path) ? "auth" : "pub");
+        int limite;
+        String tipoClave;
+        if (esRutaAuth(path)) {
+            limite = limiteAuth;
+            tipoClave = "auth";
+        } else if (esRutaPublica(path)) {
+            limite = limitePublico;
+            tipoClave = "pub";
+        } else {
+            limite = limitePrivado;
+            tipoClave = "priv";
+        }
+
+        String clave = ip + ":" + tipoClave;
 
         Bucket bucket = bucketsPorIp.computeIfAbsent(clave, k -> crearBucket(limite));
 
@@ -116,19 +131,14 @@ public class RateLimitFilter extends OncePerRequestFilter {
     }
 
     /**
-     * Solo aplicar rate limiting a rutas públicas y de auth.
-     * Las rutas autenticadas ya están protegidas por JWT.
+     * Define si una ruta es considerada "pública" (lectura masiva)
      */
-    private boolean debeAplicarLimite(String path) {
-        return path.startsWith("/api/mercado")
+    private boolean esRutaPublica(String path) {
+        return path.startsWith("/api/mercado/jugadores")
                 || path.startsWith("/api/lideres")
-                || path.startsWith("/api/ranking")
-                || path.startsWith("/api/torneos")
                 || path.startsWith("/api/jornadas")
-                || path.startsWith("/api/dt")
-                || path.startsWith("/login")
-                || path.startsWith("/oauth2")
-                || path.startsWith("/api/auth");
+                || path.startsWith("/api/ranking")
+                || path.startsWith("/api/torneos");
     }
 
     private boolean esRutaAuth(String path) {

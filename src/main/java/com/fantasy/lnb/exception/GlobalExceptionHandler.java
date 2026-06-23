@@ -38,7 +38,7 @@ public class GlobalExceptionHandler {
 
         /**
          * Handler genérico de último recurso.
-         * FIX: Ahora expone el mensaje real para que React lo pueda leer.
+         * FIX: Ocultamos el mensaje real al cliente para evitar fugas de información.
          */
         @ExceptionHandler(Exception.class)
         public ResponseEntity<Map<String, Object>> handleGeneric(Exception ex) {
@@ -48,7 +48,7 @@ public class GlobalExceptionHandler {
                                 "timestamp", LocalDateTime.now().toString(),
                                 "status", 500,
                                 "error", "Error interno del servidor",
-                                "mensaje", ex.getMessage() != null ? ex.getMessage() : "Error interno desconocido"));
+                                "mensaje", "Ocurrió un error inesperado en el servidor. Intente más tarde."));
         }
 
         /**
