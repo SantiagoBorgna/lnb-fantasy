@@ -11,5 +11,12 @@ public class PosicionTorneoDto {
     private String nombreEquipo;
     private String nombreUsuario;
     private Double puntajeGlobal;
+
+    // H2H stats
+    private Integer partidosGanados;
+    private Integer partidosEmpatados;
+    private Integer partidosPerdidos;
+    private Double puntosFavor;
+
     private Long equipoVirtualId;
 }

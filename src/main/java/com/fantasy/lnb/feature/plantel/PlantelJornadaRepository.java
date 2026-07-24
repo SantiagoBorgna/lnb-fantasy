@@ -10,12 +10,25 @@ import java.util.Optional;
 @Repository
 public interface PlantelJornadaRepository extends JpaRepository<PlantelJornada, Long> {
 
-        // Búsqueda principal: el plantel de un usuario en una jornada específica
-        Optional<PlantelJornada> findByUsuario_IdAndJornada_Id(
+        // Búsqueda del plantel Global (sin torneo)
+        Optional<PlantelJornada> findByUsuario_IdAndJornada_IdAndTorneoIsNull(
                         Long usuarioId, Long jornadaId);
 
-        // Verifica si el usuario ya armó su plantel para la jornada activa
-        boolean existsByUsuario_IdAndJornada_Id(Long usuarioId, Long jornadaId);
+        // Verifica si el usuario armó su plantel global
+        boolean existsByUsuario_IdAndJornada_IdAndTorneoIsNull(Long usuarioId, Long jornadaId);
+
+        // Búsqueda del plantel Draft (con torneo)
+        Optional<PlantelJornada> findByUsuario_IdAndJornada_IdAndTorneo_Id(
+                        Long usuarioId, Long jornadaId, Long torneoId);
+
+        // Verifica si el usuario armó su plantel draft
+        boolean existsByUsuario_IdAndJornada_IdAndTorneo_Id(Long usuarioId, Long jornadaId, Long torneoId);
+
+        // Verifica exclusividad del DT en el torneo
+        boolean existsByTorneo_IdAndJornada_IdAndDt_Id(Long torneoId, Long jornadaId, Long dtId);
+
+        // Busca todos los planteles de un torneo en una jornada
+        java.util.List<PlantelJornada> findByTorneo_IdAndJornada_Id(Long torneoId, Long jornadaId);
 
         // Para el motor de puntuación (Paso 4):
         // trae todos los planteles de una jornada para calcular puntajes en batch

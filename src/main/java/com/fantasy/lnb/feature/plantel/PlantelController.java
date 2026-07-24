@@ -46,8 +46,7 @@ public class PlantelController {
 
         /**
          * GET /api/plantel/jornada/{jornadaId}
-         * Devuelve el plantel histórico del usuario para una jornada específica.
-         * Se usa en la Canchita Bimodal para ver fechas pasadas (Modo Lectura).
+         * Devuelve el plantel histórico del usuario para una jornada específica (Contexto Global).
          */
         @GetMapping("/jornada/{jornadaId}")
         public ResponseEntity<PlantelDto> obtenerPlantelHistorico(
@@ -58,6 +57,35 @@ public class PlantelController {
                                 userDetails.getUsername());
 
                 return plantelService.obtenerPlantelHistorico(usuarioId, jornadaId)
+                                .map(ResponseEntity::ok)
+                                .orElse(ResponseEntity.noContent().build());
+        }
+
+        /**
+         * GET /api/plantel/torneo/{torneoId}/usuario/{usuarioId}
+         * Devuelve el plantel activo de cualquier usuario en el contexto de un Torneo (Draft).
+         */
+        @GetMapping("/torneo/{torneoId}/usuario/{usuarioId}")
+        public ResponseEntity<PlantelDto> obtenerPlantelDeTorneo(
+                        @PathVariable Long torneoId,
+                        @PathVariable Long usuarioId) {
+
+                return plantelService.obtenerPlantelTorneo(usuarioId, torneoId)
+                                .map(ResponseEntity::ok)
+                                .orElse(ResponseEntity.noContent().build());
+        }
+
+        /**
+         * GET /api/plantel/torneo/{torneoId}/jornada/{jornadaId}/usuario/{usuarioId}
+         * Devuelve el plantel histórico de cualquier usuario en un Torneo.
+         */
+        @GetMapping("/torneo/{torneoId}/jornada/{jornadaId}/usuario/{usuarioId}")
+        public ResponseEntity<PlantelDto> obtenerPlantelHistoricoDeTorneo(
+                        @PathVariable Long torneoId,
+                        @PathVariable Long jornadaId,
+                        @PathVariable Long usuarioId) {
+
+                return plantelService.obtenerPlantelHistoricoTorneo(usuarioId, jornadaId, torneoId)
                                 .map(ResponseEntity::ok)
                                 .orElse(ResponseEntity.noContent().build());
         }
@@ -109,13 +137,14 @@ public class PlantelController {
         @PostMapping("/dt/{nuevoDtId}")
         public ResponseEntity<TransferenciaResultadoDto> cambiarDt(
                         @AuthenticationPrincipal UserDetails userDetails,
-                        @PathVariable Long nuevoDtId) {
+                        @PathVariable Long nuevoDtId,
+                        @RequestParam(required = false) Long torneoId) {
 
                 Long usuarioId = usuarioResolver.resolverIdDesdeEmail(
                                 userDetails.getUsername());
 
                 return ResponseEntity.ok(
-                                plantelService.cambiarDt(usuarioId, nuevoDtId));
+                                plantelService.cambiarDt(usuarioId, nuevoDtId, torneoId));
         }
 
         /**
@@ -127,13 +156,14 @@ public class PlantelController {
         @GetMapping("/estadisticas/{jornadaId}")
         public ResponseEntity<List<JugadorEstadisticaDto>> estadisticasJornada(
                         @AuthenticationPrincipal UserDetails userDetails,
-                        @PathVariable Long jornadaId) {
+                        @PathVariable Long jornadaId,
+                        @RequestParam(required = false) Long torneoId) {
 
                 Long usuarioId = usuarioResolver.resolverIdDesdeEmail(
                                 userDetails.getUsername());
 
                 return ResponseEntity.ok(
-                                plantelService.obtenerEstadisticasJornada(usuarioId, jornadaId));
+                                plantelService.obtenerEstadisticasJornada(usuarioId, jornadaId, torneoId));
         }
 
         /**
@@ -144,9 +174,10 @@ public class PlantelController {
         @GetMapping("/equipo/{equipoId}/jornada/{jornadaId}")
         public ResponseEntity<PlantelDto> obtenerPlantelAjeno(
                         @PathVariable Long equipoId,
-                        @PathVariable Long jornadaId) {
+                        @PathVariable Long jornadaId,
+                        @RequestParam(required = false) Long torneoId) {
 
-                return plantelService.obtenerPlantelAjeno(equipoId, jornadaId)
+                return plantelService.obtenerPlantelAjeno(equipoId, jornadaId, torneoId)
                                 .map(ResponseEntity::ok)
                                 .orElse(ResponseEntity.noContent().build());
         }
@@ -159,9 +190,37 @@ public class PlantelController {
         @GetMapping("/equipo/{equipoId}/estadisticas/{jornadaId}")
         public ResponseEntity<List<JugadorEstadisticaDto>> obtenerEstadisticasAjenas(
                         @PathVariable Long equipoId,
-                        @PathVariable Long jornadaId) {
+                        @PathVariable Long jornadaId,
+                        @RequestParam(required = false) Long torneoId) {
 
                 return ResponseEntity.ok(
-                                plantelService.obtenerEstadisticasAjenas(equipoId, jornadaId));
+                                plantelService.obtenerEstadisticasAjenas(equipoId, jornadaId, torneoId));
+        }
+
+        /**
+         * GET /api/plantel/equipo/{equipoId}/actual
+         * Devuelve el plantel actual activo de otro jugador.
+         */
+        @GetMapping("/equipo/{equipoId}/actual")
+        public ResponseEntity<PlantelDto> obtenerPlantelAjenoActual(
+                        @PathVariable Long equipoId,
+                        @RequestParam(required = false) Long torneoId) {
+
+                return plantelService.obtenerPlantelAjenoActual(equipoId, torneoId)
+                                .map(ResponseEntity::ok)
+                                .orElse(ResponseEntity.noContent().build());
+        }
+
+        /**
+         * GET /api/plantel/equipo/{equipoId}/actual/estadisticas
+         * Devuelve las estadisticas de la jornada activa de otro jugador.
+         */
+        @GetMapping("/equipo/{equipoId}/actual/estadisticas")
+        public ResponseEntity<List<JugadorEstadisticaDto>> obtenerEstadisticasAjenasActual(
+                        @PathVariable Long equipoId,
+                        @RequestParam(required = false) Long torneoId) {
+
+                return ResponseEntity.ok(
+                                plantelService.obtenerEstadisticasAjenasActual(equipoId, torneoId));
         }
 }

@@ -20,6 +20,7 @@ public class MercadoService {
 
     private final JugadorRealRepository jugadorRepo;
     private final EstadisticaPartidoRepository estadisticaRepo;
+    private final com.fantasy.lnb.feature.plantel.PlantelDraftService plantelDraftService;
 
     // ── Consultas del Mercado ───────────────────────────────────────────────
 
@@ -128,6 +129,24 @@ public class MercadoService {
         log.info("[PRECIOS] Actualización completada. Jugadores actualizados: {}", actualizados);
     }
 
+    public List<JugadorMercadoDto> listarLibresTorneo(Long torneoId, PosicionJugador posicion, String nombre, String orden) {
+        List<JugadorMercadoDto> todos = listarJugadoresFiltrados(posicion, nombre, orden);
+        
+        return todos.stream()
+            .filter(j -> plantelDraftService.jugadorEstaLibreEnTorneo(j.getId(), torneoId))
+            .toList();
+    }
+
+    private List<JugadorMercadoDto> listarJugadoresFiltrados(PosicionJugador posicion, String nombre, String orden) {
+        if (nombre != null && !nombre.isBlank()) {
+            return buscarPorNombre(nombre, posicion, orden);
+        }
+        if (posicion != null) {
+            return listarPorPosicion(posicion, orden);
+        }
+        return listarTodos(orden);
+    }
+
     // ── Helpers privados ────────────────────────────────────────────────────
 
     private double calcularPromedio(List<Double> valores) {
@@ -165,6 +184,7 @@ public class MercadoService {
             case "promedio_desc" -> Sort.by(Sort.Direction.DESC, "promedioFantasy");
             case "promedio_asc" -> Sort.by(Sort.Direction.ASC, "promedioFantasy");
             case "nombre_asc" -> Sort.by(Sort.Direction.ASC, "nombreCompleto");
+            case "nombre_desc" -> Sort.by(Sort.Direction.DESC, "nombreCompleto");
             default -> Sort.by(Sort.Direction.DESC, "valorMercadoActual"); // precio_desc
         };
     }

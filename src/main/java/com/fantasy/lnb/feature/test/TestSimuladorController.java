@@ -38,12 +38,31 @@ public class TestSimuladorController {
     private final EstadisticaPartidoRepository estadisticaRepo;
     private final EquipoRealRepository equipoRepo;
     private final JornadaRepository jornadaRepo;
+    private final DataSeederService dataSeederService;
+    private final org.springframework.context.ApplicationContext context;
 
-    // Si tu motor de puntuación tiene un método para calcular la stat individual,
+    // Si tu motor de puntuacin tiene un mǸtodo para calcular la stat individual,
     // lo inyectamos.
-    // Si la entidad EstadisticaPartido lo calcula sola internamente, podés borrar
+    // Si la entidad EstadisticaPartido lo calcula sola internamente, podǸs borrar
     // esto.
     private final MotorPuntuacionPlantel motorPuntuacion;
+
+    @GetMapping("/seed-environment")
+    public String seedEnvironment() {
+        return dataSeederService.seedEnvironment();
+    }
+
+    @PostMapping("/jornada/{jornadaId}/procesar")
+    public String procesarJornada(@PathVariable Long jornadaId) {
+        try {
+            com.fantasy.lnb.feature.plantel.PuntuacionService ps = context.getBean(com.fantasy.lnb.feature.plantel.PuntuacionService.class);
+            ps.calcularPuntajesDeJornada(jornadaId, true);
+            return "Jornada procesada";
+        } catch (Exception e) {
+            log.error("Error al procesar jornada", e);
+            return "Error: " + e.getMessage() + " | Causa: " + (e.getCause() != null ? e.getCause().getMessage() : "null");
+        }
+    }
 
     @PostMapping("/jornada/{jornadaId}")
     public String simularJornada(@PathVariable Long jornadaId) {

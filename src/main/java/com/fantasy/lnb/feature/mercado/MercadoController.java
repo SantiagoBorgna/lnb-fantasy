@@ -44,6 +44,20 @@ public class MercadoController {
         return ResponseEntity.ok(mercadoService.listarTodos(orden));
     }
 
+    /**
+     * GET /api/mercado/libres/{torneoId}
+     * Devuelve los jugadores que NO pertenecen a ningún equipo de este Torneo Draft.
+     */
+    @GetMapping("/libres/{torneoId}")
+    public ResponseEntity<List<JugadorMercadoDto>> listarLibres(
+            @PathVariable Long torneoId,
+            @RequestParam(required = false) PosicionJugador posicion,
+            @RequestParam(required = false) String nombre,
+            @RequestParam(required = false) String orden) {
+
+        return ResponseEntity.ok(mercadoService.listarLibresTorneo(torneoId, posicion, nombre, orden));
+    }
+
     @GetMapping("/jugadores/{id}")
     public ResponseEntity<JugadorMercadoDto> obtenerJugador(@PathVariable Long id) {
         return mercadoService.buscarPorId(id)

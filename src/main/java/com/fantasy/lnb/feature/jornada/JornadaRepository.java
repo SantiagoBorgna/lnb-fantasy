@@ -4,6 +4,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 import java.time.LocalDateTime;
 import java.util.Optional;
+import java.util.List;
 
 @Repository
 public interface JornadaRepository extends JpaRepository<Jornada, Long> {
@@ -16,6 +17,11 @@ public interface JornadaRepository extends JpaRepository<Jornada, Long> {
         Optional<Jornada> findByEstadoAndFechaInicioLessThanEqual(
                         EstadoJornada estado,
                         LocalDateTime ahora);
+
+        // ── Usado por TorneoH2HService para generar el fixture ───────────────────────
+        List<Jornada> findByEstadoNotOrderByFechaInicioAsc(EstadoJornada estado);
+
+        List<Jornada> findByEstadoOrderByFechaInicioAsc(EstadoJornada estado);
 
         // Encuentra jornadas cuya ventana ya terminó pero siguen EN_JUEGO
         Optional<Jornada> findByEstadoAndFechaFinLessThan(

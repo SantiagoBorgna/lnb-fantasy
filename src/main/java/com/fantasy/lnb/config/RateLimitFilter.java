@@ -32,13 +32,13 @@ public class RateLimitFilter extends OncePerRequestFilter {
     private final Map<String, Bucket> bucketsPorIp = new ConcurrentHashMap<>();
 
     // Límites configurados según el tipo de endpoint
-    @Value("${rate-limit.publico.requests-por-minuto:60}")
+    @Value("${rate-limit.publico.requests-por-minuto:300}")
     private int limitePublico;
 
     @Value("${rate-limit.auth.requests-por-minuto:15}")
     private int limiteAuth;
 
-    @Value("${rate-limit.privado.requests-por-minuto:200}")
+    @Value("${rate-limit.privado.requests-por-minuto:600}")
     private int limitePrivado;
 
     @Override

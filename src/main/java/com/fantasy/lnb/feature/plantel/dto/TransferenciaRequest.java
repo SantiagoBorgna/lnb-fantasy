@@ -16,4 +16,7 @@ public class TransferenciaRequest {
     // Rol que ocupará el jugador entrante
     // (puede cambiar si se reorganiza el banco)
     private RolPlantel rolEntrante;
+
+    // Torneo (opcional, null si es modo clásico)
+    private Long torneoId;
 }

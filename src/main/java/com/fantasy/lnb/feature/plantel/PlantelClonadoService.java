@@ -51,16 +51,25 @@ public class PlantelClonadoService {
                         Long usuarioId = origen.getUsuario().getId();
 
                         // Idempotencia: no clonar si ya existe plantel en la jornada destino
-                        if (plantelRepo.existsByUsuario_IdAndJornada_Id(
-                                        usuarioId, jornadaDestino.getId())) {
-                                log.debug("[CLONADO] Usuario {} ya tiene plantel en J{}. Omitido.",
-                                                usuarioId, jornadaDestino.getNumero());
+                        boolean existe;
+                        if (origen.getTorneo() == null) {
+                                existe = plantelRepo.existsByUsuario_IdAndJornada_IdAndTorneoIsNull(
+                                                usuarioId, jornadaDestino.getId());
+                        } else {
+                                existe = plantelRepo.existsByUsuario_IdAndJornada_IdAndTorneo_Id(
+                                                usuarioId, jornadaDestino.getId(), origen.getTorneo().getId());
+                        }
+                        
+                        if (existe) {
+                                log.debug("[CLONADO] Usuario {} ya tiene plantel (Torneo: {}) en J{}. Omitido.",
+                                                usuarioId, origen.getTorneo() != null ? origen.getTorneo().getId() : "GLOBAL", jornadaDestino.getNumero());
                                 omitidos++;
                                 continue;
                         }
 
                         PlantelJornada clon = PlantelJornada.builder()
                                         .usuario(origen.getUsuario())
+                                        .torneo(origen.getTorneo())
                                         .jornada(jornadaDestino)
                                         .dt(origen.getDt())
                                         .formacion(origen.getFormacion())

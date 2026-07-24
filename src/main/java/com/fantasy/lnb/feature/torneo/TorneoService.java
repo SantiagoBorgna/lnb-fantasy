@@ -2,6 +2,7 @@ package com.fantasy.lnb.feature.torneo;
 
 import com.fantasy.lnb.feature.torneo.dto.CrearTorneoRequest;
 import com.fantasy.lnb.feature.torneo.dto.EditarTorneoRequest;
+import com.fantasy.lnb.feature.torneo.dto.EnfrentamientoDto;
 import com.fantasy.lnb.feature.torneo.dto.PosicionTorneoDto;
 import com.fantasy.lnb.feature.torneo.dto.TorneoDto;
 import com.fantasy.lnb.feature.usuario.EquipoVirtual;
@@ -18,6 +19,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.UUID;
 
 @Slf4j
 @Service
@@ -28,6 +30,7 @@ public class TorneoService {
         private final TorneoEquipoRepository torneoEquipoRepo;
         private final UsuarioRepository usuarioRepo;
         private final EquipoVirtualRepository equipoVirtualRepo;
+        private final EnfrentamientoH2HRepository enfrentamientoRepo;
 
         @Value("${app.frontend-url}")
         private String frontendUrl;
@@ -41,10 +44,20 @@ public class TorneoService {
                                 .orElseThrow(() -> new IllegalStateException(
                                                 "Usuario no encontrado: " + usuarioId));
 
+                // Validaciones para Draft
+                ModalidadTorneo mod = request.getModalidad() != null ? request.getModalidad() : ModalidadTorneo.CLASICO;
+                if (mod == ModalidadTorneo.DRAFT && request.getTipo() == TipoTorneo.PUBLICO) {
+                        throw new IllegalArgumentException("Los torneos Draft deben ser Privados.");
+                }
+
                 Torneo torneo = Torneo.builder()
                                 .nombre(request.getNombre())
                                 .descripcion(request.getDescripcion())
                                 .tipo(request.getTipo())
+                                .modalidad(mod)
+                                .tipoPuntuacion(request.getTipoPuntuacion() != null ? request.getTipoPuntuacion() : TipoPuntuacion.GENERAL)
+                                .estadoDraft(mod == ModalidadTorneo.DRAFT ? EstadoDraft.PENDIENTE : EstadoDraft.NO_APLICA)
+                                .maxParticipantes(mod == ModalidadTorneo.DRAFT ? (request.getMaxParticipantes() != null ? request.getMaxParticipantes() : 8) : null)
                                 .codigoInvitacion(UUID.randomUUID().toString())
                                 .creador(creador)
                                 .build();
@@ -141,7 +154,24 @@ public class TorneoService {
         // ── Tabla de posiciones ─────────────────────────────────────────────────
 
         public List<PosicionTorneoDto> obtenerTablaPosiciones(Long torneoId) {
-                List<TorneoEquipo> participantes = torneoEquipoRepo.findTablaByTorneoId(torneoId);
+                Torneo torneo = torneoRepo.findById(torneoId).orElseThrow();
+                List<TorneoEquipo> participantes = torneoEquipoRepo.findByTorneo_Id(torneoId);
+
+                // Sort depending on type
+                if (torneo.getModalidad() == com.fantasy.lnb.feature.torneo.ModalidadTorneo.DRAFT) {
+                    if (torneo.getTipoPuntuacion() == com.fantasy.lnb.feature.torneo.TipoPuntuacion.H2H) {
+                        participantes.sort((a, b) -> {
+                            int ptsA = a.getPartidosGanados() * 3 + a.getPartidosEmpatados();
+                            int ptsB = b.getPartidosGanados() * 3 + b.getPartidosEmpatados();
+                            if (ptsA != ptsB) return Integer.compare(ptsB, ptsA);
+                            return Double.compare(b.getPuntosFavor(), a.getPuntosFavor());
+                        });
+                    } else {
+                        participantes.sort((a, b) -> Double.compare(b.getPuntajeGlobal(), a.getPuntajeGlobal()));
+                    }
+                } else {
+                    participantes.sort((a, b) -> Double.compare(b.getEquipoVirtual().getPuntajeGlobal(), a.getEquipoVirtual().getPuntajeGlobal()));
+                }
 
                 AtomicInteger posicion = new AtomicInteger(1);
 
@@ -151,10 +181,34 @@ public class TorneoService {
                                                 .nombreEquipo(te.getEquipoVirtual().getNombre())
                                                 .nombreUsuario(te.getEquipoVirtual()
                                                                 .getUsuario().getNombreDisplay())
-                                                .puntajeGlobal(te.getEquipoVirtual().getPuntajeGlobal())
+                                                .puntajeGlobal((torneo.getModalidad() == com.fantasy.lnb.feature.torneo.ModalidadTorneo.DRAFT) ? te.getPuntajeGlobal() : te.getEquipoVirtual().getPuntajeGlobal())
+                                                .partidosGanados(te.getPartidosGanados())
+                                                .partidosEmpatados(te.getPartidosEmpatados())
+                                                .partidosPerdidos(te.getPartidosPerdidos())
+                                                .puntosFavor(te.getPuntosFavor())
                                                 .equipoVirtualId(te.getEquipoVirtual().getId())
                                                 .build())
                                 .toList();
+        }
+
+        // ── Fixture H2H ─────────────────────────────────────────────────────────
+
+        public List<EnfrentamientoDto> obtenerFixtureH2H(Long torneoId) {
+                return enfrentamientoRepo.findByTorneo_Id(torneoId).stream()
+                        .map(e -> EnfrentamientoDto.builder()
+                                .id(e.getId())
+                                .jornadaId(e.getJornada().getId())
+                                .jornadaNumero(e.getJornada().getNumero())
+                                .equipoLocalId(e.getEquipoLocal().getEquipoVirtual().getId())
+                                .equipoLocalNombre(e.getEquipoLocal().getEquipoVirtual().getNombre())
+                                .equipoVisitanteId(e.getEquipoVisitante() != null ? e.getEquipoVisitante().getEquipoVirtual().getId() : null)
+                                .equipoVisitanteNombre(e.getEquipoVisitante() != null ? e.getEquipoVisitante().getEquipoVirtual().getNombre() : null)
+                                .puntajeLocal(e.getPuntajeLocal())
+                                .puntajeVisitante(e.getPuntajeVisitante())
+                                .procesado(e.getProcesado())
+                                .build()
+                        )
+                        .toList();
         }
 
         // ── Mapper ──────────────────────────────────────────────────────────────
@@ -165,6 +219,10 @@ public class TorneoService {
                                 .nombre(t.getNombre())
                                 .descripcion(t.getDescripcion())
                                 .tipo(t.getTipo())
+                                .modalidad(t.getModalidad())
+                                .tipoPuntuacion(t.getTipoPuntuacion())
+                                .estadoDraft(t.getEstadoDraft())
+                                .maxParticipantes(t.getMaxParticipantes())
                                 .codigoInvitacion(t.getCodigoInvitacion())
                                 .urlInvitacion(frontendUrl + "/torneos/unirse/"
                                                 + t.getCodigoInvitacion())
@@ -207,6 +265,43 @@ public class TorneoService {
                                 .ifPresent(torneoEquipoRepo::delete);
 
                 log.info("[TORNEO] Usuario {} salió del torneo {}", usuarioId, torneoId);
+        }
+
+        // ── AGREGAR BOT (TESTING) ──────────────────────────────────────────
+        @Transactional
+        public TorneoDto agregarBot(Long torneoId, Long adminId) {
+                Torneo torneo = torneoRepo.findById(torneoId)
+                                .orElseThrow(() -> new IllegalArgumentException("Torneo no encontrado"));
+                
+                if (!torneo.getCreador().getId().equals(adminId)) {
+                        throw new IllegalStateException("Solo el administrador puede agregar bots.");
+                }
+
+                if (torneo.cantidadParticipantes() >= torneo.getMaxParticipantes()) {
+                        throw new IllegalStateException("El torneo ya está lleno.");
+                }
+
+                String botEmail = "bot_" + UUID.randomUUID().toString().substring(0, 8) + "@fantasy.com";
+                Usuario bot = new Usuario();
+                bot.setEmail(botEmail);
+                bot.setNombreDisplay("Bot " + UUID.randomUUID().toString().substring(0, 4));
+                bot.setProvider("LOCAL");
+                bot.setProviderId(botEmail);
+                bot.setRol(com.fantasy.lnb.feature.usuario.RolUsuario.USER);
+                bot.setEstadoOnboarding(com.fantasy.lnb.feature.usuario.EstadoOnboarding.ACTIVO);
+                bot.setUltimoLogin(java.time.LocalDateTime.now());
+                bot.setCreadoEn(java.time.LocalDateTime.now());
+                usuarioRepo.save(bot);
+
+                EquipoVirtual equipoBot = EquipoVirtual.builder()
+                        .usuario(bot)
+                        .nombre("Equipo de " + bot.getNombreDisplay())
+                        .presupuestoActual(100.0)
+                        .puntajeGlobal(0.0)
+                        .build();
+                equipoVirtualRepo.save(equipoBot);
+
+                return unirseATorneo(bot.getId(), torneo.getCodigoInvitacion());
         }
 
         // ── Editar datos del torneo ──────────────────────────────────────────────────

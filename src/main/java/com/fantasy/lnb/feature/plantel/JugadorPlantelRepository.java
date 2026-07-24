@@ -15,4 +15,8 @@ public interface JugadorPlantelRepository extends JpaRepository<JugadorPlantel, 
 
     // Para calcular cuánto gastó el usuario en jugadores de una posición
     List<JugadorPlantel> findByPlantelJornada_Id(Long plantelJornadaId);
+
+    // Valida exclusividad: Verifica si un jugador ya fue fichado por ALGUIEN en un torneo draft en una jornada
+    boolean existsByPlantelJornada_Torneo_IdAndPlantelJornada_Jornada_IdAndJugadorReal_Id(
+            Long torneoId, Long jornadaId, Long jugadorRealId);
 }

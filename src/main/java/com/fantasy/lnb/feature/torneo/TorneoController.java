@@ -2,6 +2,7 @@ package com.fantasy.lnb.feature.torneo;
 
 import com.fantasy.lnb.feature.torneo.dto.CrearTorneoRequest;
 import com.fantasy.lnb.feature.torneo.dto.EditarTorneoRequest;
+import com.fantasy.lnb.feature.torneo.dto.EnfrentamientoDto;
 import com.fantasy.lnb.feature.torneo.dto.PosicionTorneoDto;
 import com.fantasy.lnb.feature.torneo.dto.TorneoDto;
 import com.fantasy.lnb.feature.usuario.UsuarioResolver;
@@ -45,6 +46,13 @@ public class TorneoController {
         public ResponseEntity<List<PosicionTorneoDto>> tabla(
                         @PathVariable Long id) {
                 return ResponseEntity.ok(torneoService.obtenerTablaPosiciones(id));
+        }
+
+        // GET /api/torneos/{id}/fixture - fixture H2H del torneo
+        @GetMapping("/{id}/fixture")
+        public ResponseEntity<List<EnfrentamientoDto>> fixture(
+                        @PathVariable Long id) {
+                return ResponseEntity.ok(torneoService.obtenerFixtureH2H(id));
         }
 
         /**
@@ -128,10 +136,6 @@ public class TorneoController {
                                 torneoService.editarTorneo(id, usuarioId, request));
         }
 
-        /**
-         * DELETE /api/torneos/{id}/participantes/{equipoVirtualId}
-         * Expulsa un participante. Solo el admin del torneo.
-         */
         @DeleteMapping("/{id}/participantes/{equipoVirtualId}")
         public ResponseEntity<?> expulsarParticipante(
                         @PathVariable Long id,
@@ -142,5 +146,19 @@ public class TorneoController {
                                 userDetails.getUsername());
                 torneoService.expulsarParticipante(id, adminId, equipoVirtualId);
                 return ResponseEntity.ok(Map.of("mensaje", "Participante expulsado."));
+        }
+
+        /**
+         * POST /api/torneos/{id}/bot
+         * Agrega un bot de prueba al torneo. Solo el admin.
+         */
+        @PostMapping("/{id}/bot")
+        public ResponseEntity<TorneoDto> agregarBot(
+                        @PathVariable Long id,
+                        @AuthenticationPrincipal UserDetails userDetails) {
+
+                Long adminId = usuarioResolver.resolverIdDesdeEmail(
+                                userDetails.getUsername());
+                return ResponseEntity.ok(torneoService.agregarBot(id, adminId));
         }
 }

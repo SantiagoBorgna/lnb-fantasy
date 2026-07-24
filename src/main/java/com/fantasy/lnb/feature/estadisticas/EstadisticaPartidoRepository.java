@@ -49,6 +49,8 @@ public interface EstadisticaPartidoRepository
                         Long jugadorRealId,
                         Long jornadaId);
 
+        List<EstadisticaPartido> findByJugadorReal_Id(Long jugadorRealId);
+
         // ── Queries para la vista de Líderes ────────────────────────────────────────
         // Cada query devuelve Object[] con [jugadorRealId, promedio, partidosJugados]
         // Usamos JPQL con proyección manual para evitar crear una entidad extra.

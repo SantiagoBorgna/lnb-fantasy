@@ -31,6 +31,24 @@ public class Torneo {
     @Column(nullable = false)
     private TipoTorneo tipo;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    @Builder.Default
+    private ModalidadTorneo modalidad = ModalidadTorneo.CLASICO;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    @Builder.Default
+    private TipoPuntuacion tipoPuntuacion = TipoPuntuacion.GENERAL;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    @Builder.Default
+    private EstadoDraft estadoDraft = EstadoDraft.NO_APLICA;
+
+    @Column(name = "max_participantes")
+    private Integer maxParticipantes;
+
     // UUID único para URLs de invitación seguras
     // Ejemplo: /torneos/unirse/a1b2c3d4-e5f6-...
     // Se genera automáticamente al crear el torneo

@@ -9,6 +9,8 @@ import java.util.List;
 @Data
 public class GuardarPlantelRequest {
 
+    private Long torneoId; // Opcional, solo si el plantel es para un Draft
+
     @NotNull(message = "El DT es obligatorio.")
     private Long dtId;
 

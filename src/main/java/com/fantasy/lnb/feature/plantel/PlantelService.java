@@ -48,9 +48,11 @@ public class PlantelService {
         private final JugadorPlantelRepository jugadorPlantelRepo;
         private final DirectorTecnicoRepository dtRepo;
         private final OnboardingService onboardingService;
+        private final com.fantasy.lnb.feature.mercado.TransaccionDraftRepository transaccionDraftRepo;
         private final EstadisticaPartidoRepository estadisticaRepo;
         private final PartidoRepository partidoRepo;
         private final MotorPuntuacionPlantel motorPuntuacionPlantel;
+        private final com.fantasy.lnb.feature.mercado.TraspasoUsuarioService traspasoUsuarioService;
 
         // ── Consulta ────────────────────────────────────────────────────────────
 
@@ -70,7 +72,7 @@ public class PlantelService {
                 // 1. Buscamos primero en la jornada EN_JUEGO
                 Jornada jornadaEnJuego = jornadaRepo.findByEstado(EstadoJornada.EN_JUEGO).orElse(null);
                 if (jornadaEnJuego != null) {
-                        Optional<PlantelJornada> plantelEnJuego = plantelRepo.findByUsuario_IdAndJornada_Id(usuarioId,
+                        Optional<PlantelJornada> plantelEnJuego = plantelRepo.findByUsuario_IdAndJornada_IdAndTorneoIsNull(usuarioId,
                                         jornadaEnJuego.getId());
                         if (plantelEnJuego.isPresent()) {
                                 return plantelEnJuego.map(p -> toDto(p, obtenerPresupuesto(usuarioId)));
@@ -82,7 +84,7 @@ public class PlantelService {
                 Jornada jornadaAbierta = jornadaRepo
                                 .findFirstByEstadoOrderByFechaInicioAsc(EstadoJornada.ABIERTA_A_CAMBIOS).orElse(null);
                 if (jornadaAbierta != null) {
-                        Optional<PlantelJornada> plantelAbierto = plantelRepo.findByUsuario_IdAndJornada_Id(usuarioId,
+                        Optional<PlantelJornada> plantelAbierto = plantelRepo.findByUsuario_IdAndJornada_IdAndTorneoIsNull(usuarioId,
                                         jornadaAbierta.getId());
                         if (plantelAbierto.isPresent()) {
                                 return plantelAbierto.map(p -> toDto(p, obtenerPresupuesto(usuarioId)));
@@ -93,7 +95,7 @@ public class PlantelService {
                         Jornada jornadaAnterior = jornadaRepo
                                         .findFirstByEstadoOrderByNumeroDesc(EstadoJornada.FINALIZADA).orElse(null);
                         if (jornadaAnterior != null) {
-                                boolean tieneAnterior = plantelRepo.existsByUsuario_IdAndJornada_Id(usuarioId,
+                                boolean tieneAnterior = plantelRepo.existsByUsuario_IdAndJornada_IdAndTorneoIsNull(usuarioId,
                                                 jornadaAnterior.getId());
                                 if (tieneAnterior) {
                                         Usuario usuario = usuarioRepo.findById(usuarioId)
@@ -112,12 +114,16 @@ public class PlantelService {
 
         @Transactional(readOnly = true)
         public List<JugadorEstadisticaDto> obtenerEstadisticasJornada(
-                        Long usuarioId, Long jornadaId) {
+                        Long usuarioId, Long jornadaId, Long torneoId) {
 
-                PlantelJornada plantel = plantelRepo
-                                .findByUsuario_IdAndJornada_Id(usuarioId, jornadaId)
-                                .orElseThrow(() -> new IllegalArgumentException(
-                                                "No existe plantel para esa jornada."));
+                PlantelJornada plantel;
+                if (torneoId != null) {
+                    plantel = plantelRepo.findByUsuario_IdAndJornada_IdAndTorneo_Id(usuarioId, jornadaId, torneoId)
+                                .orElseThrow(() -> new IllegalArgumentException("No existe plantel de draft para esa jornada."));
+                } else {
+                    plantel = plantelRepo.findByUsuario_IdAndJornada_IdAndTorneoIsNull(usuarioId, jornadaId)
+                                .orElseThrow(() -> new IllegalArgumentException("No existe plantel clásico para esa jornada."));
+                }
 
                 return plantel.getJugadores().stream()
                                 .map(jp -> {
@@ -157,8 +163,37 @@ public class PlantelService {
          */
         @Transactional(readOnly = true)
         public Optional<PlantelDto> obtenerPlantelHistorico(Long usuarioId, Long jornadaId) {
-                return plantelRepo.findByUsuario_IdAndJornada_Id(usuarioId, jornadaId)
-                                .map(p -> toDto(p, obtenerPresupuesto(usuarioId)));
+                return plantelRepo.findByUsuario_IdAndJornada_IdAndTorneoIsNull(usuarioId, jornadaId)
+                                .map(p -> toDto(p, 0.0));
+        }
+
+        /**
+         * Devuelve el plantel histórico de la jornada anterior (si existe) en contexto Torneo.
+         */
+        @Transactional(readOnly = true)
+        public Optional<PlantelDto> obtenerPlantelHistoricoTorneo(Long usuarioId, Long jornadaId, Long torneoId) {
+                return plantelRepo.findByUsuario_IdAndJornada_IdAndTorneo_Id(usuarioId, jornadaId, torneoId)
+                                .map(p -> toDto(p, 0.0));
+        }
+
+        /**
+         * Devuelve el plantel activo del usuario en contexto Torneo (Draft).
+         */
+        @Transactional(readOnly = true)
+        public Optional<PlantelDto> obtenerPlantelTorneo(Long usuarioId, Long torneoId) {
+                return jornadaRepo.findFirstByEstadoOrderByFechaInicioAsc(EstadoJornada.EN_JUEGO)
+                                .flatMap(jornada -> plantelRepo.findByUsuario_IdAndJornada_IdAndTorneo_Id(usuarioId,
+                                                jornada.getId(), torneoId))
+                                .map(plantel -> toDto(plantel, 0.0))
+                                .or(() -> {
+                                        return jornadaRepo
+                                                        .findFirstByEstadoOrderByFechaInicioAsc(
+                                                                        EstadoJornada.ABIERTA_A_CAMBIOS)
+                                                        .flatMap(j -> plantelRepo
+                                                                        .findByUsuario_IdAndJornada_IdAndTorneo_Id(usuarioId,
+                                                                                        j.getId(), torneoId))
+                                                        .map(p -> toDto(p, 0.0));
+                                });
         }
 
         /**
@@ -166,7 +201,7 @@ public class PlantelService {
          * Requiere que la jornada esté EN_JUEGO o FINALIZADA por seguridad.
          */
         @Transactional(readOnly = true)
-        public Optional<PlantelDto> obtenerPlantelAjeno(Long equipoVirtualId, Long jornadaId) {
+        public Optional<PlantelDto> obtenerPlantelAjeno(Long equipoVirtualId, Long jornadaId, Long torneoId) {
                 Jornada jornada = jornadaRepo.findById(jornadaId)
                                 .orElseThrow(() -> new IllegalArgumentException("Jornada no encontrada"));
                 
@@ -184,16 +219,21 @@ public class PlantelService {
                 EquipoVirtual equipo = equipoVirtualRepo.findById(equipoVirtualId)
                                 .orElseThrow(() -> new IllegalArgumentException("Equipo virtual no encontrado"));
                 
-                return plantelRepo.findByUsuario_IdAndJornada_Id(equipo.getUsuario().getId(), jornadaId)
+                if (torneoId != null) {
+                    return plantelRepo.findByUsuario_IdAndJornada_IdAndTorneo_Id(equipo.getUsuario().getId(), jornadaId, torneoId)
+                            .map(p -> toDto(p, 0.0));
+                }
+
+                return plantelRepo.findByUsuario_IdAndJornada_IdAndTorneoIsNull(equipo.getUsuario().getId(), jornadaId)
                                 .map(p -> toDto(p, equipo.getPresupuestoActual()));
         }
 
         /**
-         * Devuelve las estadísticas de otro jugador para una jornada específica.
-         * Requiere que la jornada esté EN_JUEGO o FINALIZADA por seguridad.
+         * Devuelve las estadsticas de otro jugador para una jornada especfica.
+         * Requiere que la jornada est EN_JUEGO o FINALIZADA por seguridad.
          */
         @Transactional(readOnly = true)
-        public List<JugadorEstadisticaDto> obtenerEstadisticasAjenas(Long equipoVirtualId, Long jornadaId) {
+        public List<JugadorEstadisticaDto> obtenerEstadisticasAjenas(Long equipoVirtualId, Long jornadaId, Long torneoId) {
                 Jornada jornada = jornadaRepo.findById(jornadaId)
                                 .orElseThrow(() -> new IllegalArgumentException("Jornada no encontrada"));
                 
@@ -211,7 +251,40 @@ public class PlantelService {
                 EquipoVirtual equipo = equipoVirtualRepo.findById(equipoVirtualId)
                                 .orElseThrow(() -> new IllegalArgumentException("Equipo virtual no encontrado"));
 
-                return obtenerEstadisticasJornada(equipo.getUsuario().getId(), jornadaId);
+                return obtenerEstadisticasJornada(equipo.getUsuario().getId(), jornadaId, torneoId);
+        }
+
+        @Transactional(readOnly = true)
+        public Optional<PlantelDto> obtenerPlantelAjenoActual(Long equipoVirtualId, Long torneoId) {
+                EquipoVirtual equipo = equipoVirtualRepo.findById(equipoVirtualId)
+                                .orElseThrow(() -> new IllegalArgumentException("Equipo virtual no encontrado"));
+                
+                if (torneoId != null) {
+                        return obtenerPlantelTorneo(equipo.getUsuario().getId(), torneoId);
+                } else {
+                        return obtenerPlantelActivo(equipo.getUsuario().getId());
+                }
+        }
+
+        @Transactional(readOnly = true)
+        public List<JugadorEstadisticaDto> obtenerEstadisticasAjenasActual(Long equipoVirtualId, Long torneoId) {
+                EquipoVirtual equipo = equipoVirtualRepo.findById(equipoVirtualId)
+                                .orElseThrow(() -> new IllegalArgumentException("Equipo virtual no encontrado"));
+                
+                Jornada jornadaEnJuego = jornadaRepo.findFirstByEstadoOrderByFechaInicioAsc(EstadoJornada.EN_JUEGO).orElse(null);
+                
+                if (jornadaEnJuego != null) {
+                    try {
+                        return obtenerEstadisticasJornada(equipo.getUsuario().getId(), jornadaEnJuego.getId(), torneoId);
+                    } catch (IllegalArgumentException e) {
+                        // Si falla porque no existe plantel en la jornada en juego, probamos con la abierta a cambios
+                    }
+                }
+                
+                Jornada jornadaAbierta = jornadaRepo.findFirstByEstadoOrderByFechaInicioAsc(EstadoJornada.ABIERTA_A_CAMBIOS)
+                                .orElseThrow(() -> new IllegalArgumentException("No hay jornada activa"));
+
+                return obtenerEstadisticasJornada(equipo.getUsuario().getId(), jornadaAbierta.getId(), torneoId);
         }
 
         // ── Armado del plantel ──────────────────────────────────────────────────
@@ -264,8 +337,12 @@ public class PlantelService {
                                 .orElseThrow(() -> new IllegalStateException("Equipo virtual no encontrado."));
 
                 // ── 3. Verificar si ya existe un plantel ─────────────────────────
-                Optional<PlantelJornada> optPlantel = plantelRepo.findByUsuario_IdAndJornada_Id(usuarioId,
-                                jornada.getId());
+                Optional<PlantelJornada> optPlantel;
+                if (request.getTorneoId() != null) {
+                        optPlantel = plantelRepo.findByUsuario_IdAndJornada_IdAndTorneo_Id(usuarioId, jornada.getId(), request.getTorneoId());
+                } else {
+                        optPlantel = plantelRepo.findByUsuario_IdAndJornada_IdAndTorneoIsNull(usuarioId, jornada.getId());
+                }
                 PlantelJornada plantelAGuardar;
 
                 if (optPlantel.isPresent()) {
@@ -332,6 +409,47 @@ public class PlantelService {
         }
 
         // ── Helpers de validación ───────────────────────────────────────────────
+
+        public void validarPlantelPostTraspaso(PlantelJornada plantelActual, List<JugadorReal> salen, List<JugadorReal> entran) {
+                // Simulamos el plantel cambiando los jugadores que salen por los que entran
+                List<JugadorReal> jugadoresSimulados = new ArrayList<>();
+                List<PosicionJugador> posicionesTitulares = new ArrayList<>();
+                List<PosicionJugador> posicionesBanco = new ArrayList<>();
+
+                for (JugadorPlantel jp : plantelActual.getJugadores()) {
+                        JugadorReal jugadorRealActual = jp.getJugadorReal();
+                        int indexSale = salen.indexOf(jugadorRealActual);
+                        
+                        JugadorReal jugadorSimulado = jugadorRealActual;
+                        if (indexSale != -1) {
+                                jugadorSimulado = entran.get(indexSale);
+                        }
+                        
+                        jugadoresSimulados.add(jugadorSimulado);
+
+                        if (jp.getRol() == RolPlantel.TITULAR || jp.getRol() == RolPlantel.CAPITAN) {
+                                posicionesTitulares.add(jugadorSimulado.getPosicion());
+                        } else {
+                                posicionesBanco.add(jugadorSimulado.getPosicion());
+                        }
+                }
+
+                validarLimiteJugadoresPorEquipo(jugadoresSimulados);
+
+                // Validar banco
+                boolean tieneGuard = posicionesBanco.stream().anyMatch(p -> p == PosicionJugador.BASE || p == PosicionJugador.ESCOLTA);
+                boolean tieneForward = posicionesBanco.stream().anyMatch(p -> p == PosicionJugador.ALERO || p == PosicionJugador.ALA_PIVOT);
+                boolean tieneCenter = posicionesBanco.stream().anyMatch(p -> p == PosicionJugador.PIVOT);
+
+                if (!tieneGuard || !tieneForward || !tieneCenter) {
+                        throw new FormacionInvalidaException("El traspaso dejaría el banco inválido (se requiere mínimo 1 Base/Escolta, 1 Alero/Ala-Pivot, y 1 Pivot en el banco).");
+                }
+
+                // Validar titulares
+                if (!FormacionValidator.esValida(plantelActual.getFormacion(), posicionesTitulares)) {
+                        throw new FormacionInvalidaException("El traspaso rompería la formación titular (" + plantelActual.getFormacion() + ").");
+                }
+        }
 
         private void validarRolesUnicos(
                         List<GuardarPlantelRequest.SlotJugadorRequest> slots) {
@@ -487,14 +605,27 @@ public class PlantelService {
                                 .orElseThrow(JornadaEnJuegoException::new);
 
                 // ── 2. Cargar plantel activo ─────────────────────────────────────────
-                PlantelJornada plantel = plantelRepo
-                                .findByUsuario_IdAndJornada_Id(usuarioId, jornada.getId())
-                                .orElseThrow(() -> new IllegalStateException(
-                                                "No tenés plantel armado para la jornada activa."));
+                PlantelJornada plantel;
+                if (request.getTorneoId() != null) {
+                        plantel = plantelRepo
+                                        .findByUsuario_IdAndJornada_IdAndTorneo_Id(usuarioId, jornada.getId(), request.getTorneoId())
+                                        .orElseThrow(() -> new IllegalStateException(
+                                                        "No tenés plantel de draft para este torneo."));
+                        
+                        // Si es Draft, validar que la fase permita transferencias libres
+                        if (com.fantasy.lnb.feature.mercado.WaiverService.esFaseRestringida(jornada)) {
+                                throw new IllegalStateException("El mercado se encuentra en Fase Restringida. Debés usar los Waivers.");
+                        }
+                } else {
+                        plantel = plantelRepo
+                                        .findByUsuario_IdAndJornada_IdAndTorneoIsNull(usuarioId, jornada.getId())
+                                        .orElseThrow(() -> new IllegalStateException(
+                                                        "No tenés plantel armado para la jornada activa."));
+                }
 
                 // ── 3. Verificar transferencias disponibles ──────────────────────────
                 if (!plantel.puedeHacerTransferencia()) {
-                        throw new TransferenciasAgotadasException();
+                        throw new TransferenciasAgotadasException(request.getTorneoId() != null ? 4 : 3);
                 }
 
                 // ── 4. Localizar el slot del jugador que sale ────────────────────────
@@ -527,18 +658,27 @@ public class PlantelService {
                                                 "Equipo virtual no encontrado."));
 
                 double precioVenta = slotSaliente.getPrecioDeCompra();
-                double precioCompra = jugadorEntra.getValorMercadoActual();
-                double diferencia = precioVenta - precioCompra; // Positivo = ganó créditos
-
-                double nuevoPresupuesto = equipo.getPresupuestoActual() + diferencia;
-                if (nuevoPresupuesto < 0) {
-                        throw new PresupuestoInsuficienteException(
-                                        equipo.getPresupuestoActual(), precioCompra);
+                double precioCompra = 0.0;
+                double diferencia = 0.0;
+                double nuevoPresupuesto = equipo.getPresupuestoActual();
+                
+                if (request.getTorneoId() == null) {
+                        precioCompra = jugadorEntra.getValorMercadoActual();
+                        diferencia = precioVenta - precioCompra; // Positivo = ganó créditos
+                        nuevoPresupuesto = equipo.getPresupuestoActual() + diferencia;
+                        
+                        if (nuevoPresupuesto < 0) {
+                                throw new PresupuestoInsuficienteException(
+                                                equipo.getPresupuestoActual(), precioCompra);
+                        }
                 }
 
                 // ── 8. Ejecutar la transferencia ─────────────────────────────────────
                 String nombreSale = slotSaliente.getJugadorReal().getNombreCompleto();
                 String nombreEntra = jugadorEntra.getNombreCompleto();
+                
+                // Guardamos el jugador saliente original para la transaccion del historial
+                JugadorReal jugadorSaleOriginal = slotSaliente.getJugadorReal();
 
                 // 1ro: Hacemos el cambio temporal en la memoria
                 slotSaliente.setJugadorReal(jugadorEntra);
@@ -566,8 +706,22 @@ public class PlantelService {
                 plantel.setTransferenciasUsadas(plantel.getTransferenciasUsadas() + 1);
                 plantelRepo.save(plantel);
 
-                equipo.setPresupuestoActual(nuevoPresupuesto);
-                equipoVirtualRepo.save(equipo);
+                if (request.getTorneoId() == null) {
+                        equipo.setPresupuestoActual(nuevoPresupuesto);
+                        equipoVirtualRepo.save(equipo);
+                } else {
+                        // Guardar la transacción de agencia libre en Draft
+                        com.fantasy.lnb.feature.mercado.TransaccionDraft transaccion = com.fantasy.lnb.feature.mercado.TransaccionDraft.builder()
+                                        .torneo(plantel.getTorneo())
+                                        .usuario(equipo.getUsuario())
+                                        .jornada(jornada)
+                                        .jugadorEntra(jugadorEntra)
+                                        .jugadorSale(jugadorSaleOriginal)
+                                        .tipo(com.fantasy.lnb.feature.mercado.TipoTransaccionDraft.AGENTE_LIBRE)
+                                        .build();
+                        transaccionDraftRepo.save(transaccion);
+                        traspasoUsuarioService.cancelarPropuestasConJugador(jugadorSaleOriginal.getId());
+                }
 
                 log.info("[TRANSFERENCIA] Usuario {} | {} → {} | Diferencia: {} | " +
                                 "Transferencias usadas: {}/3",
@@ -590,39 +744,69 @@ public class PlantelService {
          * Consume 1 transferencia, igual que cambiar un jugador de campo.
          */
         @Transactional
-        public TransferenciaResultadoDto cambiarDt(Long usuarioId, Long nuevoDtId) {
+        public TransferenciaResultadoDto cambiarDt(Long usuarioId, Long nuevoDtId, Long torneoId) {
 
-                // ── 1. Verificar jornada abierta ─────────────────────────────────────
+                // 1. Verificar jornada abierta
                 Jornada jornada = jornadaRepo
                                 .findFirstByEstadoOrderByFechaInicioAsc(EstadoJornada.ABIERTA_A_CAMBIOS)
                                 .orElseThrow(JornadaEnJuegoException::new);
 
-                // ── 2. Cargar plantel ────────────────────────────────────────────────
-                PlantelJornada plantel = plantelRepo
-                                .findByUsuario_IdAndJornada_Id(usuarioId, jornada.getId())
+                // 2. Cargar plantel
+                PlantelJornada plantel;
+                if (torneoId != null) {
+                    plantel = plantelRepo
+                                .findByUsuario_IdAndJornada_IdAndTorneo_Id(usuarioId, jornada.getId(), torneoId)
+                                .orElseThrow(() -> new IllegalStateException(
+                                                "No tenés plantel armado para la jornada activa en este torneo."));
+                } else {
+                    plantel = plantelRepo
+                                .findByUsuario_IdAndJornada_IdAndTorneoIsNull(usuarioId, jornada.getId())
                                 .orElseThrow(() -> new IllegalStateException(
                                                 "No tenés plantel armado para la jornada activa."));
-
-                // ── 3. Verificar transferencias ──────────────────────────────────────
-                if (!plantel.puedeHacerTransferencia()) {
-                        throw new TransferenciasAgotadasException();
                 }
 
-                // ── 4. Cargar nuevo DT ───────────────────────────────────────────────
+                // 3. Verificar transferencias
+                if (!plantel.puedeHacerTransferencia()) {
+                        throw new TransferenciasAgotadasException(torneoId != null ? 4 : 3);
+                }
+
+                // 4. Cargar nuevo DT
                 DirectorTecnico nuevoDt = dtRepo.findById(nuevoDtId)
                                 .orElseThrow(() -> new IllegalArgumentException(
-                                                "Director Técnico no encontrado: " + nuevoDtId));
+                                                "DT no encontrado."));
+                                                
+                if (torneoId != null) {
+                        boolean ocupado = plantelRepo.existsByTorneo_IdAndJornada_IdAndDt_Id(torneoId, jornada.getId(), nuevoDtId);
+                        if (ocupado) {
+                                throw new IllegalStateException("El DT ya fue elegido por otro equipo en esta liga Draft.");
+                        }
+                }
 
                 String nombreDtSale = plantel.getDt() != null
                                 ? plantel.getDt().getNombreCompleto()
                                 : "Sin DT";
                 String nombreDtEntra = nuevoDt.getNombreCompleto();
 
+                DirectorTecnico dtSale = plantel.getDt();
+                
                 // ── 5. El DT no tiene precio de mercado — no afecta presupuesto ──────
                 // Solo consume la transferencia
                 plantel.setDt(nuevoDt);
                 plantel.setTransferenciasUsadas(plantel.getTransferenciasUsadas() + 1);
                 plantelRepo.save(plantel);
+
+                if (torneoId != null) {
+                        com.fantasy.lnb.feature.mercado.TransaccionDraft transaccion = com.fantasy.lnb.feature.mercado.TransaccionDraft.builder()
+                                        .torneo(plantel.getTorneo())
+                                        .usuario(plantel.getUsuario())
+                                        .jornada(jornada)
+                                        .dtEntra(nuevoDt)
+                                        .dtSale(dtSale)
+                                        .tipo(com.fantasy.lnb.feature.mercado.TipoTransaccionDraft.AGENTE_LIBRE)
+                                        .build();
+                        transaccionDraftRepo.save(transaccion);
+                        traspasoUsuarioService.cancelarPropuestasConDt(dtSale.getId());
+                }
 
                 double presupuestoActual = obtenerPresupuesto(usuarioId);
 
@@ -655,7 +839,7 @@ public class PlantelService {
                         Jornada jornadaNueva) {
 
                 PlantelJornada anterior = plantelRepo
-                                .findByUsuario_IdAndJornada_Id(
+                                .findByUsuario_IdAndJornada_IdAndTorneoIsNull(
                                                 usuario.getId(), jornadaAnterior.getId())
                                 .orElseThrow(() -> new IllegalStateException(
                                                 "No existe plantel anterior para clonar."));

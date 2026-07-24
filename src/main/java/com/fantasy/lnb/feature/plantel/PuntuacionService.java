@@ -24,6 +24,8 @@ public class PuntuacionService {
     private final JornadaRepository jornadaRepo;
     private final EquipoVirtualRepository equipoVirtualRepo;
     private final PartidoRepository partidoRepo;
+    private final com.fantasy.lnb.feature.torneo.TorneoEquipoRepository torneoEquipoRepo;
+    private final com.fantasy.lnb.feature.torneo.TorneoH2HService h2hService;
 
     /**
      * Calcula y persiste el puntaje de TODOS los planteles
@@ -62,15 +64,30 @@ public class PuntuacionService {
                 plantel.setPuntajeObtenidoFecha(puntajeTotal);
                 plantelRepo.save(plantel);
 
-                // 2. Solo sumamos al ranking global si la jornada terminó de verdad
+                // 2. Sumar al ranking
                 if (esCierreDefinitivo) {
-                    equipoVirtualRepo.findByUsuario_Id(plantel.getUsuario().getId())
-                            .ifPresent(equipo -> {
-                                equipo.setPuntajeGlobal(equipo.getPuntajeGlobal() + puntajeTotal);
-                                equipoVirtualRepo.save(equipo);
-                                log.debug("[PUNTUACION] Ranking actualizado para {}: +{}",
-                                        plantel.getUsuario().getEmail(), puntajeTotal);
-                            });
+                    if (plantel.getTorneo() == null) {
+                        // Ranking Global
+                        equipoVirtualRepo.findByUsuario_Id(plantel.getUsuario().getId())
+                                .ifPresent(equipo -> {
+                                    equipo.setPuntajeGlobal(equipo.getPuntajeGlobal() + puntajeTotal);
+                                    equipoVirtualRepo.save(equipo);
+                                    log.debug("[PUNTUACION] Ranking global actualizado para {}: +{}",
+                                            plantel.getUsuario().getEmail(), puntajeTotal);
+                                });
+                    } else {
+                        // Ranking Torneo
+                        torneoEquipoRepo.findByTorneo_Id(plantel.getTorneo().getId()).stream()
+                                .filter(te -> te.getEquipoVirtual().getUsuario().getId().equals(plantel.getUsuario().getId()))
+                                .findFirst()
+                                .ifPresent(te -> {
+                                    if (plantel.getTorneo().getTipoPuntuacion() != com.fantasy.lnb.feature.torneo.TipoPuntuacion.H2H) {
+                                        te.setPuntajeGlobal(te.getPuntajeGlobal() + puntajeTotal);
+                                    }
+                                    torneoEquipoRepo.save(te);
+                                    log.debug("[PUNTUACION] Ranking torneo actualizado para {}: +{}", plantel.getUsuario().getEmail(), puntajeTotal);
+                                });
+                    }
                 }
 
                 log.info("[PUNTUACION] Usuario {} | Jornada {} | Puntaje: {}",
@@ -78,10 +95,16 @@ public class PuntuacionService {
                         jornadaId,
                         puntajeTotal);
 
+            } catch (PlantelIncompletoException e) {
+                log.warn("[PUNTUACION] Usuario {} con plantel incompleto. Puntaje 0.", plantel.getUsuario().getEmail());
             } catch (Exception e) {
-                log.error("[PUNTUACION] Error calculando puntaje del plantel {}: {}",
-                        plantel.getId(), e.getMessage(), e);
+                log.error("[PUNTUACION] Error calculando para usuario {}: {}", plantel.getUsuario().getEmail(), e.getMessage());
             }
+        }
+
+        // 3. Después de calcular todos los planteles, si es cierre definitivo, resolver duelos H2H
+        if (esCierreDefinitivo) {
+            h2hService.resolverJornada(jornadaId);
         }
 
         log.info("[PUNTUACION] Cálculo de jornada {} completado ({})", jornadaId, tipoCalculo);
@@ -91,8 +114,9 @@ public class PuntuacionService {
 
     private double calcularPuntajePlantel(PlantelJornada plantel, Long jornadaId) {
 
-        if (plantel.getJugadores() == null || plantel.getJugadores().size() != 10) {
-            throw new PlantelIncompletoException(jornadaId);
+        if (plantel.getJugadores() == null || plantel.getJugadores().isEmpty()) {
+            log.warn("[PUNTUACION] Plantel {} vacio en jornada {}. Puntaje 0.", plantel.getId(), jornadaId);
+            return 0.0;
         }
 
         double puntajeJugadores = plantel.getJugadores().stream()

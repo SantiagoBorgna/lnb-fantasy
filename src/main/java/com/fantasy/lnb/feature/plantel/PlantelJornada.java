@@ -13,8 +13,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name = "plantel_jornada", uniqueConstraints = @UniqueConstraint(name = "uk_equipo_jornada", columnNames = {
-        "usuario_id", "jornada_id" }))
+@Table(name = "plantel_jornada", uniqueConstraints = @UniqueConstraint(name = "uk_equipo_jornada_torneo", columnNames = {
+        "usuario_id", "jornada_id", "torneo_id" }))
 @Getter
 @Setter
 @NoArgsConstructor
@@ -29,6 +29,10 @@ public class PlantelJornada {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "usuario_id", nullable = false)
     private Usuario usuario;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "torneo_id")
+    private com.fantasy.lnb.feature.torneo.Torneo torneo;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "jornada_id", nullable = false)
@@ -80,11 +84,13 @@ public class PlantelJornada {
     // ── Helpers de dominio ──────────────────────────────────────────────────
 
     public boolean puedeHacerTransferencia() {
-        return transferenciasUsadas < 3;
+        int limite = torneo != null ? 4 : 3;
+        return transferenciasUsadas < limite;
     }
 
     public int transferenciasRestantes() {
-        return 3 - transferenciasUsadas;
+        int limite = torneo != null ? 4 : 3;
+        return limite - transferenciasUsadas;
     }
 
     /** Devuelve solo los titulares + capitán (los 5 que suman x1.0 o x1.5) */

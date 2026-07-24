@@ -19,4 +19,8 @@ public class TorneoDto {
     private Integer cantidadParticipantes;
     private LocalDateTime creadoEn;
     private Boolean esAdmin;
+    private com.fantasy.lnb.feature.torneo.ModalidadTorneo modalidad;
+    private com.fantasy.lnb.feature.torneo.TipoPuntuacion tipoPuntuacion;
+    private com.fantasy.lnb.feature.torneo.EstadoDraft estadoDraft;
+    private Integer maxParticipantes;
 }

@@ -13,13 +13,15 @@ import java.util.List;
 public class DirectorTecnicoController {
 
     private final DirectorTecnicoRepository dtRepo;
+    private final com.fantasy.lnb.feature.plantel.PlantelDraftService plantelDraftService;
 
-    // GET /api/dt — todos los DTs disponibles
+    // GET /api/dt — todos los DTs disponibles, opcionalmente libres en un torneo
     @GetMapping
-    public ResponseEntity<List<DirectorTecnicoDto>> listarDisponibles() {
+    public ResponseEntity<List<DirectorTecnicoDto>> listarDisponibles(@RequestParam(required = false) Long torneoId) {
         return ResponseEntity.ok(
                 dtRepo.findByEstado(EstadoJugador.DISPONIBLE)
                         .stream()
+                        .filter(dt -> torneoId == null || plantelDraftService.dtEstaLibreEnTorneo(dt.getId(), torneoId))
                         .map(this::toDto)
                         .toList());
     }

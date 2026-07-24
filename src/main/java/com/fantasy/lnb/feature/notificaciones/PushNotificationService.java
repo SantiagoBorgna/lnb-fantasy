@@ -122,4 +122,15 @@ public class PushNotificationService {
             enviarNotificacion(sub, titulo, mensaje);
         }
     }
+
+    /**
+     * Envía una notificación a un usuario específico en todas sus sesiones/dispositivos.
+     */
+    public void enviarNotificacionAUsuario(Usuario usuario, String titulo, String mensaje) {
+        if (usuario == null) return;
+        List<SuscripcionPush> suscripciones = suscripcionRepo.findByUsuario_Id(usuario.getId());
+        for (SuscripcionPush sub : suscripciones) {
+            enviarNotificacion(sub, titulo, mensaje);
+        }
+    }
 }

@@ -13,6 +13,8 @@ public interface TorneoEquipoRepository extends JpaRepository<TorneoEquipo, Long
     boolean existsByTorneo_IdAndEquipoVirtual_Id(
             Long torneoId, Long equipoVirtualId);
 
+    List<TorneoEquipo> findByTorneo_Id(Long torneoId);
+
     // Tabla de posiciones de un torneo específico
     // Ordenada por puntajeGlobal descendente
     @Query("""

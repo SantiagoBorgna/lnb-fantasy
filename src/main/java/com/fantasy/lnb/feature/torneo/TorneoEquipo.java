@@ -31,6 +31,31 @@ public class TorneoEquipo {
     @Column(nullable = false, updatable = false)
     private LocalDateTime unidoEn;
 
+    // Prioridad en la lista de waivers (1 = más alta). Se sortea al inicio y rota de forma redonda.
+    @Column
+    private Integer prioridadWaiver;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private Double puntajeGlobal = 0.0; // Puntos totales obtenidos en el contexto de ESTE torneo (útil para Draft)
+
+    // --- Estadísticas H2H ---
+    @Column(nullable = false)
+    @Builder.Default
+    private Integer partidosGanados = 0;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private Integer partidosEmpatados = 0;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private Integer partidosPerdidos = 0;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private Double puntosFavor = 0.0; // Desempate: Total de puntos fantasy obtenidos en los duelos H2H
+
     @PrePersist
     protected void onCreate() {
         this.unidoEn = LocalDateTime.now();

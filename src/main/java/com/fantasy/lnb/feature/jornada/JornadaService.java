@@ -17,6 +17,9 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
+import com.fantasy.lnb.feature.mercado.PropuestaTraspasoRepository;
+import com.fantasy.lnb.feature.mercado.EstadoPropuestaTraspaso;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -25,6 +28,7 @@ public class JornadaService {
     private final JornadaRepository jornadaRepo;
     private final EstadisticaPartidoRepository estadisticaRepo;
     private final PartidoRepository partidoRepo;
+    private final PropuestaTraspasoRepository propuestaRepo;
 
     // ── Consultas ───────────────────────────────────────────────────────────
 
@@ -135,6 +139,14 @@ public class JornadaService {
         jornada.setEstado(EstadoJornada.EN_JUEGO);
         jornadaRepo.save(jornada);
         log.info("[JORNADA] Jornada {} EN_JUEGO", jornada.getNumero());
+
+        // Cancelar ofertas pendientes al cerrar el mercado
+        var pendientes = propuestaRepo.findByEstado(EstadoPropuestaTraspaso.PENDIENTE);
+        pendientes.forEach(p -> {
+            p.setEstado(EstadoPropuestaTraspaso.CANCELADA_SISTEMA);
+            p.setFechaResolucion(LocalDateTime.now());
+        });
+        propuestaRepo.saveAll(pendientes);
     }
 
     /**
