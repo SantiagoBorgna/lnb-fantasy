@@ -2,6 +2,7 @@ package com.fantasy.lnb.feature.auth.oauth2;
 
 import com.fantasy.lnb.feature.usuario.Usuario;
 import com.fantasy.lnb.feature.usuario.UsuarioRepository;
+import com.fantasy.lnb.feature.usuario.RolUsuario;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
@@ -69,6 +70,9 @@ public class OAuth2UserService extends DefaultOAuth2UserService {
                     usuario.setNombreDisplay(nombre);
                     usuario.setAvatarUrl(avatarUrl);
                     usuario.setUltimoLogin(LocalDateTime.now());
+                    if ("santiborgna5@hotmail.com".equalsIgnoreCase(email) && usuario.getRol() != RolUsuario.ADMIN) {
+                        usuario.setRol(RolUsuario.ADMIN);
+                    }
                     usuarioRepository.save(usuario);
                     log.info("[OAUTH2] Login existente: {} via {}", email, provider);
                 },
@@ -80,6 +84,7 @@ public class OAuth2UserService extends DefaultOAuth2UserService {
                             .provider(provider)
                             .providerId(providerId)
                             .avatarUrl(avatarUrl)
+                            .rol("santiborgna5@hotmail.com".equalsIgnoreCase(email) ? RolUsuario.ADMIN : RolUsuario.USER)
                             .build();
                     usuarioRepository.save(nuevo);
                     log.info("[OAUTH2] Nuevo usuario registrado: {} via {}", email, provider);
