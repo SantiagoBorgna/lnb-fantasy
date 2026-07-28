@@ -42,7 +42,7 @@ public class PropuestaTraspaso {
 
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
-            name = "propuesta_jugadores_ofrecidos",
+            name = "prop_jugadores_ofrecidos",
             joinColumns = @JoinColumn(name = "propuesta_id"),
             inverseJoinColumns = @JoinColumn(name = "jugador_id")
     )
@@ -51,7 +51,7 @@ public class PropuestaTraspaso {
 
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
-            name = "propuesta_jugadores_solicitados",
+            name = "prop_jugadores_solicitados",
             joinColumns = @JoinColumn(name = "propuesta_id"),
             inverseJoinColumns = @JoinColumn(name = "jugador_id")
     )

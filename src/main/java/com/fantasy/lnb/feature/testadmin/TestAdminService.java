@@ -45,6 +45,8 @@ public class TestAdminService {
                 "transaccion_draft",
                 "waiver_claim",
                 "propuesta_traspaso",
+                "prop_jugadores_ofrecidos",
+                "prop_jugadores_solicitados",
                 "plantel_jornada_jugadores",
                 "plantel_jornada",
                 "estadistica_partido",
