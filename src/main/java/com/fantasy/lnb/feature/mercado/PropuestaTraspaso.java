@@ -43,8 +43,8 @@ public class PropuestaTraspaso {
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
             name = "prop_jugadores_ofrecidos",
-            joinColumns = @JoinColumn(name = "propuesta_id"),
-            inverseJoinColumns = @JoinColumn(name = "jugador_id")
+            joinColumns = @JoinColumn(name = "propuesta_id", foreignKey = @ForeignKey(name = "fk_prop_jug_ofr_prop")),
+            inverseJoinColumns = @JoinColumn(name = "jugador_id", foreignKey = @ForeignKey(name = "fk_prop_jug_ofr_jug"))
     )
     @Builder.Default
     private List<JugadorReal> jugadoresOfrecidos = new ArrayList<>();
@@ -52,8 +52,8 @@ public class PropuestaTraspaso {
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
             name = "prop_jugadores_solicitados",
-            joinColumns = @JoinColumn(name = "propuesta_id"),
-            inverseJoinColumns = @JoinColumn(name = "jugador_id")
+            joinColumns = @JoinColumn(name = "propuesta_id", foreignKey = @ForeignKey(name = "fk_prop_jug_sol_prop")),
+            inverseJoinColumns = @JoinColumn(name = "jugador_id", foreignKey = @ForeignKey(name = "fk_prop_jug_sol_jug"))
     )
     @Builder.Default
     private List<JugadorReal> jugadoresSolicitados = new ArrayList<>();

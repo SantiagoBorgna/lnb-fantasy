@@ -60,7 +60,11 @@ public class TestAdminService {
         };
 
         for (String table : tables) {
-            entityManager.createNativeQuery("TRUNCATE TABLE " + table).executeUpdate();
+            try {
+                entityManager.createNativeQuery("TRUNCATE TABLE " + table).executeUpdate();
+            } catch (Exception e) {
+                log.warn("Ignorando error al truncar la tabla '{}': {}", table, e.getMessage());
+            }
         }
 
         entityManager.createNativeQuery("SET FOREIGN_KEY_CHECKS = 1").executeUpdate();
