@@ -3,6 +3,7 @@ package com.fantasy.lnb.config;
 import com.fantasy.lnb.feature.auth.jwt.JwtAuthFilter;
 import com.fantasy.lnb.feature.auth.oauth2.OAuth2SuccessHandler;
 import com.fantasy.lnb.feature.auth.oauth2.OAuth2UserService;
+import com.fantasy.lnb.feature.auth.oauth2.CustomOidcUserService;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -24,6 +25,7 @@ public class SecurityConfig {
         private final JwtAuthFilter jwtAuthFilter;
         private final OAuth2SuccessHandler oAuth2SuccessHandler;
         private final OAuth2UserService oAuth2UserService;
+        private final CustomOidcUserService customOidcUserService;
         private final RateLimitFilter rateLimitFilter;
 
         @Bean
@@ -75,10 +77,17 @@ public class SecurityConfig {
                                                         response.getWriter().write(
                                                                         "{\"error\": \"Token invalido o revocado\"}");
                                                 }))
-                                // ── Configuración OAuth2 ─────────────────────────────────────────
+                                // 💻 Configuración OAuth2 💻💻💻💻💻💻💻💻💻💻💻💻💻💻💻💻💻💻💻💻💻💻💻💻💻💻💻💻💻💻💻💻💻💻💻💻💻💻💻💻💻
                                 .oauth2Login(oauth2 -> oauth2
-                                                .userInfoEndpoint(endpoint -> endpoint.userService(oAuth2UserService))
-                                                .successHandler(oAuth2SuccessHandler))
+                                                .userInfoEndpoint(endpoint -> endpoint
+                                                        .userService(oAuth2UserService)
+                                                        .oidcUserService(customOidcUserService)
+                                                )
+                                                .successHandler(oAuth2SuccessHandler)
+                                                .failureHandler((request, response, exception) -> {
+                                                        // Redirigimos al frontend con el error
+                                                        response.sendRedirect("http://localhost:5173/login?error=" + exception.getMessage());
+                                                }))
 
                                 // ── JWT Filter antes del filtro estándar de username/password ────
                                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)

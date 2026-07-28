@@ -75,6 +75,10 @@ public class PushNotificationService {
      * Envía una notificación push asíncrona a un dispositivo específico.
      */
     public void enviarNotificacion(SuscripcionPush suscripcion, String titulo, String mensaje) {
+        enviarNotificacion(suscripcion, titulo, mensaje, "/", "DEFAULT");
+    }
+
+    public void enviarNotificacion(SuscripcionPush suscripcion, String titulo, String mensaje, String url, String type) {
         try {
             // Mapeamos los datos de nuestra BD al formato que pide la librería
             Subscription sub = new Subscription(
@@ -84,7 +88,9 @@ public class PushNotificationService {
             // Estructura estándar que espera el Service Worker en el frontend
             Map<String, String> payload = Map.of(
                     "title", titulo,
-                    "body", mensaje);
+                    "body", mensaje,
+                    "url", url,
+                    "type", type);
             String jsonPayload = objectMapper.writeValueAsString(payload);
 
             // Construimos la notificación
@@ -127,10 +133,14 @@ public class PushNotificationService {
      * Envía una notificación a un usuario específico en todas sus sesiones/dispositivos.
      */
     public void enviarNotificacionAUsuario(Usuario usuario, String titulo, String mensaje) {
+        enviarNotificacionAUsuario(usuario, titulo, mensaje, "/", "DEFAULT");
+    }
+
+    public void enviarNotificacionAUsuario(Usuario usuario, String titulo, String mensaje, String url, String type) {
         if (usuario == null) return;
         List<SuscripcionPush> suscripciones = suscripcionRepo.findByUsuario_Id(usuario.getId());
         for (SuscripcionPush sub : suscripciones) {
-            enviarNotificacion(sub, titulo, mensaje);
+            enviarNotificacion(sub, titulo, mensaje, url, type);
         }
     }
 }

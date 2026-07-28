@@ -12,6 +12,7 @@ import com.fantasy.lnb.feature.torneo.TorneoRepository;
 import com.fantasy.lnb.feature.usuario.Usuario;
 import com.fantasy.lnb.feature.mercado.JugadorReal;
 import com.fantasy.lnb.feature.mercado.JugadorRealRepository;
+import com.fantasy.lnb.feature.notificaciones.PushNotificationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -34,6 +35,7 @@ public class DraftService {
     private final JugadorRealRepository jugadorRepo;
     private final com.fantasy.lnb.feature.dt.DirectorTecnicoRepository dtRepo;
     private final TorneoH2HService h2hService;
+    private final PushNotificationService pushService;
 
     // Rondas del draft
     private static final int RONDAS_DRAFT = 11;
@@ -89,6 +91,19 @@ public class DraftService {
         torneoRepo.save(torneo);
 
         log.info("[DRAFT] Torneo {} inició el draft. Orden generado.", torneoId);
+
+        // Notificar a todos los participantes (excepto al admin que lo acaba de iniciar)
+        for (TorneoEquipo te : participantes) {
+            if (!te.getEquipoVirtual().getUsuario().getId().equals(adminId)) {
+                pushService.enviarNotificacionAUsuario(
+                    te.getEquipoVirtual().getUsuario(),
+                    "¡El Draft empezó!",
+                    "Entrá a la sala de draft de tu torneo.",
+                    "/t-redir/" + torneo.getId() + "/draft",
+                    "DRAFT_INICIO"
+                );
+            }
+        }
 
         avanzarTurno(torneoId);
     }
@@ -166,7 +181,15 @@ public class DraftService {
                 siguiente.setLimiteTiempo(LocalDateTime.now().plusSeconds(5));
                 turnoRepo.save(siguiente);
                 log.info("[DRAFT] Torneo {} - Es el turno de {} (Expira: {})", torneoId, siguiente.getUsuario().getId(), siguiente.getLimiteTiempo());
-                // TODO: Enviar notificación push/email al usuario
+                
+                Torneo torneo = torneoRepo.findById(torneoId).orElseThrow();
+                pushService.enviarNotificacionAUsuario(
+                    siguiente.getUsuario(),
+                    "¡Es tu turno!",
+                    "Tenés poco tiempo para elegir.",
+                    "/t-redir/" + torneo.getId() + "/draft",
+                    "DRAFT_TURNO"
+                );
             },
             () -> {
                 // No hay más turnos
@@ -187,6 +210,17 @@ public class DraftService {
                 torneoRepo.save(torneo);
                 h2hService.generarFixture(torneo); // Generar el Round Robin
                 log.info("[DRAFT] Torneo {} - DRAFT FINALIZADO. Prioridades de Waiver asignadas y Fixture H2H generado.", torneoId);
+
+                // Notificar fin de draft a todos
+                for (TorneoEquipo te : equipos) {
+                    pushService.enviarNotificacionAUsuario(
+                        te.getEquipoVirtual().getUsuario(),
+                        "El Draft terminó",
+                        "Ya podés ver tu plantel definitivo en la canchita.",
+                        "/canchita",
+                        "DRAFT_FIN"
+                    );
+                }
             }
         );
     }

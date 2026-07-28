@@ -48,6 +48,19 @@ public class RankingController {
     }
 
     /**
+     * GET /api/ranking/torneo/{torneoId}/jornada/{jornadaId}
+     * Ranking de una jornada especfica para un torneo.
+     */
+    @GetMapping("/torneo/{torneoId}/jornada/{jornadaId}")
+    public ResponseEntity<List<PosicionGlobalDto>> rankingJornadaTorneo(
+            @PathVariable Long torneoId,
+            @PathVariable Long jornadaId,
+            @RequestParam(defaultValue = "100") int limite) {
+        return ResponseEntity.ok(
+                rankingService.obtenerRankingJornadaTorneo(torneoId, jornadaId, limite));
+    }
+
+    /**
      * GET /api/ranking/jornada/{jornadaId}
      * Ranking de una jornada específica — ordenado por puntajeObtenidoFecha.
      */

@@ -30,6 +30,9 @@ public interface PlantelJornadaRepository extends JpaRepository<PlantelJornada, 
         // Busca todos los planteles de un torneo en una jornada
         java.util.List<PlantelJornada> findByTorneo_IdAndJornada_Id(Long torneoId, Long jornadaId);
 
+        // Busca todos los planteles globales en una jornada
+        java.util.List<PlantelJornada> findByJornada_IdAndTorneoIsNull(Long jornadaId);
+
         // Para el motor de puntuación (Paso 4):
         // trae todos los planteles de una jornada para calcular puntajes en batch
         @Query("""

@@ -16,6 +16,7 @@ import com.fantasy.lnb.feature.torneo.Torneo;
 import com.fantasy.lnb.feature.torneo.TorneoRepository;
 import com.fantasy.lnb.feature.usuario.Usuario;
 import com.fantasy.lnb.feature.usuario.UsuarioRepository;
+import com.fantasy.lnb.feature.notificaciones.PushNotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,6 +39,7 @@ public class TraspasoUsuarioService {
     private final PlantelJornadaRepository plantelRepo;
     private final JugadorPlantelRepository jugadorPlantelRepo;
     private final TransaccionDraftRepository transaccionDraftRepo;
+    private final PushNotificationService pushService;
     
     @org.springframework.context.annotation.Lazy
     @org.springframework.beans.factory.annotation.Autowired
@@ -160,6 +162,15 @@ public class TraspasoUsuarioService {
                 .build();
 
         propuesta = propuestaRepo.save(propuesta);
+
+        pushService.enviarNotificacionAUsuario(
+                equipoReceptor.getUsuario(),
+                "Propuesta de Traspaso",
+                equipoProponente.getUsuario().getNombreDisplay() + " te ha propuesto un traspaso de jugadores.",
+                "/mercado",
+                "MERCADO_TRASPASO"
+        );
+
         return mapToDto(propuesta);
     }
 
@@ -191,6 +202,14 @@ public class TraspasoUsuarioService {
         p.setEstado(EstadoPropuestaTraspaso.RECHAZADA);
         p.setFechaResolucion(LocalDateTime.now());
         propuestaRepo.save(p);
+
+        pushService.enviarNotificacionAUsuario(
+                p.getEquipoProponente().getUsuario(),
+                "Resolución de Traspaso",
+                p.getEquipoReceptor().getUsuario().getNombreDisplay() + " rechazó tu propuesta de traspaso.",
+                "/mercado",
+                "MERCADO_TRASPASO"
+        );
     }
 
     @Transactional
@@ -321,6 +340,14 @@ public class TraspasoUsuarioService {
         // Cancelar propuestas salientes que ya no se pueden cubrir con las transferencias restantes
         cancelarPropuestasInviables(p.getEquipoProponente().getUsuario().getId(), p.getTorneo().getId(), plantelProponente);
         cancelarPropuestasInviables(p.getEquipoReceptor().getUsuario().getId(), p.getTorneo().getId(), plantelReceptor);
+
+        pushService.enviarNotificacionAUsuario(
+                p.getEquipoProponente().getUsuario(),
+                "Resolución de Traspaso",
+                p.getEquipoReceptor().getUsuario().getNombreDisplay() + " aceptó tu propuesta de traspaso.",
+                "/mercado",
+                "MERCADO_TRASPASO"
+        );
     }
 
     private void cancelarPropuestasInviables(Long usuarioId, Long torneoId, PlantelJornada plantel) {

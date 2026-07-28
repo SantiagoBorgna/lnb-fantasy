@@ -40,7 +40,7 @@ public class OAuth2UserService extends DefaultOAuth2UserService {
         return oAuth2User;
     }
 
-    private void procesarUsuario(OAuth2User oAuth2User, String provider) {
+    public void procesarUsuario(OAuth2User oAuth2User, String provider) {
 
         // Los atributos difieren levemente entre Google y Microsoft
         String email, nombre, providerId, avatarUrl;
@@ -68,6 +68,7 @@ public class OAuth2UserService extends DefaultOAuth2UserService {
                 usuario -> {
                     usuario.setNombreDisplay(nombre);
                     usuario.setAvatarUrl(avatarUrl);
+                    usuario.setUltimoLogin(LocalDateTime.now());
                     usuarioRepository.save(usuario);
                     log.info("[OAUTH2] Login existente: {} via {}", email, provider);
                 },

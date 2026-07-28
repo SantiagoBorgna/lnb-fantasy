@@ -214,7 +214,13 @@ public class WaiverService {
                 mensaje = "La Agencia Restringida ha finalizado. Ya podés fichar jugadores libres.";
             }
             
-            pushNotificationService.enviarNotificacionAUsuario(usuario, "Agencia Restringida Cerrada", mensaje);
+            pushNotificationService.enviarNotificacionAUsuario(
+                usuario, 
+                "Agencia Libre", 
+                mensaje,
+                "/mercado",
+                "MERCADO_FA"
+            );
         }
     }
 
@@ -230,6 +236,15 @@ public class WaiverService {
             claim.setEstado(EstadoClaim.RECHAZADO);
             claim.setMotivoRechazo("Fichado por equipo con mayor prioridad");
             claimRepo.save(claim);
+            
+            String nombre = esReclamoJugador ? claim.getJugadorElegido().getNombreCompleto() : claim.getDtElegido().getNombreCompleto();
+            pushNotificationService.enviarNotificacionAUsuario(
+                    claim.getUsuario(),
+                    "Reclamo Fallido",
+                    "Alguien con mayor prioridad se llevó a " + nombre,
+                    "/mercado",
+                    "MERCADO_WAIVER_RECHAZO"
+            );
             return;
         }
 
@@ -271,6 +286,15 @@ public class WaiverService {
 
         claim.setEstado(EstadoClaim.APROBADO);
         claimRepo.save(claim);
+
+        String nombreAprobado = esReclamoJugador ? claim.getJugadorElegido().getNombreCompleto() : claim.getDtElegido().getNombreCompleto();
+        pushNotificationService.enviarNotificacionAUsuario(
+                claim.getUsuario(),
+                "Reclamo Aprobado",
+                "Lograste el fichaje de " + formatNombre(nombreAprobado) + ".",
+                "/mercado",
+                "MERCADO_WAIVER_APROBADO"
+        );
 
         TransaccionDraft transaccion = TransaccionDraft.builder()
                 .torneo(claim.getTorneo())
@@ -396,5 +420,19 @@ public class WaiverService {
 
         LocalDateTime limite = jornada.getFechaInicio().minusHours(4);
         return LocalDateTime.now().isBefore(limite);
+    }
+
+    private String formatNombre(String nombre) {
+        if (nombre == null || nombre.isEmpty()) return "";
+        String[] parts = nombre.toLowerCase().split(" ");
+        StringBuilder sb = new StringBuilder();
+        for (String part : parts) {
+            if (part.length() > 0) {
+                sb.append(Character.toUpperCase(part.charAt(0)));
+                sb.append(part.substring(1));
+                sb.append(" ");
+            }
+        }
+        return sb.toString().trim();
     }
 }
