@@ -45,7 +45,7 @@ public class DraftService {
     @Transactional
     public void iniciarDraft(Long torneoId, Long adminId) {
         Torneo torneo = torneoRepo.findById(torneoId).orElseThrow();
-        
+
         if (!torneo.getCreador().getId().equals(adminId)) {
             throw new IllegalStateException("Solo el administrador puede iniciar el draft.");
         }
@@ -59,7 +59,8 @@ public class DraftService {
         }
 
         // Orden aleatorio inicial
-        List<Usuario> orden = new ArrayList<>(participantes.stream().map(te -> te.getEquipoVirtual().getUsuario()).toList());
+        List<Usuario> orden = new ArrayList<>(
+                participantes.stream().map(te -> te.getEquipoVirtual().getUsuario()).toList());
         Collections.shuffle(orden);
 
         int numeroGlobal = 1;
@@ -68,7 +69,7 @@ public class DraftService {
         // Generar formato Snake
         for (int ronda = 1; ronda <= RONDAS_DRAFT; ronda++) {
             boolean esImpar = ronda % 2 != 0;
-            
+
             // En rondas pares se invierte el orden
             List<Usuario> ordenRonda = new ArrayList<>(orden);
             if (!esImpar) {
@@ -92,16 +93,16 @@ public class DraftService {
 
         log.info("[DRAFT] Torneo {} inició el draft. Orden generado.", torneoId);
 
-        // Notificar a todos los participantes (excepto al admin que lo acaba de iniciar)
+        // Notificar a todos los participantes (excepto al admin que lo acaba de
+        // iniciar)
         for (TorneoEquipo te : participantes) {
             if (!te.getEquipoVirtual().getUsuario().getId().equals(adminId)) {
                 pushService.enviarNotificacionAUsuario(
-                    te.getEquipoVirtual().getUsuario(),
-                    "¡El Draft empezó!",
-                    "Entrá a la sala de draft de tu torneo.",
-                    "/t-redir/" + torneo.getId() + "/draft",
-                    "DRAFT_INICIO"
-                );
+                        te.getEquipoVirtual().getUsuario(),
+                        "¡El Draft empezó!",
+                        "Entrá a la sala de draft de tu torneo.",
+                        "/t-redir/" + torneo.getId() + "/draft",
+                        "DRAFT_INICIO");
             }
         }
 
@@ -127,8 +128,8 @@ public class DraftService {
         }
 
         // Determinar rol inicial (se puede cambiar después)
-        RolPlantel rol = (turnoActual.getRonda() <= 5) ? RolPlantel.TITULAR : 
-                         (turnoActual.getRonda() == 6) ? RolPlantel.SEXTO_HOMBRE : RolPlantel.SUPLENTE;
+        RolPlantel rol = (turnoActual.getRonda() <= 5) ? RolPlantel.TITULAR
+                : (turnoActual.getRonda() == 6) ? RolPlantel.SEXTO_HOMBRE : RolPlantel.SUPLENTE;
 
         // Validaciones e inserción en el roster
         plantelDraftService.agregarJugadorPorDraft(usuarioId, torneoId, jugadorRealId, rol);
@@ -138,7 +139,8 @@ public class DraftService {
         turnoActual.setFueAutoPick(false);
         turnoRepo.save(turnoActual);
 
-        log.info("[DRAFT] Torneo {} - Turno {} completado por {}", torneoId, turnoActual.getNumeroTurnoGlobal(), usuarioId);
+        log.info("[DRAFT] Torneo {} - Turno {} completado por {}", torneoId, turnoActual.getNumeroTurnoGlobal(),
+                usuarioId);
 
         avanzarTurno(torneoId);
     }
@@ -168,7 +170,8 @@ public class DraftService {
         turnoActual.setFueAutoPick(false);
         turnoRepo.save(turnoActual);
 
-        log.info("[DRAFT] Torneo {} - Turno {} completado por {} (Elijio DT)", torneoId, turnoActual.getNumeroTurnoGlobal(), usuarioId);
+        log.info("[DRAFT] Torneo {} - Turno {} completado por {} (Elijio DT)", torneoId,
+                turnoActual.getNumeroTurnoGlobal(), usuarioId);
 
         avanzarTurno(torneoId);
     }
@@ -176,53 +179,53 @@ public class DraftService {
     @Transactional
     public void avanzarTurno(Long torneoId) {
         turnoRepo.findFirstByTorneo_IdAndCompletadoFalseOrderByNumeroTurnoGlobalAsc(torneoId).ifPresentOrElse(
-            siguiente -> {
-                siguiente.setInicioTurno(LocalDateTime.now());
-                siguiente.setLimiteTiempo(LocalDateTime.now().plusSeconds(5));
-                turnoRepo.save(siguiente);
-                log.info("[DRAFT] Torneo {} - Es el turno de {} (Expira: {})", torneoId, siguiente.getUsuario().getId(), siguiente.getLimiteTiempo());
-                
-                Torneo torneo = torneoRepo.findById(torneoId).orElseThrow();
-                pushService.enviarNotificacionAUsuario(
-                    siguiente.getUsuario(),
-                    "¡Es tu turno!",
-                    "Tenés poco tiempo para elegir.",
-                    "/t-redir/" + torneo.getId() + "/draft",
-                    "DRAFT_TURNO"
-                );
-            },
-            () -> {
-                // No hay más turnos
-                Torneo torneo = torneoRepo.findById(torneoId).orElseThrow();
-                torneo.setEstadoDraft(EstadoDraft.FINALIZADO);
-                
-                // Acomodar los planteles a una formación válida
-                plantelDraftService.acomodarPlantelesPostDraft(torneoId);
+                siguiente -> {
+                    siguiente.setInicioTurno(LocalDateTime.now());
+                    siguiente.setLimiteTiempo(LocalDateTime.now().plusSeconds(120));
+                    turnoRepo.save(siguiente);
+                    log.info("[DRAFT] Torneo {} - Es el turno de {} (Expira: {})", torneoId,
+                            siguiente.getUsuario().getId(), siguiente.getLimiteTiempo());
 
-                // Inicializar lista de prioridad de Waivers (aleatoria)
-                List<TorneoEquipo> equipos = torneo.getParticipantes();
-                Collections.shuffle(equipos);
-                int prioridad = 1;
-                for (TorneoEquipo te : equipos) {
-                    te.setPrioridadWaiver(prioridad++);
-                }
-
-                torneoRepo.save(torneo);
-                h2hService.generarFixture(torneo); // Generar el Round Robin
-                log.info("[DRAFT] Torneo {} - DRAFT FINALIZADO. Prioridades de Waiver asignadas y Fixture H2H generado.", torneoId);
-
-                // Notificar fin de draft a todos
-                for (TorneoEquipo te : equipos) {
+                    Torneo torneo = torneoRepo.findById(torneoId).orElseThrow();
                     pushService.enviarNotificacionAUsuario(
-                        te.getEquipoVirtual().getUsuario(),
-                        "El Draft terminó",
-                        "Ya podés ver tu plantel definitivo en la canchita.",
-                        "/canchita",
-                        "DRAFT_FIN"
-                    );
-                }
-            }
-        );
+                            siguiente.getUsuario(),
+                            "¡Es tu turno!",
+                            "Tenés poco tiempo para elegir.",
+                            "/t-redir/" + torneo.getId() + "/draft",
+                            "DRAFT_TURNO");
+                },
+                () -> {
+                    // No hay más turnos
+                    Torneo torneo = torneoRepo.findById(torneoId).orElseThrow();
+                    torneo.setEstadoDraft(EstadoDraft.FINALIZADO);
+
+                    // Acomodar los planteles a una formación válida
+                    plantelDraftService.acomodarPlantelesPostDraft(torneoId);
+
+                    // Inicializar lista de prioridad de Waivers (aleatoria)
+                    List<TorneoEquipo> equipos = torneo.getParticipantes();
+                    Collections.shuffle(equipos);
+                    int prioridad = 1;
+                    for (TorneoEquipo te : equipos) {
+                        te.setPrioridadWaiver(prioridad++);
+                    }
+
+                    torneoRepo.save(torneo);
+                    h2hService.generarFixture(torneo); // Generar el Round Robin
+                    log.info(
+                            "[DRAFT] Torneo {} - DRAFT FINALIZADO. Prioridades de Waiver asignadas y Fixture H2H generado.",
+                            torneoId);
+
+                    // Notificar fin de draft a todos
+                    for (TorneoEquipo te : equipos) {
+                        pushService.enviarNotificacionAUsuario(
+                                te.getEquipoVirtual().getUsuario(),
+                                "El Draft terminó",
+                                "Ya podés ver tu plantel definitivo en la canchita.",
+                                "/canchita",
+                                "DRAFT_FIN");
+                    }
+                });
     }
 
     // Tarea programada que corre cada 10s para procesar AutoPicks
@@ -231,14 +234,18 @@ public class DraftService {
     public void procesarAutoPicksVencidos() {
         List<DraftTurno> vencidos = turnoRepo.findByCompletadoFalseAndLimiteTiempoBefore(LocalDateTime.now());
         for (DraftTurno turno : vencidos) {
-            log.info("[DRAFT AUTO-PICK] Procesando turno {} vencido del torneo {}", turno.getNumeroTurnoGlobal(), turno.getTorneo().getId());
-            
+            log.info("[DRAFT AUTO-PICK] Procesando turno {} vencido del torneo {}", turno.getNumeroTurnoGlobal(),
+                    turno.getTorneo().getId());
+
             if (turno.getRonda() == 11) {
-                List<com.fantasy.lnb.feature.dt.DirectorTecnico> dts = dtRepo.findAll(org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.ASC, "nombreCompleto"));
+                List<com.fantasy.lnb.feature.dt.DirectorTecnico> dts = dtRepo
+                        .findAll(org.springframework.data.domain.Sort
+                                .by(org.springframework.data.domain.Sort.Direction.ASC, "nombreCompleto"));
                 for (com.fantasy.lnb.feature.dt.DirectorTecnico dt : dts) {
                     if (plantelDraftService.dtEstaLibreEnTorneo(dt.getId(), turno.getTorneo().getId())) {
                         try {
-                            plantelDraftService.agregarDtPorDraft(turno.getUsuario().getId(), turno.getTorneo().getId(), dt.getId());
+                            plantelDraftService.agregarDtPorDraft(turno.getUsuario().getId(), turno.getTorneo().getId(),
+                                    dt.getId());
                             turno.setCompletado(true);
                             turno.setDtIdElegido(dt.getId());
                             turno.setFueAutoPick(true);
@@ -251,14 +258,19 @@ public class DraftService {
                     }
                 }
             } else {
-                // Lógica simple: buscar el mejor jugador disponible (ordenado por precio) que no esté en el torneo y no sea DESCONOCIDO
-                List<JugadorReal> todos = jugadorRepo.findByPosicionNot(com.fantasy.lnb.feature.mercado.PosicionJugador.DESCONOCIDO, org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "valorMercadoActual"));
+                // Lógica simple: buscar el mejor jugador disponible (ordenado por precio) que
+                // no esté en el torneo y no sea DESCONOCIDO
+                List<JugadorReal> todos = jugadorRepo.findByPosicionNot(
+                        com.fantasy.lnb.feature.mercado.PosicionJugador.DESCONOCIDO,
+                        org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC,
+                                "valorMercadoActual"));
                 for (JugadorReal j : todos) {
                     if (plantelDraftService.jugadorEstaLibreEnTorneo(j.getId(), turno.getTorneo().getId())) {
                         // Elegirlo
                         try {
                             RolPlantel rol = (turno.getRonda() <= 5) ? RolPlantel.TITULAR : RolPlantel.SUPLENTE;
-                            plantelDraftService.agregarJugadorPorDraft(turno.getUsuario().getId(), turno.getTorneo().getId(), j.getId(), rol);
+                            plantelDraftService.agregarJugadorPorDraft(turno.getUsuario().getId(),
+                                    turno.getTorneo().getId(), j.getId(), rol);
                             turno.setCompletado(true);
                             turno.setJugadorRealIdElegido(j.getId());
                             turno.setFueAutoPick(true);
@@ -280,48 +292,55 @@ public class DraftService {
     public com.fantasy.lnb.feature.draft.dto.DraftStateDto obtenerEstadoDraft(Long torneoId) {
         Torneo torneo = torneoRepo.findById(torneoId).orElseThrow();
         List<DraftTurno> turnos = turnoRepo.findByTorneo_IdOrderByNumeroTurnoGlobalAsc(torneoId);
-        
+
         Long turnoActualId = null;
         if (torneo.getEstadoDraft() == EstadoDraft.EN_CURSO) {
             turnoActualId = turnos.stream()
-                .filter(t -> !t.getCompletado())
-                .findFirst()
-                .map(DraftTurno::getId)
-                .orElse(null);
+                    .filter(t -> !t.getCompletado())
+                    .findFirst()
+                    .map(DraftTurno::getId)
+                    .orElse(null);
         }
 
         List<com.fantasy.lnb.feature.draft.dto.DraftTurnoDto> turnosDto = turnos.stream().map(t -> {
             String nombreEquipo = t.getTorneo().getParticipantes().stream()
-                .filter(te -> te.getEquipoVirtual().getUsuario().getId().equals(t.getUsuario().getId()))
-                .findFirst()
-                .map(te -> te.getEquipoVirtual().getNombre())
-                .orElse("Equipo");
+                    .filter(te -> te.getEquipoVirtual().getUsuario().getId().equals(t.getUsuario().getId()))
+                    .findFirst()
+                    .map(te -> te.getEquipoVirtual().getNombre())
+                    .orElse("Equipo");
 
             return com.fantasy.lnb.feature.draft.dto.DraftTurnoDto.builder()
-                .id(t.getId())
-                .usuarioId(t.getUsuario().getId())
-                .nombreUsuario(t.getUsuario().getNombreDisplay())
-                .nombreEquipo(nombreEquipo)
-                .ronda(t.getRonda())
-                .numeroTurnoGlobal(t.getNumeroTurnoGlobal())
-                .completado(t.getCompletado())
-                .jugadorRealIdElegido(t.getJugadorRealIdElegido())
-                .nombreJugadorElegido(t.getJugadorRealIdElegido() != null ? jugadorRepo.findById(t.getJugadorRealIdElegido()).map(JugadorReal::getNombreCompleto).orElse(null) : null)
-                .dtIdElegido(t.getDtIdElegido())
-                .nombreDtElegido(t.getDtIdElegido() != null ? dtRepo.findById(t.getDtIdElegido()).map(com.fantasy.lnb.feature.dt.DirectorTecnico::getNombreCompleto).orElse(null) : null)
-                .inicioTurno(t.getInicioTurno())
-                .limiteTiempo(t.getLimiteTiempo())
-                .fueAutoPick(t.getFueAutoPick())
-                .build();
+                    .id(t.getId())
+                    .usuarioId(t.getUsuario().getId())
+                    .nombreUsuario(t.getUsuario().getNombreDisplay())
+                    .nombreEquipo(nombreEquipo)
+                    .ronda(t.getRonda())
+                    .numeroTurnoGlobal(t.getNumeroTurnoGlobal())
+                    .completado(t.getCompletado())
+                    .jugadorRealIdElegido(t.getJugadorRealIdElegido())
+                    .nombreJugadorElegido(
+                            t.getJugadorRealIdElegido() != null
+                                    ? jugadorRepo.findById(t.getJugadorRealIdElegido())
+                                            .map(JugadorReal::getNombreCompleto).orElse(null)
+                                    : null)
+                    .dtIdElegido(t.getDtIdElegido())
+                    .nombreDtElegido(t.getDtIdElegido() != null
+                            ? dtRepo.findById(t.getDtIdElegido())
+                                    .map(com.fantasy.lnb.feature.dt.DirectorTecnico::getNombreCompleto).orElse(null)
+                            : null)
+                    .inicioTurno(t.getInicioTurno())
+                    .limiteTiempo(t.getLimiteTiempo())
+                    .fueAutoPick(t.getFueAutoPick())
+                    .build();
         }).toList();
 
         return com.fantasy.lnb.feature.draft.dto.DraftStateDto.builder()
-            .estado(torneo.getEstadoDraft())
-            .turnos(turnosDto)
-            .turnoActualId(turnoActualId)
-            .cantidadParticipantes(torneo.getParticipantes().size())
-            .maxParticipantes(torneo.getMaxParticipantes())
-            .adminId(torneo.getCreador().getId())
-            .build();
+                .estado(torneo.getEstadoDraft())
+                .turnos(turnosDto)
+                .turnoActualId(turnoActualId)
+                .cantidadParticipantes(torneo.getParticipantes().size())
+                .maxParticipantes(torneo.getMaxParticipantes())
+                .adminId(torneo.getCreador().getId())
+                .build();
     }
 }
