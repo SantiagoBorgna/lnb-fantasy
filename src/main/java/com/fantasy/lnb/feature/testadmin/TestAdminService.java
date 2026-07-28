@@ -191,4 +191,34 @@ public class TestAdminService {
             estadisticaPartidoRepository.save(stat);
         }
     }
+
+    @Transactional
+    public void seedPartidosParaJornadasExistentes() {
+        List<Jornada> jornadas = jornadaRepository.findAll();
+        List<EquipoReal> equipos = equipoRealRepository.findAll();
+        
+        for (Jornada jornada : jornadas) {
+            if (partidoRepository.countByJornada_Id(jornada.getId()) > 0) continue;
+            
+            List<EquipoReal> shuffled = new ArrayList<>(equipos);
+            Collections.shuffle(shuffled);
+            
+            for (int j = 0; j < shuffled.size() - 1; j += 2) {
+                EquipoReal local = shuffled.get(j);
+                EquipoReal visitante = shuffled.get(j + 1);
+                
+                Partido partido = Partido.builder()
+                        .jornada(jornada)
+                        .equipoLocal(local)
+                        .equipoVisitante(visitante)
+                        .gesHash("FAKE_HASH_J" + jornada.getNumero() + "_M" + j)
+                        .gesUrl("http://fake.ges.url/J" + jornada.getNumero() + "M" + j)
+                        .fechaHora(jornada.getFechaInicio().plusHours(1))
+                        .estado(EstadoPartido.PROGRAMADO)
+                        .build();
+                partidoRepository.save(partido);
+            }
+        }
+        log.info("Partidos agregados a las jornadas existentes.");
+    }
 }

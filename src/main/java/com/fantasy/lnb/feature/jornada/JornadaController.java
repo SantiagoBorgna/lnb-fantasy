@@ -36,6 +36,13 @@ public class JornadaController {
         return ResponseEntity.ok(Map.of("message", "Ya existen jornadas generadas"));
     }
 
+    // GET /api/jornadas/seed-partidos-public -> Agrega partidos a jornadas existentes
+    @GetMapping("/seed-partidos-public")
+    public ResponseEntity<?> seedPartidosPublic() {
+        testAdminService.seedPartidosParaJornadasExistentes();
+        return ResponseEntity.ok(Map.of("message", "Partidos agregados a las jornadas existentes"));
+    }
+
     // GET /api/jornadas — lista todas (historial completo)
     @GetMapping
     public ResponseEntity<List<JornadaDto>> listarTodas() {

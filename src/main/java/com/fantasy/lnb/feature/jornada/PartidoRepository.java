@@ -12,6 +12,8 @@ public interface PartidoRepository extends JpaRepository<Partido, Long> {
 
      List<Partido> findByJornada_Id(Long jornadaId);
 
+     long countByJornada_Id(Long jornadaId);
+
      // Busca partidos finalizados no procesados para el scraper
      List<Partido> findByEstadoAndEstadisticasProcesadasFalse(
                EstadoPartido estado);
