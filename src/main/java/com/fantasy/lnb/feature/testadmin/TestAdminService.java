@@ -36,7 +36,7 @@ public class TestAdminService {
     private final JugadorRealRepository jugadorRealRepository;
     private final EstadisticaPartidoRepository estadisticaPartidoRepository;
 
-    @Transactional
+    @Transactional(noRollbackFor = Exception.class)
     public void resetDb() {
         log.warn("ATENCION: Ejecutando borrado total de datos transaccionales.");
         entityManager.createNativeQuery("SET FOREIGN_KEY_CHECKS = 0").executeUpdate();
