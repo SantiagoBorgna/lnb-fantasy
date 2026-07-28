@@ -75,8 +75,12 @@ public class TestAdminService {
     public void seedJornadas() {
         if (jornadaRepository.count() > 0) {
             log.warn("Eliminando jornadas existentes para generar el fixture falso...");
-            partidoRepository.deleteAll();
-            jornadaRepository.deleteAll();
+            entityManager.createNativeQuery("SET FOREIGN_KEY_CHECKS = 0").executeUpdate();
+            entityManager.createNativeQuery("TRUNCATE TABLE plantel_jornada_jugadores").executeUpdate();
+            entityManager.createNativeQuery("TRUNCATE TABLE plantel_jornada").executeUpdate();
+            entityManager.createNativeQuery("TRUNCATE TABLE partido").executeUpdate();
+            entityManager.createNativeQuery("TRUNCATE TABLE jornada").executeUpdate();
+            entityManager.createNativeQuery("SET FOREIGN_KEY_CHECKS = 1").executeUpdate();
         }
 
         List<EquipoReal> equipos = equipoRealRepository.findAll();
