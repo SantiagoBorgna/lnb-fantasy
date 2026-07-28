@@ -5,6 +5,8 @@ import com.fantasy.lnb.feature.jornada.dto.JornadaDto;
 import com.fantasy.lnb.feature.jornada.dto.PartidoDto;
 import com.fantasy.lnb.feature.plantel.PlantelClonadoService;
 
+import com.fantasy.lnb.feature.testadmin.TestAdminService;
+
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -22,6 +24,17 @@ public class JornadaController {
     private final JornadaService jornadaService;
     private final PlantelClonadoService plantelClonadoService;
     private final JornadaRepository jornadaRepo;
+    private final TestAdminService testAdminService;
+
+    // GET /api/jornadas/seed-public -> Permite inicializar fixture sin login
+    @GetMapping("/seed-public")
+    public ResponseEntity<?> seedPublic() {
+        if (jornadaRepo.count() == 0) {
+            testAdminService.seedJornadas();
+            return ResponseEntity.ok(Map.of("message", "Fixture generado correctamente"));
+        }
+        return ResponseEntity.ok(Map.of("message", "Ya existen jornadas generadas"));
+    }
 
     // GET /api/jornadas — lista todas (historial completo)
     @GetMapping
