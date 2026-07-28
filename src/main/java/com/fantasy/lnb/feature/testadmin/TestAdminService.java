@@ -74,7 +74,9 @@ public class TestAdminService {
     @Transactional
     public void seedJornadas() {
         if (jornadaRepository.count() > 0) {
-            throw new IllegalStateException("Ya existen jornadas. Ejecutá el Reset primero.");
+            log.warn("Eliminando jornadas existentes para generar el fixture falso...");
+            partidoRepository.deleteAll();
+            jornadaRepository.deleteAll();
         }
 
         List<EquipoReal> equipos = equipoRealRepository.findAll();
