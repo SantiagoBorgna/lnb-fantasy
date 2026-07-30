@@ -14,7 +14,8 @@ public interface PlantelJornadaRepository extends JpaRepository<PlantelJornada, 
         Optional<PlantelJornada> findByUsuario_IdAndJornada_IdAndTorneoIsNull(
                         Long usuarioId, Long jornadaId);
 
-        // Verifica si el usuario armó su plantel global
+        // Búsqueda de todos los planteles globales de un usuario
+        java.util.List<PlantelJornada> findByUsuario_IdAndTorneoIsNull(Long usuarioId);
         boolean existsByUsuario_IdAndJornada_IdAndTorneoIsNull(Long usuarioId, Long jornadaId);
 
         // Búsqueda del plantel Draft (con torneo)

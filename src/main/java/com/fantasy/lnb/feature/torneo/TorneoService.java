@@ -9,6 +9,7 @@ import com.fantasy.lnb.feature.usuario.EquipoVirtual;
 import com.fantasy.lnb.feature.usuario.EquipoVirtualRepository;
 import com.fantasy.lnb.feature.usuario.Usuario;
 import com.fantasy.lnb.feature.usuario.UsuarioRepository;
+import com.fantasy.lnb.feature.plantel.PlantelJornadaRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -31,6 +32,7 @@ public class TorneoService {
         private final UsuarioRepository usuarioRepo;
         private final EquipoVirtualRepository equipoVirtualRepo;
         private final EnfrentamientoH2HRepository enfrentamientoRepo;
+        private final PlantelJornadaRepository plantelRepo;
 
         @Value("${app.frontend-url}")
         private String frontendUrl;
@@ -170,7 +172,10 @@ public class TorneoService {
                         participantes.sort((a, b) -> Double.compare(b.getPuntajeGlobal(), a.getPuntajeGlobal()));
                     }
                 } else {
-                    participantes.sort((a, b) -> Double.compare(b.getEquipoVirtual().getPuntajeGlobal(), a.getEquipoVirtual().getPuntajeGlobal()));
+                    participantes.sort((a, b) -> Double.compare(
+                        calcularPuntajeClasicoDinamico(b, torneo.getCreadoEn()), 
+                        calcularPuntajeClasicoDinamico(a, torneo.getCreadoEn())
+                    ));
                 }
 
                 AtomicInteger posicion = new AtomicInteger(1);
@@ -181,7 +186,7 @@ public class TorneoService {
                                                 .nombreEquipo(te.getEquipoVirtual().getNombre())
                                                 .nombreUsuario(te.getEquipoVirtual()
                                                                 .getUsuario().getNombreDisplay())
-                                                .puntajeGlobal((torneo.getModalidad() == com.fantasy.lnb.feature.torneo.ModalidadTorneo.DRAFT) ? te.getPuntajeGlobal() : te.getEquipoVirtual().getPuntajeGlobal())
+                                                .puntajeGlobal((torneo.getModalidad() == com.fantasy.lnb.feature.torneo.ModalidadTorneo.DRAFT) ? te.getPuntajeGlobal() : calcularPuntajeClasicoDinamico(te, torneo.getCreadoEn()))
                                                 .partidosGanados(te.getPartidosGanados())
                                                 .partidosEmpatados(te.getPartidosEmpatados())
                                                 .partidosPerdidos(te.getPartidosPerdidos())
@@ -189,6 +194,14 @@ public class TorneoService {
                                                 .equipoVirtualId(te.getEquipoVirtual().getId())
                                                 .build())
                                 .toList();
+        }
+
+        private double calcularPuntajeClasicoDinamico(TorneoEquipo te, java.time.LocalDateTime torneoCreadoEn) {
+            return plantelRepo.findByUsuario_IdAndTorneoIsNull(te.getEquipoVirtual().getUsuario().getId())
+                    .stream()
+                    .filter(p -> p.getJornada().getFechaInicio().isAfter(torneoCreadoEn) || p.getJornada().getFechaFin().isAfter(torneoCreadoEn))
+                    .mapToDouble(com.fantasy.lnb.feature.plantel.PlantelJornada::getPuntajeObtenidoFecha)
+                    .sum();
         }
 
         // ── Fixture H2H ─────────────────────────────────────────────────────────
