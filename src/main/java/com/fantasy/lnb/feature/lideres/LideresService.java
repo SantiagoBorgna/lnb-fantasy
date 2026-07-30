@@ -10,6 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.cache.annotation.Cacheable;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -33,6 +34,7 @@ public class LideresService {
          * Devuelve el resumen de todas las categorías con el líder de cada una.
          * Se usa para la pantalla principal de Líderes donde se ven las tarjetas.
          */
+        @Cacheable(value = "lideres", key = "'resumen'")
         @Transactional(readOnly = true)
         public List<CategoriaLideresDto> obtenerResumenLideres() {
                 List<CategoriaLideresDto> resumen = new ArrayList<>();
@@ -69,6 +71,7 @@ public class LideresService {
          * Se usa cuando el usuario toca una tarjeta en el frontend
          * para ver el ranking completo de esa categoría.
          */
+        @Cacheable(value = "lideres", key = "'top_' + #categoria")
         @Transactional(readOnly = true)
         public List<LiderDto> obtenerTopPorCategoria(String categoria) {
                 List<Object[]> rows = switch (categoria.toLowerCase()) {

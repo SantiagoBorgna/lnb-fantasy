@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.cache.annotation.Cacheable;
 
 import com.fantasy.lnb.feature.estadisticas.EstadisticaPartidoRepository;
 
@@ -32,6 +33,7 @@ public class JornadaService {
 
     // ── Consultas ───────────────────────────────────────────────────────────
 
+    @Cacheable(value = "jornadas", key = "'todas'")
     @Transactional(readOnly = true)
     public List<JornadaDto> listarTodas() {
         return jornadaRepo.findAll().stream()
@@ -39,6 +41,7 @@ public class JornadaService {
                 .toList();
     }
 
+    @Cacheable(value = "jornadas", key = "'proxima_abierta'")
     @Transactional(readOnly = true)
     public Optional<JornadaDto> obtenerProximaAbierta() {
         return jornadaRepo
@@ -46,6 +49,7 @@ public class JornadaService {
                 .map(this::toDto);
     }
 
+    @Cacheable(value = "jornadas", key = "'en_juego'")
     @Transactional(readOnly = true)
     public Optional<JornadaDto> obtenerEnJuego() {
         return jornadaRepo
@@ -57,6 +61,7 @@ public class JornadaService {
         return jornadaRepo.findByEstado(EstadoJornada.EN_JUEGO);
     }
 
+    @Cacheable(value = "partidos", key = "'jornada_' + #jornadaId")
     @Transactional(readOnly = true)
     public List<PartidoDto> obtenerPartidosDeJornada(Long jornadaId) {
         return partidoRepo.findByJornada_Id(jornadaId).stream()
