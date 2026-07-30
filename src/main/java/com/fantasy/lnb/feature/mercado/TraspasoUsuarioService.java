@@ -110,12 +110,18 @@ public class TraspasoUsuarioService {
 
         List<JugadorReal> ofrecidos = new ArrayList<>();
         if (request.getJugadoresOfrecidosIds() != null && !request.getJugadoresOfrecidosIds().isEmpty()) {
-            ofrecidos = jugadorRepo.findAllById(request.getJugadoresOfrecidosIds());
+            List<JugadorReal> dbOfrecidos = jugadorRepo.findAllById(request.getJugadoresOfrecidosIds());
+            for (Long id : request.getJugadoresOfrecidosIds()) {
+                dbOfrecidos.stream().filter(j -> j.getId().equals(id)).findFirst().ifPresent(ofrecidos::add);
+            }
         }
 
         List<JugadorReal> solicitados = new ArrayList<>();
         if (request.getJugadoresSolicitadosIds() != null && !request.getJugadoresSolicitadosIds().isEmpty()) {
-            solicitados = jugadorRepo.findAllById(request.getJugadoresSolicitadosIds());
+            List<JugadorReal> dbSolicitados = jugadorRepo.findAllById(request.getJugadoresSolicitadosIds());
+            for (Long id : request.getJugadoresSolicitadosIds()) {
+                dbSolicitados.stream().filter(j -> j.getId().equals(id)).findFirst().ifPresent(solicitados::add);
+            }
         }
 
         DirectorTecnico dtOfrecido = null;

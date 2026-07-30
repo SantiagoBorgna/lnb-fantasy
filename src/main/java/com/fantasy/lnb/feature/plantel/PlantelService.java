@@ -416,9 +416,12 @@ public class PlantelService {
                 List<PosicionJugador> posicionesTitulares = new ArrayList<>();
                 List<PosicionJugador> posicionesBanco = new ArrayList<>();
 
+                // Obtener IDs de los que salen
+                List<Long> salenIds = salen.stream().map(JugadorReal::getId).toList();
+
                 for (JugadorPlantel jp : plantelActual.getJugadores()) {
                         JugadorReal jugadorRealActual = jp.getJugadorReal();
-                        int indexSale = salen.indexOf(jugadorRealActual);
+                        int indexSale = salenIds.indexOf(jugadorRealActual.getId());
                         
                         JugadorReal jugadorSimulado = jugadorRealActual;
                         if (indexSale != -1) {
