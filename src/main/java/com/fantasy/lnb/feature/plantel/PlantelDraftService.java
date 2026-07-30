@@ -148,7 +148,7 @@ public class PlantelDraftService {
                 .build();
 
         plantel.getJugadores().add(nuevoFichaje);
-        plantelRepo.save(plantel);
+        plantelRepo.saveAndFlush(plantel);
         
         log.info("[DRAFT] Usuario {} eligió a {} para el torneo {}", usuarioId, jugadorReal.getNombreCompleto(), torneoId);
     }
@@ -174,7 +174,7 @@ public class PlantelDraftService {
                 .orElseThrow(() -> new IllegalArgumentException("DT no encontrado"));
 
         plantel.setDt(dt);
-        plantelRepo.save(plantel);
+        plantelRepo.saveAndFlush(plantel);
         
         log.info("[DRAFT] Usuario {} eligió DT {} para el torneo {}", usuarioId, dt.getNombreCompleto(), torneoId);
     }
