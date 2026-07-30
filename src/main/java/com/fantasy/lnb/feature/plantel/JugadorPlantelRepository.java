@@ -22,4 +22,7 @@ public interface JugadorPlantelRepository extends JpaRepository<JugadorPlantel, 
 
     @org.springframework.data.jpa.repository.Query("SELECT jp.jugadorReal.id FROM JugadorPlantel jp WHERE jp.plantelJornada.torneo.id = :torneoId AND jp.plantelJornada.jornada.id = :jornadaId")
     List<Long> findJugadorRealIdsByTorneoAndJornada(@org.springframework.data.repository.query.Param("torneoId") Long torneoId, @org.springframework.data.repository.query.Param("jornadaId") Long jornadaId);
+
+    @org.springframework.data.jpa.repository.Query("SELECT jp.jugadorReal.id FROM JugadorPlantel jp WHERE jp.plantelJornada.id IN (SELECT MAX(pj.id) FROM PlantelJornada pj WHERE pj.torneo.id = :torneoId GROUP BY pj.usuario.id)")
+    List<Long> findJugadoresOcupadosEnTorneo(@org.springframework.data.repository.query.Param("torneoId") Long torneoId);
 }

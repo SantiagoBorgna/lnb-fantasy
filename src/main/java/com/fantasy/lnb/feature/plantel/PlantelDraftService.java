@@ -99,12 +99,7 @@ public class PlantelDraftService {
 
     @Transactional(readOnly = true)
     public java.util.Set<Long> obtenerJugadoresOcupadosEnTorneo(Long torneoId) {
-        return obtenerJornadaRelevanteParaPlanteles()
-            .map(j -> {
-                java.util.Set<Long> set = new java.util.HashSet<>(jugadorPlantelRepo.findJugadorRealIdsByTorneoAndJornada(torneoId, j.getId()));
-                return set;
-            })
-            .orElse(java.util.Collections.emptySet());
+        return new java.util.HashSet<>(jugadorPlantelRepo.findJugadoresOcupadosEnTorneo(torneoId));
     }
 
     /**
@@ -154,11 +149,7 @@ public class PlantelDraftService {
     }
 
     public boolean dtEstaLibreEnTorneo(Long dtId, Long torneoId) {
-        Jornada jornadaActiva = obtenerJornadaRelevanteParaPlanteles().orElse(null);
-        if (jornadaActiva == null) return true;
-        
-        return !plantelRepo.existsByTorneo_IdAndJornada_IdAndDt_Id(
-                torneoId, jornadaActiva.getId(), dtId);
+        return !plantelRepo.existsByDtIdEnTorneo(torneoId, dtId);
     }
 
     @Transactional

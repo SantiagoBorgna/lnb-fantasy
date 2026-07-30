@@ -28,6 +28,9 @@ public interface PlantelJornadaRepository extends JpaRepository<PlantelJornada, 
         // Verifica exclusividad del DT en el torneo
         boolean existsByTorneo_IdAndJornada_IdAndDt_Id(Long torneoId, Long jornadaId, Long dtId);
 
+        @Query("SELECT CASE WHEN COUNT(pj) > 0 THEN true ELSE false END FROM PlantelJornada pj WHERE pj.torneo.id = :torneoId AND pj.dt.id = :dtId AND pj.id IN (SELECT MAX(p2.id) FROM PlantelJornada p2 WHERE p2.torneo.id = :torneoId GROUP BY p2.usuario.id)")
+        boolean existsByDtIdEnTorneo(@Param("torneoId") Long torneoId, @Param("dtId") Long dtId);
+
         // Busca todos los planteles de un torneo en una jornada
         java.util.List<PlantelJornada> findByTorneo_IdAndJornada_Id(Long torneoId, Long jornadaId);
 
