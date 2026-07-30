@@ -4,6 +4,7 @@ import com.fantasy.lnb.feature.equipo.EquipoReal;
 import com.fantasy.lnb.feature.equipo.EquipoRealRepository;
 import com.fantasy.lnb.feature.usuario.dto.ActualizarPerfilRequest;
 import com.fantasy.lnb.feature.usuario.dto.UsuarioPerfilDto;
+import com.fantasy.lnb.utils.ProfanityFilter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -21,6 +22,8 @@ public class UsuarioService {
 
     @Transactional
     public UsuarioPerfilDto actualizarPerfil(Long usuarioId, ActualizarPerfilRequest request) {
+        ProfanityFilter.validate(request.getNombreDisplay(), request.getNombreEquipo());
+
         Usuario usuario = usuarioRepo.findById(usuarioId)
                 .orElseThrow(() -> new IllegalStateException("Usuario no encontrado: " + usuarioId));
 

@@ -4,6 +4,7 @@ import com.fantasy.lnb.feature.equipo.EquipoReal;
 import com.fantasy.lnb.feature.equipo.EquipoRealRepository;
 import com.fantasy.lnb.feature.usuario.dto.CompletarPerfilRequest;
 import com.fantasy.lnb.feature.usuario.dto.UsuarioPerfilDto;
+import com.fantasy.lnb.utils.ProfanityFilter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -23,6 +24,8 @@ public class OnboardingService {
         public UsuarioPerfilDto completarPerfil(
                         Long usuarioId,
                         CompletarPerfilRequest request) {
+                
+                ProfanityFilter.validate(request.getNombreEquipoVirtual());
 
                 Usuario usuario = usuarioRepo.findById(usuarioId)
                                 .orElseThrow(() -> new IllegalStateException(
