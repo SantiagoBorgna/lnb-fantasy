@@ -132,8 +132,10 @@ public class MercadoService {
     public List<JugadorMercadoDto> listarLibresTorneo(Long torneoId, PosicionJugador posicion, String nombre, String orden) {
         List<JugadorMercadoDto> todos = listarJugadoresFiltrados(posicion, nombre, orden);
         
+        java.util.Set<Long> ocupados = plantelDraftService.obtenerJugadoresOcupadosEnTorneo(torneoId);
+        
         return todos.stream()
-            .filter(j -> plantelDraftService.jugadorEstaLibreEnTorneo(j.getId(), torneoId))
+            .filter(j -> !ocupados.contains(j.getId()))
             .toList();
     }
 

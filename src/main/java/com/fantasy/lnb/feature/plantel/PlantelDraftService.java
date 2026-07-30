@@ -86,17 +86,30 @@ public class PlantelDraftService {
         return Optional.empty();
     }
 
+    @Transactional(readOnly = true)
+    public Optional<Jornada> obtenerJornadaRelevanteParaPlanteles() {
+        Jornada j = jornadaRepo.findByEstado(EstadoJornada.EN_JUEGO).orElse(null);
+        if (j != null) return Optional.of(j);
+
+        j = jornadaRepo.findFirstByEstadoOrderByFechaInicioAsc(EstadoJornada.ABIERTA_A_CAMBIOS).orElse(null);
+        if (j != null) return Optional.of(j);
+
+        return jornadaRepo.findFirstByEstadoOrderByNumeroDesc(EstadoJornada.FINALIZADA);
+    }
+
+    @Transactional(readOnly = true)
+    public java.util.Set<Long> obtenerJugadoresOcupadosEnTorneo(Long torneoId) {
+        return obtenerJornadaRelevanteParaPlanteles()
+            .map(j -> new java.util.HashSet<>(jugadorPlantelRepo.findJugadorRealIdsByTorneoAndJornada(torneoId, j.getId())))
+            .orElse(java.util.Collections.emptySet());
+    }
+
     /**
      * Valida si un jugador ya fue elegido por otro usuario en este torneo en la jornada actual.
      */
     @Transactional(readOnly = true)
     public boolean jugadorEstaLibreEnTorneo(Long jugadorRealId, Long torneoId) {
-        Jornada jornadaActiva = jornadaRepo.findFirstByEstadoOrderByFechaInicioAsc(EstadoJornada.ABIERTA_A_CAMBIOS)
-                .orElse(null);
-        if (jornadaActiva == null) return true; // Si no hay jornada, no hay planteles
-        
-        return !jugadorPlantelRepo.existsByPlantelJornada_Torneo_IdAndPlantelJornada_Jornada_IdAndJugadorReal_Id(
-                torneoId, jornadaActiva.getId(), jugadorRealId);
+        return !obtenerJugadoresOcupadosEnTorneo(torneoId).contains(jugadorRealId);
     }
 
     /**
@@ -138,8 +151,7 @@ public class PlantelDraftService {
     }
 
     public boolean dtEstaLibreEnTorneo(Long dtId, Long torneoId) {
-        Jornada jornadaActiva = jornadaRepo.findFirstByEstadoOrderByFechaInicioAsc(EstadoJornada.ABIERTA_A_CAMBIOS)
-                .orElse(null);
+        Jornada jornadaActiva = obtenerJornadaRelevanteParaPlanteles().orElse(null);
         if (jornadaActiva == null) return true;
         
         return !plantelRepo.existsByTorneo_IdAndJornada_IdAndDt_Id(

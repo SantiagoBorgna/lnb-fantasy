@@ -19,4 +19,7 @@ public interface JugadorPlantelRepository extends JpaRepository<JugadorPlantel, 
     // Valida exclusividad: Verifica si un jugador ya fue fichado por ALGUIEN en un torneo draft en una jornada
     boolean existsByPlantelJornada_Torneo_IdAndPlantelJornada_Jornada_IdAndJugadorReal_Id(
             Long torneoId, Long jornadaId, Long jugadorRealId);
+
+    @org.springframework.data.jpa.repository.Query("SELECT jp.jugadorReal.id FROM JugadorPlantel jp WHERE jp.plantelJornada.torneo.id = :torneoId AND jp.plantelJornada.jornada.id = :jornadaId")
+    List<Long> findJugadorRealIdsByTorneoAndJornada(@org.springframework.data.repository.query.Param("torneoId") Long torneoId, @org.springframework.data.repository.query.Param("jornadaId") Long jornadaId);
 }
