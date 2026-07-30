@@ -100,7 +100,10 @@ public class PlantelDraftService {
     @Transactional(readOnly = true)
     public java.util.Set<Long> obtenerJugadoresOcupadosEnTorneo(Long torneoId) {
         return obtenerJornadaRelevanteParaPlanteles()
-            .map(j -> new java.util.HashSet<>(jugadorPlantelRepo.findJugadorRealIdsByTorneoAndJornada(torneoId, j.getId())))
+            .map(j -> {
+                java.util.Set<Long> set = new java.util.HashSet<>(jugadorPlantelRepo.findJugadorRealIdsByTorneoAndJornada(torneoId, j.getId()));
+                return set;
+            })
             .orElse(java.util.Collections.emptySet());
     }
 
