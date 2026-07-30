@@ -39,64 +39,83 @@ public class EstadisticaPartido {
     private Boolean fueLocal;
 
     // --- Estadísticas brutas (lo que scrapeamos) ---
+    @Builder.Default
     @Column(nullable = false, columnDefinition = "INT DEFAULT 0")
-    private Integer puntos;
+    private Integer puntos = 0;
 
+    @Builder.Default
     @Column(nullable = false, columnDefinition = "INT DEFAULT 0")
-    private Integer rebotesDefensivos;
+    private Integer rebotesDefensivos = 0;
 
+    @Builder.Default
     @Column(nullable = false, columnDefinition = "INT DEFAULT 0")
-    private Integer rebotesOfensivos;
+    private Integer rebotesOfensivos = 0;
 
+    @Builder.Default
     @Column(nullable = false, columnDefinition = "INT DEFAULT 0")
-    private Integer asistencias;
+    private Integer asistencias = 0;
 
+    @Builder.Default
     @Column(nullable = false, columnDefinition = "INT DEFAULT 0")
-    private Integer recuperaciones;
+    private Integer recuperaciones = 0;
 
+    @Builder.Default
     @Column(nullable = false, columnDefinition = "INT DEFAULT 0")
-    private Integer perdidas;
+    private Integer perdidas = 0;
 
+    @Builder.Default
     @Column(nullable = false, columnDefinition = "INT DEFAULT 0")
-    private Integer faltasCometidas;
+    private Integer faltasCometidas = 0;
 
+    @Builder.Default
     @Column(nullable = false, columnDefinition = "INT DEFAULT 0")
-    private Integer faltasRecibidas;
+    private Integer faltasRecibidas = 0;
 
+    @Builder.Default
     @Column(nullable = false, columnDefinition = "INT DEFAULT 0")
-    private Integer tirosCampoFallados;
+    private Integer tirosCampoFallados = 0;
 
+    @Builder.Default
     @Column(nullable = false, columnDefinition = "INT DEFAULT 0")
-    private Integer tirosLibresFallados;
+    private Integer tirosLibresFallados = 0;
 
+    @Builder.Default
     @Column(nullable = false, columnDefinition = "INT DEFAULT 0")
-    private Integer taponesRealizados;
+    private Integer taponesRealizados = 0;
 
+    @Builder.Default
     @Column(nullable = false, columnDefinition = "INT DEFAULT 0")
-    private Integer taponesRecibidos;
+    private Integer taponesRecibidos = 0;
 
     // Faltas especiales: GES tampoco las expone directamente.
     // Se derivan por heurística (ver MotorPuntuacion) o se dejan en false.
+    @Builder.Default
     @Column(nullable = false, columnDefinition = "BOOLEAN DEFAULT FALSE")
-    private Boolean fueExpulsadoPorFaltas; // FaltaCometida >= 5
+    private Boolean fueExpulsadoPorFaltas = false; // FaltaCometida >= 5
 
+    @Builder.Default
     @Column(nullable = false, columnDefinition = "BOOLEAN DEFAULT FALSE")
-    private Boolean tieneFaltaTecnica; // No disponible en GES por ahora
+    private Boolean tieneFaltaTecnica = false; // No disponible en GES por ahora
 
+    @Builder.Default
     @Column(nullable = false, columnDefinition = "BOOLEAN DEFAULT FALSE")
-    private Boolean fueDescalificado; // No disponible en GES por ahora
+    private Boolean fueDescalificado = false; // No disponible en GES por ahora
 
+    @Builder.Default
     @Column(nullable = false, columnDefinition = "BOOLEAN DEFAULT FALSE")
-    private Boolean fueTitularEnPartidoReal; // CincoInicial del DTO
+    private Boolean fueTitularEnPartidoReal = false; // CincoInicial del DTO
 
     // --- Resultado del partido (se enriquece al procesar el marcador) ---
+    @Builder.Default
     @Column(nullable = false, columnDefinition = "BOOLEAN DEFAULT FALSE")
-    private Boolean equipoGano;
+    private Boolean equipoGano = false;
 
     // --- Puntaje calculado y persistido ---
+    @Builder.Default
     @Column(nullable = false, columnDefinition = "DECIMAL(6,2) DEFAULT 0.00")
-    private Double puntajeFantasyCalculado;
+    private Double puntajeFantasyCalculado = 0.0;
 
+    @Builder.Default
     @Column(nullable = false, updatable = false)
     private LocalDateTime creadoEn = LocalDateTime.now();
 }
