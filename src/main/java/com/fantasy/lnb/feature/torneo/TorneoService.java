@@ -342,7 +342,21 @@ public class TorneoService {
                 return toDtoConPermisos(torneoRepo.save(torneo), usuarioId);
         }
 
-        // ── Expulsar participante ────────────────────────────────────────────────────
+        // ────────────────────────────────────────────────────────────────────────────
+        @Transactional
+        public void eliminarTorneo(Long torneoId, Long usuarioId) {
+                Torneo torneo = torneoRepo.findById(torneoId)
+                                .orElseThrow(() -> new IllegalArgumentException("Torneo no encontrado: " + torneoId));
+
+                if (!torneo.getCreador().getId().equals(usuarioId)) {
+                        throw new IllegalStateException("Solo el creador puede eliminar el torneo.");
+                }
+
+                torneoRepo.delete(torneo);
+                log.info("[TORNEO] Usuario {} eliminó el torneo {}", usuarioId, torneoId);
+        }
+
+        // 🟢 Expulsar participante 🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢🟢────────────────────────────────────────────────────
         @Transactional
         public void expulsarParticipante(Long torneoId, Long adminId,
                         Long equipoVirtualId) {

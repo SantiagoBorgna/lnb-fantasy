@@ -104,6 +104,22 @@ public class TorneoController {
         }
 
         /**
+         * DELETE /api/torneos/{id}
+         * El creador elimina el torneo permanentemente.
+         */
+        @DeleteMapping("/{id}")
+        public ResponseEntity<?> eliminarTorneo(
+                        @PathVariable Long id,
+                        @AuthenticationPrincipal UserDetails userDetails) {
+
+                Long usuarioId = usuarioResolver.resolverIdDesdeEmail(
+                                userDetails.getUsername());
+
+                torneoService.eliminarTorneo(id, usuarioId);
+                return ResponseEntity.ok(Map.of("mensaje", "Torneo eliminado con éxito."));
+        }
+
+        /**
          * DELETE /api/torneos/{id}/salir
          * El usuario autenticado sale del torneo.
          * El creador no puede salir — debe eliminar el torneo.
