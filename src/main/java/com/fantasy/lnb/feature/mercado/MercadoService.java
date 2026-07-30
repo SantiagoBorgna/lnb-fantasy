@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Sort;
 
 import java.util.List;
@@ -24,6 +25,7 @@ public class MercadoService {
 
     // ── Consultas del Mercado ───────────────────────────────────────────────
 
+    @Cacheable(value = "mercado", key = "'todos_' + #orden")
     @Transactional(readOnly = true)
     public List<JugadorMercadoDto> listarTodos(String orden) {
         Sort sort = crearSort(orden);
@@ -33,6 +35,7 @@ public class MercadoService {
                 .toList();
     }
 
+    @Cacheable(value = "mercado", key = "'posicion_' + #posicion + '_' + #orden")
     @Transactional(readOnly = true)
     public List<JugadorMercadoDto> listarPorPosicion(PosicionJugador posicion, String orden) {
         Sort sort = crearSort(orden);
@@ -43,6 +46,7 @@ public class MercadoService {
                 .toList();
     }
 
+    @Cacheable(value = "mercado", key = "'busqueda_' + #nombre + '_' + #posicion + '_' + #orden", unless = "#nombre == null")
     @Transactional(readOnly = true)
     public List<JugadorMercadoDto> buscarPorNombre(String nombre, PosicionJugador posicion, String orden) {
         Sort sort = crearSort(orden);
