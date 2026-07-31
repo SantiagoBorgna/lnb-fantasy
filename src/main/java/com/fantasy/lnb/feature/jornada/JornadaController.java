@@ -16,6 +16,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import com.fantasy.lnb.feature.torneo.TorneoH2HService;
+
 @RestController
 @RequestMapping("/api/jornadas")
 @RequiredArgsConstructor
@@ -25,6 +27,14 @@ public class JornadaController {
     private final PlantelClonadoService plantelClonadoService;
     private final JornadaRepository jornadaRepo;
     private final TestAdminService testAdminService;
+    private final TorneoH2HService torneoH2HService;
+
+    // GET /api/jornadas/fix-h2h -> Endpoint temporal para arreglar stats
+    @GetMapping("/fix-h2h")
+    public ResponseEntity<?> fixH2HStats() {
+        torneoH2HService.recalcularTodoH2H();
+        return ResponseEntity.ok(Map.of("message", "Torneos H2H recalculados exitosamente. Ya puedes ver los puntos reales."));
+    }
 
     // GET /api/jornadas/seed-public -> Permite inicializar fixture sin login
     @GetMapping("/seed-public")

@@ -156,4 +156,41 @@ public class TorneoH2HService {
 
         log.info("[H2H] Jornada {} resuelta. {} enfrentamientos procesados.", jornadaId, enfrentamientos.size());
     }
+
+    /**
+     * Recalcula todos los torneos H2H desde cero usando las jornadas FINALIZADA.
+     */
+    @Transactional
+    public void recalcularTodoH2H() {
+        log.info("[H2H] Iniciando recálculo total de torneos H2H...");
+
+        // 1. Resetear estadísticas de todos los equipos en torneos H2H
+        torneoEquipoRepo.findAll().stream()
+            .filter(te -> te.getTorneo() != null && te.getTorneo().getTipoPuntuacion() == TipoPuntuacion.H2H)
+            .forEach(te -> {
+                te.setPartidosGanados(0);
+                te.setPartidosEmpatados(0);
+                te.setPartidosPerdidos(0);
+                te.setPuntajeGlobal(0.0);
+                te.setPuntosFavor(0.0);
+                torneoEquipoRepo.save(te);
+            });
+
+        // 2. Resetear procesado a false y puntajes a 0.0 en enfrentamientos
+        enfrentamientoRepo.findAll().forEach(e -> {
+            e.setProcesado(false);
+            e.setPuntajeLocal(0.0);
+            e.setPuntajeVisitante(0.0);
+            enfrentamientoRepo.save(e);
+        });
+
+        // 3. Obtener todas las jornadas FINALIZADA y resolverlas en orden
+        jornadaRepo.findByEstadoOrderByFechaInicioAsc(EstadoJornada.FINALIZADA)
+            .forEach(j -> {
+                log.info("[H2H] Resolviendo jornada {} durante recálculo", j.getId());
+                resolverJornada(j.getId());
+            });
+
+        log.info("[H2H] Recálculo completo de torneos H2H finalizado.");
+    }
 }

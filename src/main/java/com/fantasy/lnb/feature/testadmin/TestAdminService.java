@@ -17,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.cache.annotation.CacheEvict;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -72,6 +73,7 @@ public class TestAdminService {
     }
 
     @Transactional
+    @CacheEvict(value = {"jornadas", "partidos"}, allEntries = true)
     public void seedJornadas() {
         if (jornadaRepository.count() > 0) {
             log.warn("Eliminando jornadas existentes para generar el fixture falso...");
@@ -123,6 +125,7 @@ public class TestAdminService {
     }
 
     @Transactional
+    @CacheEvict(value = {"jornadas", "partidos"}, allEntries = true)
     public void simularJornada(Long jornadaId) {
         Jornada jornada = jornadaRepository.findById(jornadaId)
                 .orElseThrow(() -> new IllegalArgumentException("Jornada no existe"));

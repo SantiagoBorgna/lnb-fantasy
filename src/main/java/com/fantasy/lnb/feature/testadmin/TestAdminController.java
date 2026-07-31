@@ -7,12 +7,15 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
+import com.fantasy.lnb.feature.torneo.TorneoH2HService;
+
 @RestController
 @RequestMapping("/api/admin/test")
 @RequiredArgsConstructor
 public class TestAdminController {
 
     private final TestAdminService testAdminService;
+    private final TorneoH2HService torneoH2HService;
 
     @PostMapping("/reset-db")
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
@@ -33,5 +36,12 @@ public class TestAdminController {
     public ResponseEntity<?> simularJornada(@PathVariable Long id) {
         testAdminService.simularJornada(id);
         return ResponseEntity.ok(Map.of("message", "Jornada " + id + " simulada correctamente"));
+    }
+
+    @PostMapping("/recalcular-h2h")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> recalcularH2H() {
+        torneoH2HService.recalcularTodoH2H();
+        return ResponseEntity.ok(Map.of("message", "Torneos H2H recalculados correctamente con las jornadas finalizadas."));
     }
 }

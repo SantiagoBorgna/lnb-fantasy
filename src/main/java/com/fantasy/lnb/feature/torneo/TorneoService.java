@@ -208,19 +208,41 @@ public class TorneoService {
 
         public List<EnfrentamientoDto> obtenerFixtureH2H(Long torneoId) {
                 return enfrentamientoRepo.findByTorneo_Id(torneoId).stream()
-                        .map(e -> EnfrentamientoDto.builder()
-                                .id(e.getId())
-                                .jornadaId(e.getJornada().getId())
-                                .jornadaNumero(e.getJornada().getNumero())
-                                .equipoLocalId(e.getEquipoLocal().getEquipoVirtual().getId())
-                                .equipoLocalNombre(e.getEquipoLocal().getEquipoVirtual().getNombre())
-                                .equipoVisitanteId(e.getEquipoVisitante() != null ? e.getEquipoVisitante().getEquipoVirtual().getId() : null)
-                                .equipoVisitanteNombre(e.getEquipoVisitante() != null ? e.getEquipoVisitante().getEquipoVirtual().getNombre() : null)
-                                .puntajeLocal(e.getPuntajeLocal())
-                                .puntajeVisitante(e.getPuntajeVisitante())
-                                .procesado(e.getProcesado())
-                                .build()
-                        )
+                        .map(e -> {
+                                Double puntajeLocal = e.getPuntajeLocal();
+                                Double puntajeVisitante = e.getPuntajeVisitante();
+
+                                if (!Boolean.TRUE.equals(e.getProcesado())) {
+                                        com.fantasy.lnb.feature.plantel.PlantelJornada pLocal = plantelRepo.findByUsuario_IdAndJornada_IdAndTorneo_Id(
+                                                e.getEquipoLocal().getEquipoVirtual().getUsuario().getId(),
+                                                e.getJornada().getId(),
+                                                torneoId
+                                        ).orElse(null);
+                                        puntajeLocal = (pLocal != null && pLocal.getPuntajeObtenidoFecha() != null) ? pLocal.getPuntajeObtenidoFecha() : 0.0;
+
+                                        if (e.getEquipoVisitante() != null) {
+                                                com.fantasy.lnb.feature.plantel.PlantelJornada pVisitante = plantelRepo.findByUsuario_IdAndJornada_IdAndTorneo_Id(
+                                                        e.getEquipoVisitante().getEquipoVirtual().getUsuario().getId(),
+                                                        e.getJornada().getId(),
+                                                        torneoId
+                                                ).orElse(null);
+                                                puntajeVisitante = (pVisitante != null && pVisitante.getPuntajeObtenidoFecha() != null) ? pVisitante.getPuntajeObtenidoFecha() : 0.0;
+                                        }
+                                }
+
+                                return EnfrentamientoDto.builder()
+                                        .id(e.getId())
+                                        .jornadaId(e.getJornada().getId())
+                                        .jornadaNumero(e.getJornada().getNumero())
+                                        .equipoLocalId(e.getEquipoLocal().getEquipoVirtual().getId())
+                                        .equipoLocalNombre(e.getEquipoLocal().getEquipoVirtual().getNombre())
+                                        .equipoVisitanteId(e.getEquipoVisitante() != null ? e.getEquipoVisitante().getEquipoVirtual().getId() : null)
+                                        .equipoVisitanteNombre(e.getEquipoVisitante() != null ? e.getEquipoVisitante().getEquipoVirtual().getNombre() : null)
+                                        .puntajeLocal(puntajeLocal)
+                                        .puntajeVisitante(puntajeVisitante)
+                                        .procesado(e.getProcesado())
+                                        .build();
+                        })
                         .toList();
         }
 

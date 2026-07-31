@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.CacheEvict;
 
 import com.fantasy.lnb.feature.estadisticas.EstadisticaPartidoRepository;
 
@@ -123,13 +124,14 @@ public class JornadaService {
                 .build();
     }
 
-    // ── Transiciones de estado ──────────────────────────────────────────────────
+    // ── Transiciones de estado ────────────────────────────────────────────────────────
 
     /**
      * ABIERTA_A_CAMBIOS → EN_JUEGO
      * Se llama cuando fechaInicio de la jornada es alcanzada.
      * A partir de este momento el frontend debe bloquear cambios de plantel.
      */
+    @CacheEvict(value = "jornadas", allEntries = true)
     public void iniciarJornada(Long jornadaId) {
         Jornada jornada = jornadaRepo.findById(jornadaId)
                 .orElseThrow(() -> new IllegalArgumentException(
@@ -160,6 +162,7 @@ public class JornadaService {
      * el scraper ya procesó todos los partidos de la ventana.
      * Después de este paso el CronJob de precios puede correr.
      */
+    @CacheEvict(value = "jornadas", allEntries = true)
     public void finalizarJornada(Long jornadaId) {
         Jornada jornada = jornadaRepo.findById(jornadaId)
                 .orElseThrow(() -> new IllegalArgumentException(
