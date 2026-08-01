@@ -295,6 +295,14 @@ public class PlantelDraftService {
                 break;
             }
         }
+
+        // Pick Capitan
+        for (JugadorPlantel jp : jugadores) {
+            if (jp.getRol() == RolPlantel.TITULAR) {
+                jp.setRol(RolPlantel.CAPITAN);
+                break;
+            }
+        }
         
         return true;
     }
