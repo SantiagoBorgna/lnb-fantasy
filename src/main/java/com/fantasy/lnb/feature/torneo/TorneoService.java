@@ -259,7 +259,7 @@ public class TorneoService {
                                 .estadoDraft(t.getEstadoDraft())
                                 .maxParticipantes(t.getMaxParticipantes())
                                 .codigoInvitacion(t.getCodigoInvitacion())
-                                .urlInvitacion(frontendUrl + "/torneos/unirse/"
+                                .urlInvitacion(frontendUrl + "/u/"
                                                 + t.getCodigoInvitacion())
                                 .creadorNombre(t.getCreador().getNombreDisplay())
                                 .cantidadParticipantes(t.cantidadParticipantes())
