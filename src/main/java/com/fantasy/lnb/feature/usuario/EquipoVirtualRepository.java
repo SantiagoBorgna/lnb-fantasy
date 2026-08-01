@@ -10,6 +10,7 @@ import java.util.List;
 @Repository
 public interface EquipoVirtualRepository extends JpaRepository<EquipoVirtual, Long> {
     Optional<EquipoVirtual> findByUsuario_Id(Long usuarioId);
+    List<EquipoVirtual> findByUsuario_IdIn(java.util.Collection<Long> usuarioIds);
 
     @Query("""
                 SELECT ev FROM EquipoVirtual ev

@@ -71,16 +71,25 @@ public class RankingService {
     }
 
     @Transactional(readOnly = true)
-        public List<PosicionGlobalDto> obtenerRankingJornada(Long jornadaId, int limite) {
+    @org.springframework.cache.annotation.Cacheable(value = "ranking_jornada", key = "#jornadaId", condition = "@jornadaCacheHelper.estaFinalizada(#jornadaId)")
+    public List<PosicionGlobalDto> obtenerRankingJornada(Long jornadaId, int limite) {
         int limiteSeguro = Math.min(limite, 500);
         AtomicInteger posicion = new AtomicInteger(1);
 
-        return plantelJornadaRepo
+        List<PlantelJornada> planteles = plantelJornadaRepo
                 .findByJornada_IdAndTorneoIsNull(jornadaId)
                 .stream()
-                .sorted(Comparator.comparingDouble(
-                        PlantelJornada::getPuntajeObtenidoFecha).reversed())
+                .sorted(Comparator.comparingDouble(PlantelJornada::getPuntajeObtenidoFecha).reversed())
                 .limit(limiteSeguro)
+                .toList();
+
+        if (planteles.isEmpty()) return List.of();
+
+        List<Long> usuarioIds = planteles.stream().map(p -> p.getUsuario().getId()).toList();
+        java.util.Map<Long, EquipoVirtual> equiposMap = equipoVirtualRepo.findByUsuario_IdIn(usuarioIds).stream()
+                .collect(java.util.stream.Collectors.toMap(e -> e.getUsuario().getId(), e -> e));
+
+        return planteles.stream()
                 .map(plantel -> {
                     Usuario u = plantel.getUsuario();
                     String sigla = "";
@@ -89,26 +98,22 @@ public class RankingService {
                         sigla = u.getEquipoFavorito().getSigla();
                         color = u.getEquipoFavorito().getColorPrincipal();
                     }
+                    EquipoVirtual ev = equiposMap.get(u.getId());
                     return PosicionGlobalDto.builder()
                             .posicion(posicion.getAndIncrement())
-                            .nombreEquipo(
-                                    equipoVirtualRepo.findByUsuario_Id(u.getId())
-                                            .map(EquipoVirtual::getNombre)
-                                            .orElse("—"))
+                            .nombreEquipo(ev != null ? ev.getNombre() : "—")
                             .nombreUsuario(u.getNombreDisplay())
                             .equipoFavoritoSigla(sigla)
                             .equipoFavoritoColor(color)
                             .puntajeGlobal(plantel.getPuntajeObtenidoFecha())
-                            .equipoVirtualId(
-                                    equipoVirtualRepo.findByUsuario_Id(u.getId())
-                                            .map(EquipoVirtual::getId)
-                                            .orElse(null))
+                            .equipoVirtualId(ev != null ? ev.getId() : null)
                             .build();
                 })
                 .toList();
     }
 
     @Transactional(readOnly = true)
+    @org.springframework.cache.annotation.Cacheable(value = "ranking_jornada_torneo", key = "#torneoId + '_' + #jornadaId", condition = "@jornadaCacheHelper.estaFinalizada(#jornadaId)")
     public List<PosicionGlobalDto> obtenerRankingJornadaTorneo(Long torneoId, Long jornadaId, int limite) {
         Torneo torneo = torneoRepo.findById(torneoId).orElseThrow();
         int limiteSeguro = Math.min(limite, 500);
@@ -128,9 +133,18 @@ public class RankingService {
                 .stream().filter(p -> usuariosEnTorneo.contains(p.getUsuario().getId())).toList();
         }
 
-        return planteles.stream()
+        planteles = planteles.stream()
                 .sorted(Comparator.comparingDouble(PlantelJornada::getPuntajeObtenidoFecha).reversed())
                 .limit(limiteSeguro)
+                .toList();
+
+        if (planteles.isEmpty()) return List.of();
+
+        List<Long> usuarioIds = planteles.stream().map(p -> p.getUsuario().getId()).toList();
+        java.util.Map<Long, EquipoVirtual> equiposMap = equipoVirtualRepo.findByUsuario_IdIn(usuarioIds).stream()
+                .collect(java.util.stream.Collectors.toMap(e -> e.getUsuario().getId(), e -> e));
+
+        return planteles.stream()
                 .map(plantel -> {
                     Usuario u = plantel.getUsuario();
                     String sigla = "";
@@ -139,20 +153,15 @@ public class RankingService {
                         sigla = u.getEquipoFavorito().getSigla();
                         color = u.getEquipoFavorito().getColorPrincipal();
                     }
+                    EquipoVirtual ev = equiposMap.get(u.getId());
                     return PosicionGlobalDto.builder()
                             .posicion(posicion.getAndIncrement())
-                            .nombreEquipo(
-                                    equipoVirtualRepo.findByUsuario_Id(u.getId())
-                                            .map(EquipoVirtual::getNombre)
-                                            .orElse("—"))
+                            .nombreEquipo(ev != null ? ev.getNombre() : "—")
                             .nombreUsuario(u.getNombreDisplay())
                             .equipoFavoritoSigla(sigla)
                             .equipoFavoritoColor(color)
                             .puntajeGlobal(plantel.getPuntajeObtenidoFecha())
-                            .equipoVirtualId(
-                                    equipoVirtualRepo.findByUsuario_Id(u.getId())
-                                            .map(EquipoVirtual::getId)
-                                            .orElse(null))
+                            .equipoVirtualId(ev != null ? ev.getId() : null)
                             .build();
                 })
                 .toList();

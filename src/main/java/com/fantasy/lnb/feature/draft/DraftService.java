@@ -289,6 +289,7 @@ public class DraftService {
     }
 
     @Transactional(readOnly = true)
+    @org.springframework.cache.annotation.Cacheable(value = "draft_estado", key = "#torneoId", condition = "@torneoCacheHelper.draftFinalizado(#torneoId)")
     public com.fantasy.lnb.feature.draft.dto.DraftStateDto obtenerEstadoDraft(Long torneoId) {
         Torneo torneo = torneoRepo.findById(torneoId).orElseThrow();
         List<DraftTurno> turnos = turnoRepo.findByTorneo_IdOrderByNumeroTurnoGlobalAsc(torneoId);

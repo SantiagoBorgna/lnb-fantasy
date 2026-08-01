@@ -62,7 +62,7 @@ public class JornadaService {
         return jornadaRepo.findByEstado(EstadoJornada.EN_JUEGO);
     }
 
-    @Cacheable(value = "partidos", key = "'jornada_' + #jornadaId")
+    @Cacheable(value = "partidos", key = "'jornada_' + #jornadaId", condition = "@jornadaCacheHelper.estaFinalizada(#jornadaId)")
     @Transactional(readOnly = true)
     public List<PartidoDto> obtenerPartidosDeJornada(Long jornadaId) {
         return partidoRepo.findByJornada_Id(jornadaId).stream()

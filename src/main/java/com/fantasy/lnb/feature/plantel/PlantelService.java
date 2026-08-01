@@ -162,6 +162,7 @@ public class PlantelService {
          * Devuelve el plantel histórico de un usuario para una jornada específica.
          */
         @Transactional(readOnly = true)
+        @org.springframework.cache.annotation.Cacheable(value = "plantel_historico", key = "#usuarioId + '_' + #jornadaId", condition = "@jornadaCacheHelper.estaFinalizada(#jornadaId)")
         public Optional<PlantelDto> obtenerPlantelHistorico(Long usuarioId, Long jornadaId) {
                 return plantelRepo.findByUsuario_IdAndJornada_IdAndTorneoIsNull(usuarioId, jornadaId)
                                 .map(p -> toDto(p, 0.0));
@@ -171,6 +172,7 @@ public class PlantelService {
          * Devuelve el plantel histórico de la jornada anterior (si existe) en contexto Torneo.
          */
         @Transactional(readOnly = true)
+        @org.springframework.cache.annotation.Cacheable(value = "plantel_historico_torneo", key = "#torneoId + '_' + #usuarioId + '_' + #jornadaId", condition = "@jornadaCacheHelper.estaFinalizada(#jornadaId)")
         public Optional<PlantelDto> obtenerPlantelHistoricoTorneo(Long usuarioId, Long jornadaId, Long torneoId) {
                 return plantelRepo.findByUsuario_IdAndJornada_IdAndTorneo_Id(usuarioId, jornadaId, torneoId)
                                 .map(p -> toDto(p, 0.0));
