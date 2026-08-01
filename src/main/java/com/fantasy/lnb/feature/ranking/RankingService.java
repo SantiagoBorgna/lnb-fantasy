@@ -71,7 +71,7 @@ public class RankingService {
     }
 
     @Transactional(readOnly = true)
-    @org.springframework.cache.annotation.Cacheable(value = "ranking_jornada", key = "#jornadaId", condition = "@jornadaCacheHelper.estaFinalizada(#jornadaId)")
+    @org.springframework.cache.annotation.Cacheable(value = "ranking_jornada", key = "#jornadaId")
     public List<PosicionGlobalDto> obtenerRankingJornada(Long jornadaId, int limite) {
         int limiteSeguro = Math.min(limite, 500);
         AtomicInteger posicion = new AtomicInteger(1);
@@ -113,7 +113,7 @@ public class RankingService {
     }
 
     @Transactional(readOnly = true)
-    @org.springframework.cache.annotation.Cacheable(value = "ranking_jornada_torneo", key = "#torneoId + '_' + #jornadaId", condition = "@jornadaCacheHelper.estaFinalizada(#jornadaId)")
+    @org.springframework.cache.annotation.Cacheable(value = "ranking_jornada_torneo", key = "#torneoId + '_' + #jornadaId")
     public List<PosicionGlobalDto> obtenerRankingJornadaTorneo(Long torneoId, Long jornadaId, int limite) {
         Torneo torneo = torneoRepo.findById(torneoId).orElseThrow();
         int limiteSeguro = Math.min(limite, 500);
