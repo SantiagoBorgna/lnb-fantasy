@@ -549,6 +549,7 @@ public class PlantelService {
                                                 .multiplicador(jp.getMultiplicador())
                                                 .precioDeCompra(jp.getPrecioDeCompra())
                                                 .valorMercadoActual(jp.getJugadorReal().getValorMercadoActual())
+                                                .promedioPuntosUltimas3(jp.getJugadorReal().getPromedioFantasy() != null ? jp.getJugadorReal().getPromedioFantasy() : 0.0)
                                                 .build())
                                 .toList();
 
