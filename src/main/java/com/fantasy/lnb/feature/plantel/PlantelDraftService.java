@@ -210,7 +210,7 @@ public class PlantelDraftService {
                 if (grupo2 >= 4) throw new IllegalStateException("Ya tenés el máximo de 4 Aleros/Ala-Pivots.");
                 break;
             case PIVOT:
-                if (grupo3 >= 4) throw new IllegalStateException("Ya tenés el máximo de 4 Pivots.");
+                if (grupo3 >= 3) throw new IllegalStateException("Ya tenés el máximo de 3 Pivots.");
                 break;
         }
     }
