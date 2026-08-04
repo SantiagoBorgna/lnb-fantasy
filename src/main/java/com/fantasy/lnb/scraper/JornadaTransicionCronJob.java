@@ -15,6 +15,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.cache.CacheManager;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -30,6 +33,7 @@ public class JornadaTransicionCronJob {
         private final PlantelClonadoService plantelClonadoService;
         private final PartidoRepository partidoRepo;
         private final PushNotificationService pushNotificationService;
+        private final CacheManager cacheManager;
 
         /**
          * Corre cada 5 minutos.
@@ -54,6 +58,20 @@ public class JornadaTransicionCronJob {
                                         log.info("[TRANSICION] Jornada {} alcanzó su fechaInicio. Iniciando ventana de juego...",
                                                         jornada.getNumero());
                                         jornadaService.iniciarJornada(jornada.getId());
+                                        // Limpiar el cach de jornadas DESPUS de que se haga el commit
+                                        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                                                @Override
+                                                public void afterCommit() {
+                                                        if (cacheManager.getCache("jornadas") != null) {
+                                                                cacheManager.getCache("jornadas").clear();
+                                                        }
+                                                        if (cacheManager.getCache("partidos") != null) {
+                                                                cacheManager.getCache("partidos").clear();
+                                                        }
+                                                        log.info("[CACHE] Cach de jornadas y partidos limpiado post-commit.");
+                                                }
+                                        });
+
                                 });
 
                 // ── B: EN_JUEGO → FINALIZADA ────────────────────────────────────────
@@ -82,6 +100,18 @@ public class JornadaTransicionCronJob {
                                                 log.info("[TRANSICION] Clonado masivo completado. J{} fue base para {} planteles nuevos.",
                                                                 jornada.getNumero(), clonados);
                                         }
+
+                                        // Limpiar el cach de jornadas DESPUS de que se haga el commit
+                                        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                                                @Override
+                                                public void afterCommit() {
+                                                        if (cacheManager.getCache("jornadas") != null) {
+                                                                cacheManager.getCache("jornadas").clear();
+                                                        }
+                                                        log.info("[CACHE] Cach de jornadas limpiado post-commit (FINALIZADA).");
+                                                }
+                                        });
+
                                 });
 
                 // ── C: PROGRAMADO → FINALIZADO (partidos) ───────────────────────────
@@ -112,6 +142,17 @@ public class JornadaTransicionCronJob {
                                         );
                                         jornada.setNotificacionPreviaEnviada(true);
                                         jornadaRepo.save(jornada);
+                                        // Limpiar el cach DESPUS del commit
+                                        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                                                @Override
+                                                public void afterCommit() {
+                                                        if (cacheManager.getCache("jornadas") != null) {
+                                                                cacheManager.getCache("jornadas").clear();
+                                                        }
+                                                        log.info("[CACHE] Cach de jornadas limpiado post-commit.");
+                                                }
+                                        });
+
                                 });
         }
 }
