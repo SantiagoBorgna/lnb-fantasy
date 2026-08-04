@@ -3,13 +3,16 @@ package com.fantasy.lnb.feature.plantel;
 import com.fantasy.lnb.feature.jornada.Jornada;
 import com.fantasy.lnb.feature.jornada.JornadaRepository;
 import com.fantasy.lnb.feature.jornada.EstadoJornada;
+import com.fantasy.lnb.feature.torneo.TorneoRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -18,6 +21,7 @@ public class PlantelClonadoService {
 
         private final PlantelJornadaRepository plantelRepo;
         private final JornadaRepository jornadaRepo;
+        private final TorneoRepository torneoRepo;
 
         /**
          * Clona masivamente todos los planteles de jornadaOrigen
@@ -45,10 +49,23 @@ public class PlantelClonadoService {
                 }
 
                 List<PlantelJornada> clones = new ArrayList<>();
+                List<PlantelJornada> plantelesHuerfanos = new ArrayList<>();
+                Map<Long, Boolean> cacheTorneos = new HashMap<>();
                 int omitidos = 0;
 
                 for (PlantelJornada origen : planteles) {
                         Long usuarioId = origen.getUsuario().getId();
+
+                        // Si el torneo ya no existe, registramos el plantel para eliminarlo y saltamos la clonacin
+                        if (origen.getTorneo() != null) {
+                                Long torneoId = origen.getTorneo().getId();
+                                boolean torneoExiste = cacheTorneos.computeIfAbsent(torneoId, id -> torneoRepo.existsById(id));
+                                if (!torneoExiste) {
+                                        log.warn("[CLONADO] Torneo {} ya no existe. El plantel {} serǭ eliminado.", torneoId, origen.getId());
+                                        plantelesHuerfanos.add(origen);
+                                        continue;
+                                }
+                        }
 
                         // Idempotencia: no clonar si ya existe plantel en la jornada destino
                         boolean existe;
@@ -94,6 +111,12 @@ public class PlantelClonadoService {
 
                 // Guardar todos en batch para eficiencia
                 plantelRepo.saveAll(clones);
+
+                // Eliminar planteles hurfanos que pertenezcan a torneos eliminados
+                if (!plantelesHuerfanos.isEmpty()) {
+                        plantelRepo.deleteAll(plantelesHuerfanos);
+                        log.info("[CLONADO] Se eliminaron {} planteles hurfanos de torneos borrados.", plantelesHuerfanos.size());
+                }
 
                 log.info("[CLONADO] J{} a J{} | Clonados: {} | Omitidos: {}",
                                 jornadaOrigen.getNumero(),
