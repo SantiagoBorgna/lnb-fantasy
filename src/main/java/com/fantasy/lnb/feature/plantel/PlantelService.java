@@ -563,6 +563,7 @@ public class PlantelService {
                                                 .colorPrincipal(plantel.getDt().getEquipoReal().getColorPrincipal())
                                                 .colorSecundario(plantel.getDt().getEquipoReal().getColorSecundario())
                                                 .estado(plantel.getDt().getEstado())
+                                                .promedioFantasy(plantel.getDt().getPromedioFantasy() != null ? plantel.getDt().getPromedioFantasy() : 0.0)
                                                 .build()
                                 : null;
 

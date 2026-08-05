@@ -45,6 +45,7 @@ public class DirectorTecnicoController {
                 .colorPrincipal(dt.getEquipoReal().getColorPrincipal())
                 .colorSecundario(dt.getEquipoReal().getColorSecundario())
                 .estado(dt.getEstado())
+                .promedioFantasy(dt.getPromedioFantasy() != null ? dt.getPromedioFantasy() : 0.0)
                 .build();
     }
 }

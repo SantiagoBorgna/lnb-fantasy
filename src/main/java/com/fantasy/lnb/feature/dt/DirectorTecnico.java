@@ -40,6 +40,9 @@ public class DirectorTecnico {
     @Column(nullable = false)
     private LocalDateTime actualizadoEn;
 
+    @Column(name = "promedio_fantasy", nullable = true)
+    private Double promedioFantasy;
+
     @PrePersist
     protected void onCreate() {
         this.creadoEn = LocalDateTime.now();

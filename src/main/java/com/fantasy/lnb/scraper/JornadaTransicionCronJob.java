@@ -34,6 +34,7 @@ public class JornadaTransicionCronJob {
         private final PartidoRepository partidoRepo;
         private final PushNotificationService pushNotificationService;
         private final CacheManager cacheManager;
+        private final com.fantasy.lnb.feature.dt.DirectorTecnicoService directorTecnicoService;
 
         /**
          * Corre cada 5 minutos.
@@ -85,6 +86,10 @@ public class JornadaTransicionCronJob {
 
                                         // 2. Calcular puntajes de todos los planteles (Cierre definitivo)
                                         puntuacionService.calcularPuntajesDeJornada(jornada.getId(), true);
+                                        
+                                        // 2.1 Actualizar promedios históricos de los DTs
+                                        directorTecnicoService.actualizarPromediosDts();
+                                        
                                         log.info("[TRANSICION] Puntajes definitivos calculados para J{}.",
                                                         jornada.getNumero());
 

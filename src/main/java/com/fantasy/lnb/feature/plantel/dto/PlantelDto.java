@@ -61,5 +61,6 @@ public class PlantelDto {
         private String colorPrincipal;
         private String colorSecundario;
         private EstadoJugador estado;
+        private Double promedioFantasy;
     }
 }
