@@ -21,6 +21,7 @@ public class DirectorTecnicoService {
     private final MotorPuntuacionPlantel motorPuntuacionPlantel;
 
     @Transactional
+    @org.springframework.context.event.EventListener(org.springframework.boot.context.event.ApplicationReadyEvent.class)
     public void actualizarPromediosDts() {
         List<DirectorTecnico> dts = dtRepo.findAll();
         int actualizados = 0;
@@ -50,8 +51,10 @@ public class DirectorTecnicoService {
                 dt.setPromedioFantasy(Math.round(promedio * 100.0) / 100.0);
             }
             actualizados++;
+            dtRepo.save(dt);
         }
         
         log.info("[DT-PROMEDIOS] Actualización completada. DTs actualizados: {}", actualizados);
     }
 }
+

@@ -46,10 +46,17 @@ public class TestSimuladorController {
     // Si la entidad EstadisticaPartido lo calcula sola internamente, podǸs borrar
     // esto.
     private final MotorPuntuacionPlantel motorPuntuacion;
+    private final com.fantasy.lnb.feature.dt.DirectorTecnicoService directorTecnicoService;
 
     @GetMapping("/seed-environment")
     public String seedEnvironment() {
         return dataSeederService.seedEnvironment();
+    }
+
+    @PostMapping("/actualizar-dts")
+    public String actualizarDts() {
+        directorTecnicoService.actualizarPromediosDts();
+        return "Promedios de DTs actualizados exitosamente";
     }
 
     @PostMapping("/jornada/{jornadaId}/procesar")
