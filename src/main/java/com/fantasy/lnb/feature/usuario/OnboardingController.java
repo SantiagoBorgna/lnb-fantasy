@@ -21,6 +21,7 @@ public class OnboardingController {
     private final OnboardingService onboardingService;
     private final UsuarioResolver usuarioResolver;
     private final EquipoRealRepository equipoRealRepo;
+    private final UsuarioService usuarioService;
 
     /**
      * GET /api/onboarding/perfil
@@ -56,6 +57,19 @@ public class OnboardingController {
             @AuthenticationPrincipal UserDetails userDetails) {
         Long id = usuarioResolver.resolverIdDesdeEmail(userDetails.getUsername());
         onboardingService.marcarActivo(id);
+        return ResponseEntity.ok().build();
+    }
+
+    /**
+     * POST /api/onboarding/ayuda/{pagina}
+     * Marca una pantalla de ayuda como vista para el usuario.
+     */
+    @PostMapping("/ayuda/{pagina}")
+    public ResponseEntity<Void> marcarAyudaVista(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable String pagina) {
+        Long id = usuarioResolver.resolverIdDesdeEmail(userDetails.getUsername());
+        usuarioService.marcarAyudaVista(id, pagina);
         return ResponseEntity.ok().build();
     }
 

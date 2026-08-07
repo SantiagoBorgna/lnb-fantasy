@@ -47,4 +47,14 @@ public class UsuarioService {
         // Reutilizamos el mapper del onboarding (o podríamos moverlo a un utilitario)
         return onboardingService.obtenerPerfil(usuarioId);
     }
+    @Transactional
+    public void marcarAyudaVista(Long usuarioId, String pagina) {
+        Usuario usuario = usuarioRepo.findById(usuarioId)
+                .orElseThrow(() -> new IllegalStateException("Usuario no encontrado: " + usuarioId));
+        
+        usuario.getAyudasVistas().add(pagina);
+        usuarioRepo.save(usuario);
+        
+        log.info("[AYUDA] Usuario {} marcó la ayuda de '{}' como vista.", usuario.getEmail(), pagina);
+    }
 }

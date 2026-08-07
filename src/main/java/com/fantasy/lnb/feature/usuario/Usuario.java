@@ -8,6 +8,8 @@ import com.fantasy.lnb.feature.equipo.EquipoReal;
 import com.fantasy.lnb.feature.notificaciones.SuscripcionPush;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.Set;
+import java.util.HashSet;
 
 @Entity
 @Table(name = "usuario")
@@ -65,6 +67,11 @@ public class Usuario {
 
     @OneToMany(mappedBy = "usuario", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<SuscripcionPush> suscripcionesPush = new ArrayList<>();
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "usuario_ayudas_vistas", joinColumns = @JoinColumn(name = "usuario_id"))
+    @Column(name = "ayuda")
+    private Set<String> ayudasVistas = new HashSet<>();
 
     @PrePersist
     protected void onCreate() {

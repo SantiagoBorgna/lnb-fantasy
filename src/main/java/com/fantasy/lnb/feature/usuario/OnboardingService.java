@@ -100,7 +100,8 @@ public class OnboardingService {
                                 .email(u.getEmail())
                                 .nombreDisplay(u.getNombreDisplay())
                                 .avatarUrl(u.getAvatarUrl())
-                                .estadoOnboarding(u.getEstadoOnboarding());
+                                .estadoOnboarding(u.getEstadoOnboarding())
+                                .ayudasVistas(u.getAyudasVistas());
 
                 if (u.getEquipoFavorito() != null) {
                         builder

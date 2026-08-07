@@ -13,6 +13,7 @@ public class UsuarioPerfilDto {
     private String nombreDisplay;
     private String avatarUrl;
     private EstadoOnboarding estadoOnboarding;
+    private java.util.Set<String> ayudasVistas;
 
     // Datos del equipo favorito
     private Long equipoFavoritoId;
