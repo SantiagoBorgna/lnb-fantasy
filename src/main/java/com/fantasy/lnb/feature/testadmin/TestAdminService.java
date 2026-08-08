@@ -224,4 +224,57 @@ public class TestAdminService {
         }
         log.info("Partidos agregados a las jornadas existentes.");
     }
+
+    @Transactional
+    public void seedIndependiente() {
+        List<Jornada> jornadas = jornadaRepository.findAllById(List.of(5L, 6L, 7L, 8L));
+        List<EquipoReal> equipos = equipoRealRepository.findAll();
+
+        EquipoReal independiente = equipos.stream()
+                .filter(e -> e.getNombre().toLowerCase().contains("independiente"))
+                .findFirst()
+                .orElseThrow(() -> new RuntimeException("No se encontró a Independiente"));
+
+        for (Jornada jornada : jornadas) {
+            if (partidoRepository.countByJornada_Id(jornada.getId()) > 0) continue;
+
+            List<EquipoReal> disponibles = new ArrayList<>(equipos);
+            disponibles.remove(independiente);
+            Collections.shuffle(disponibles);
+
+            EquipoReal rival = disponibles.remove(0);
+
+            boolean isLocal = (jornada.getId() == 5L || jornada.getId() == 7L);
+
+            Partido partidoIndependiente = Partido.builder()
+                    .jornada(jornada)
+                    .equipoLocal(isLocal ? independiente : rival)
+                    .equipoVisitante(isLocal ? rival : independiente)
+                    .gesHash("FAKE_HASH_IND_J" + jornada.getId())
+                    .gesUrl("http://fake.ges.url/IND_J" + jornada.getId())
+                    .fechaHora(jornada.getFechaInicio() != null ? jornada.getFechaInicio().plusHours(1) : LocalDateTime.now().plusDays(jornada.getId()))
+                    .estado(EstadoPartido.PROGRAMADO)
+                    .build();
+            partidoRepository.save(partidoIndependiente);
+
+            // Crear para el resto
+            for (int j = 0; j < disponibles.size() - 1; j += 2) {
+                EquipoReal local = disponibles.get(j);
+                EquipoReal visitante = disponibles.get(j + 1);
+
+                Partido partido = Partido.builder()
+                        .jornada(jornada)
+                        .equipoLocal(local)
+                        .equipoVisitante(visitante)
+                        .gesHash("FAKE_HASH_J" + jornada.getId() + "_M" + j)
+                        .gesUrl("http://fake.ges.url/J" + jornada.getId() + "M" + j)
+                        .fechaHora(jornada.getFechaInicio() != null ? jornada.getFechaInicio().plusHours(1) : LocalDateTime.now().plusDays(jornada.getId()))
+                        .estado(EstadoPartido.PROGRAMADO)
+                        .build();
+                partidoRepository.save(partido);
+            }
+        }
+        log.info("Partidos agregados a jornadas 5 a 8 con Independiente local en 5, 6 y visitante en 7, 8.");
+    }
 }
+

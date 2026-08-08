@@ -44,4 +44,11 @@ public class TestAdminController {
         torneoH2HService.recalcularTodoH2H();
         return ResponseEntity.ok(Map.of("message", "Torneos H2H recalculados correctamente con las jornadas finalizadas."));
     }
+
+    @PostMapping("/seed-independiente")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<?> seedIndependiente() {
+        testAdminService.seedIndependiente();
+        return ResponseEntity.ok(Map.of("message", "Partidos de Independiente generados para las jornadas 5 a 8"));
+    }
 }
