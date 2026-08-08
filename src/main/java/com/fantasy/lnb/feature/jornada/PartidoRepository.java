@@ -39,4 +39,5 @@ public interface PartidoRepository extends JpaRepository<Partido, Long> {
      List<Partido> findByJornadaIdAndEquipoId(
                @Param("jornadaId") Long jornadaId,
                @Param("equipoId") Long equipoId);
+     Optional<Partido> findFirstByEquipoLocal_NombreContainingIgnoreCaseAndEstadoOrderByFechaHoraAsc(String nombreLocal, EstadoPartido estado);
 }

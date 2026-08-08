@@ -1,0 +1,119 @@
+package com.fantasy.lnb.feature.showdown;
+
+import com.fantasy.lnb.feature.equipo.EquipoReal;
+import com.fantasy.lnb.feature.mercado.JugadorReal;
+import com.fantasy.lnb.feature.mercado.JugadorRealRepository;
+import com.fantasy.lnb.feature.showdown.dto.ParticiparShowdownRequest;
+import com.fantasy.lnb.feature.showdown.dto.ShowdownEventoDto;
+import com.fantasy.lnb.feature.showdown.dto.ShowdownParticipanteDto;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class ShowdownService {
+
+    private final ShowdownEventoRepository eventoRepo;
+    private final ShowdownParticipanteRepository participanteRepo;
+    private final JugadorRealRepository jugadorRepo;
+
+    @Transactional(readOnly = true)
+    public ShowdownEventoDto getEvento(String codigo) {
+        ShowdownEvento evento = eventoRepo.findByCodigoInscripcion(codigo)
+                .orElseThrow(() -> new IllegalArgumentException("Evento no encontrado"));
+        
+        EquipoReal local = evento.getPartido().getEquipoLocal();
+        EquipoReal visitante = evento.getPartido().getEquipoVisitante();
+
+        return ShowdownEventoDto.builder()
+                .id(evento.getId())
+                .codigoInscripcion(evento.getCodigoInscripcion())
+                .estado(evento.getEstado())
+                .localSigla(local.getSigla())
+                .localNombre(local.getNombre())
+                .visitanteSigla(visitante.getSigla())
+                .visitanteNombre(visitante.getNombre())
+                .fecha(evento.getPartido().getFechaHora().toString())
+                .build();
+    }
+
+    @Transactional(readOnly = true)
+    public List<JugadorReal> getMercado(String codigo) {
+        ShowdownEvento evento = eventoRepo.findByCodigoInscripcion(codigo)
+                .orElseThrow(() -> new IllegalArgumentException("Evento no encontrado"));
+        
+        Long localId = evento.getPartido().getEquipoLocal().getId();
+        Long visitanteId = evento.getPartido().getEquipoVisitante().getId();
+
+        return jugadorRepo.findAll().stream()
+                .filter(j -> j.getEquipoReal() != null && 
+                             (j.getEquipoReal().getId().equals(localId) || j.getEquipoReal().getId().equals(visitanteId)))
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public Long participar(String codigo, ParticiparShowdownRequest request) {
+        ShowdownEvento evento = eventoRepo.findByCodigoInscripcion(codigo)
+                .orElseThrow(() -> new IllegalArgumentException("Evento no encontrado"));
+
+        if (evento.getEstado() != EstadoShowdown.ABIERTO) {
+            throw new IllegalStateException("El evento ya no acepta inscripciones");
+        }
+
+        // Recuperar jugadores
+        JugadorReal base = jugadorRepo.findById(request.getBaseId()).orElseThrow();
+        JugadorReal escolta = jugadorRepo.findById(request.getEscoltaId()).orElseThrow();
+        JugadorReal alero = jugadorRepo.findById(request.getAleroId()).orElseThrow();
+        JugadorReal alapivot = jugadorRepo.findById(request.getAlapivotId()).orElseThrow();
+        JugadorReal pivot = jugadorRepo.findById(request.getPivotId()).orElseThrow();
+
+        // Validar presupuesto (50cr máximo)
+        double totalPrecio = base.getValorMercadoActual() + escolta.getValorMercadoActual() + 
+                             alero.getValorMercadoActual() + alapivot.getValorMercadoActual() + pivot.getValorMercadoActual();
+        if (totalPrecio > 50.0) {
+            throw new IllegalArgumentException("El presupuesto excede los 50cr");
+        }
+
+        // Buscar si el usuario ya participó desde este dispositivo, si es así, se actualiza
+        ShowdownParticipante participante = participanteRepo
+                .findByEventoIdAndUuidDispositivo(evento.getId(), request.getUuidDispositivo())
+                .orElseGet(() -> ShowdownParticipante.builder()
+                        .evento(evento)
+                        .uuidDispositivo(request.getUuidDispositivo())
+                        .build());
+
+        participante.setNombre(request.getNombre());
+        participante.setApellido(request.getApellido());
+        participante.setBase(base);
+        participante.setEscolta(escolta);
+        participante.setAlero(alero);
+        participante.setAlaPivot(alapivot);
+        participante.setPivot(pivot);
+
+        participante = participanteRepo.save(participante);
+        return participante.getId();
+    }
+
+    @Transactional(readOnly = true)
+    public List<ShowdownParticipanteDto> getRanking(String codigo, String uuidDispositivo) {
+        ShowdownEvento evento = eventoRepo.findByCodigoInscripcion(codigo)
+                .orElseThrow(() -> new IllegalArgumentException("Evento no encontrado"));
+
+        return participanteRepo.findAllByEventoIdOrderByPuntosTotalesDesc(evento.getId())
+                .stream()
+                .map(p -> ShowdownParticipanteDto.builder()
+                        .id(p.getId())
+                        .nombre(p.getNombre())
+                        .apellido(p.getApellido())
+                        .puntosTotales(p.getPuntosTotales())
+                        .esMio(p.getUuidDispositivo().equals(uuidDispositivo))
+                        .build())
+                .collect(Collectors.toList());
+    }
+}
