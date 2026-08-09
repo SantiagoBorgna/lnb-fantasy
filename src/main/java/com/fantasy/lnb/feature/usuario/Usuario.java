@@ -68,9 +68,8 @@ public class Usuario {
     @OneToMany(mappedBy = "usuario", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<SuscripcionPush> suscripcionesPush = new ArrayList<>();
 
-    @ElementCollection(fetch = FetchType.EAGER)
-    @CollectionTable(name = "usuario_ayudas_vistas", joinColumns = @JoinColumn(name = "usuario_id"))
-    @Column(name = "ayuda")
+    @Convert(converter = StringSetConverter.class)
+    @Column(name = "ayudas_vistas", length = 1000)
     private Set<String> ayudasVistas = new HashSet<>();
 
     @PrePersist
