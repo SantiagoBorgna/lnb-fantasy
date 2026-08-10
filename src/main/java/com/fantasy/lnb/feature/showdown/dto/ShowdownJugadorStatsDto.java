@@ -16,12 +16,20 @@ public class ShowdownJugadorStatsDto {
     private String posicion;
     private Boolean esCapitan;
     
-    private Integer pts;
-    private Integer reb;
-    private Integer ast;
-    private Integer stl;
-    private Integer blk;
-    private Integer tov;
+    private Boolean fueTitular;
+    private Boolean gano;
+    private Integer puntos;
+    private Integer asistencias;
+    private Integer rebotesDefensivos;
+    private Integer rebotesOfensivos;
+    private Integer recuperaciones;
+    private Integer taponesRealizados;
+    private Integer faltasRecibidas;
+    private Integer perdidas;
+    private Integer taponesRecibidos;
+    private Integer faltasCometidas;
+    private Integer tirosDeCampoFallados;
+    private Integer tirosLibresFallados;
     
     private Double valFantasy;
     private Double puntosAportados;
