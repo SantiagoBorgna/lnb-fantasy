@@ -22,6 +22,7 @@ public class ShowdownService {
     private final ShowdownEventoRepository eventoRepo;
     private final ShowdownParticipanteRepository participanteRepo;
     private final JugadorRealRepository jugadorRepo;
+    private final com.fantasy.lnb.feature.estadisticas.EstadisticaPartidoRepository estadisticaRepo;
 
     @Transactional(readOnly = true)
     public ShowdownEventoDto getEvento(String codigo) {
@@ -123,5 +124,59 @@ public class ShowdownService {
                         .esMio(p.getUuidDispositivo().equals(uuidDispositivo))
                         .build())
                 .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public com.fantasy.lnb.feature.showdown.dto.ShowdownMiEquipoDto getMiEquipo(String codigo, String uuidDispositivo) {
+        ShowdownEvento evento = eventoRepo.findByCodigoInscripcion(codigo)
+                .orElseThrow(() -> new IllegalArgumentException("Evento no encontrado"));
+                
+        ShowdownParticipante participante = participanteRepo.findByEventoIdAndUuidDispositivo(evento.getId(), uuidDispositivo)
+                .orElseThrow(() -> new IllegalArgumentException("No estás participando en este evento"));
+                
+        List<com.fantasy.lnb.feature.estadisticas.EstadisticaPartido> estadisticas = 
+                estadisticaRepo.findByGesPartidoId(evento.getPartido().getGesHash());
+                
+        java.util.Map<Long, com.fantasy.lnb.feature.estadisticas.EstadisticaPartido> statsMap = estadisticas.stream()
+                .collect(Collectors.toMap(e -> e.getJugadorReal().getId(), e -> e, (e1, e2) -> e1));
+                
+        List<JugadorReal> equipo = List.of(
+                participante.getBase(), 
+                participante.getEscolta(), 
+                participante.getAlero(), 
+                participante.getAlaPivot(), 
+                participante.getPivot()
+        );
+        
+        List<com.fantasy.lnb.feature.showdown.dto.ShowdownJugadorStatsDto> jugadoresStats = equipo.stream().map(j -> {
+            boolean esCapitan = j.getId().equals(participante.getCapitanId());
+            com.fantasy.lnb.feature.estadisticas.EstadisticaPartido stat = statsMap.get(j.getId());
+            
+            Double valFantasy = stat != null ? stat.getPuntajeFantasyCalculado() : 0.0;
+            Double puntosAportados = esCapitan ? valFantasy * 1.5 : valFantasy;
+            
+            return com.fantasy.lnb.feature.showdown.dto.ShowdownJugadorStatsDto.builder()
+                    .id(j.getId())
+                    .nombre(j.getNombre())
+                    .apellido(j.getApellido())
+                    .equipoSigla(j.getEquipoReal() != null ? j.getEquipoReal().getSigla() : "")
+                    .posicion(j.getPosicion().name())
+                    .esCapitan(esCapitan)
+                    .pts(stat != null ? stat.getPuntos() : 0)
+                    .reb(stat != null ? (stat.getRebotesDefensivos() + stat.getRebotesOfensivos()) : 0)
+                    .ast(stat != null ? stat.getAsistencias() : 0)
+                    .stl(stat != null ? stat.getRecuperaciones() : 0)
+                    .blk(stat != null ? stat.getTaponesRealizados() : 0)
+                    .tov(stat != null ? stat.getPerdidas() : 0)
+                    .valFantasy(valFantasy)
+                    .puntosAportados(puntosAportados)
+                    .build();
+        }).collect(Collectors.toList());
+        
+        return com.fantasy.lnb.feature.showdown.dto.ShowdownMiEquipoDto.builder()
+                .participanteId(participante.getId())
+                .puntosTotales(participante.getPuntosTotales())
+                .jugadores(jugadoresStats)
+                .build();
     }
 }

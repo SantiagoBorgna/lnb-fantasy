@@ -58,4 +58,11 @@ public class ShowdownController {
             @RequestParam String uuidDispositivo) {
         return ResponseEntity.ok(showdownService.getRanking(codigo, uuidDispositivo));
     }
+
+    @GetMapping("/{codigo}/mi-equipo")
+    public ResponseEntity<com.fantasy.lnb.feature.showdown.dto.ShowdownMiEquipoDto> getMiEquipo(
+            @PathVariable String codigo,
+            @RequestParam String uuidDispositivo) {
+        return ResponseEntity.ok(showdownService.getMiEquipo(codigo, uuidDispositivo));
+    }
 }

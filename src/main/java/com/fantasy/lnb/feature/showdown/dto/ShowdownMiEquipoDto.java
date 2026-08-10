@@ -1,0 +1,1 @@
+package com.fantasy.lnb.feature.showdown.dto; import lombok.Builder; import lombok.Data; import java.util.List; @Data @Builder public class ShowdownMiEquipoDto { private Long participanteId; private Double puntosTotales; private List<ShowdownJugadorStatsDto> jugadores; }
