@@ -38,17 +38,26 @@ public class DirectorTecnicoService {
                 dt.setPromedioFantasy(0.0);
             } else {
                 double sumaPuntajes = 0.0;
+                int partidosValidos = 0;
+                
                 for (Partido p : partidos) {
+                    if (p.getPuntosLocal() == null || p.getPuntosVisitante() == null) continue;
+                    
                     boolean esLocal = p.getEquipoLocal().getId().equals(equipoId);
                     int puntosDT = esLocal ? p.getPuntosLocal() : p.getPuntosVisitante();
                     int puntosRival = esLocal ? p.getPuntosVisitante() : p.getPuntosLocal();
                     
                     double puntajeDt = motorPuntuacionPlantel.calcularPuntajeDt(puntosDT, puntosRival);
                     sumaPuntajes += puntajeDt;
+                    partidosValidos++;
                 }
                 
-                double promedio = sumaPuntajes / partidos.size();
-                dt.setPromedioFantasy(Math.round(promedio * 100.0) / 100.0);
+                if (partidosValidos == 0) {
+                    dt.setPromedioFantasy(0.0);
+                } else {
+                    double promedio = sumaPuntajes / partidosValidos;
+                    dt.setPromedioFantasy(Math.round(promedio * 100.0) / 100.0);
+                }
             }
             actualizados++;
             dtRepo.save(dt);
