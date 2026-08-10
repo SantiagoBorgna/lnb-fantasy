@@ -60,6 +60,7 @@ public class SecurityConfig {
                                                                 "/api/torneos/*/tabla",
                                                                 "/api/dt",
                                                                 "/api/dt/**",
+                                                                "/api/showdown/**",
                                                                 "/api/onboarding/equipos")
                                                 .permitAll()
 
