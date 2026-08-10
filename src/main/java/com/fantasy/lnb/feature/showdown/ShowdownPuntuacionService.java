@@ -34,7 +34,7 @@ public class ShowdownPuntuacionService {
                 .filter(e -> e.getEstado() == EstadoShowdown.ABIERTO)
                 .toList();
         for (ShowdownEvento e : eventosAbiertos) {
-            if (e.getPartido().getFecha().isBefore(java.time.LocalDateTime.now())) {
+            if (e.getPartido().getFechaHora().isBefore(java.time.LocalDateTime.now())) {
                 e.setEstado(EstadoShowdown.EN_CURSO);
                 eventoRepo.save(e);
                 log.info("[SHOWDOWN] Evento {} pasa a estado EN_CURSO", e.getCodigoInscripcion());
