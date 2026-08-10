@@ -14,7 +14,7 @@ public class MockDataLoader implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws Exception {
-        jdbcTemplate.update("UPDATE partido SET puntos_local = 85, puntos_visitante = 80 WHERE id = 28");
+        jdbcTemplate.update("UPDATE partido SET puntos_local = 85, puntos_visitante = 80, estado = 'PROCESADO' WHERE id = 28");
         
         String gesHash = jdbcTemplate.queryForObject("SELECT ges_hash FROM partido WHERE id = 28", String.class);
         Long jornadaId = jdbcTemplate.queryForObject("SELECT jornada_id FROM partido WHERE id = 28", Long.class);

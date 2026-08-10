@@ -46,6 +46,11 @@ public class ShowdownPuntuacionService {
                 .toList();
 
         for (ShowdownEvento evento : eventosEnCurso) {
+            // Solo procesar si el partido en sí ya figura como FINALIZADO o PROCESADO
+            if (evento.getPartido().getEstado() == com.fantasy.lnb.feature.jornada.EstadoPartido.PROGRAMADO) {
+                continue;
+            }
+
             // Verificar si el partido ya tiene estadísticas cargadas
             List<EstadisticaPartido> estadisticas = estadisticaRepo.findByGesPartidoId(evento.getPartido().getGesHash());
             
