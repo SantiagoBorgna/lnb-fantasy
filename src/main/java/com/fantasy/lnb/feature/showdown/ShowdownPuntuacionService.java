@@ -29,6 +29,18 @@ public class ShowdownPuntuacionService {
     @Scheduled(fixedDelay = 600000) // cada 10 min
     @Transactional
     public void procesarPuntajesEventosEnCurso() {
+        // Transicionar eventos de ABIERTO a EN_CURSO si el partido ya comenzó
+        List<ShowdownEvento> eventosAbiertos = eventoRepo.findAll().stream()
+                .filter(e -> e.getEstado() == EstadoShowdown.ABIERTO)
+                .toList();
+        for (ShowdownEvento e : eventosAbiertos) {
+            if (e.getPartido().getFecha().isBefore(java.time.LocalDateTime.now())) {
+                e.setEstado(EstadoShowdown.EN_CURSO);
+                eventoRepo.save(e);
+                log.info("[SHOWDOWN] Evento {} pasa a estado EN_CURSO", e.getCodigoInscripcion());
+            }
+        }
+
         List<ShowdownEvento> eventosEnCurso = eventoRepo.findAll().stream()
                 .filter(e -> e.getEstado() == EstadoShowdown.EN_CURSO)
                 .toList();
