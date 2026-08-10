@@ -7,13 +7,12 @@ import lombok.Data;
 @Builder
 public class ShowdownJugadorStatsDto {
     private Long id;
-    private String nombre;
-    private String apellido;
+    private String nombreCompleto;
     private String equipoSigla;
     private String equipoColorPrincipal;
     private String equipoColorSecundario;
-    private String equipoModeloCamiseta;
-    private String numeroCamiseta;
+    private Integer equipoModeloCamiseta;
+    private Integer numeroCamiseta;
     private String posicion;
     private Boolean esCapitan;
     
