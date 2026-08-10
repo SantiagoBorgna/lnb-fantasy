@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import com.fantasy.lnb.feature.mercado.JugadorReal;
 
 @Slf4j
 @Service
@@ -51,11 +52,14 @@ public class ShowdownPuntuacionService {
                 
                 for (ShowdownParticipante p : participantes) {
                     double total = 0.0;
-                    total += puntosPorJugador.getOrDefault(p.getBase().getId(), 0.0);
-                    total += puntosPorJugador.getOrDefault(p.getEscolta().getId(), 0.0);
-                    total += puntosPorJugador.getOrDefault(p.getAlero().getId(), 0.0);
-                    total += puntosPorJugador.getOrDefault(p.getAlaPivot().getId(), 0.0);
-                    total += puntosPorJugador.getOrDefault(p.getPivot().getId(), 0.0);
+                    
+                    for (JugadorReal jugador : List.of(p.getBase(), p.getEscolta(), p.getAlero(), p.getAlaPivot(), p.getPivot())) {
+                        double puntos = puntosPorJugador.getOrDefault(jugador.getId(), 0.0);
+                        if (jugador.getId().equals(p.getCapitanId())) {
+                            puntos *= 1.5;
+                        }
+                        total += puntos;
+                    }
                     
                     p.setPuntosTotales(total);
                 }

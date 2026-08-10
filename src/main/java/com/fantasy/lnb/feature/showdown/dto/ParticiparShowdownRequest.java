@@ -14,6 +14,13 @@ public class ParticiparShowdownRequest {
     private String apellido;
     
     @NotBlank
+    @jakarta.validation.constraints.Email
+    private String email;
+    
+    @NotNull
+    private Long capitanId;
+    
+    @NotBlank
     private String uuidDispositivo;
 
     @NotNull

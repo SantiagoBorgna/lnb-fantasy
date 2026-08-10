@@ -32,6 +32,12 @@ public class ShowdownParticipante {
     @Column(nullable = false)
     private String apellido;
 
+    @Column(nullable = false)
+    private String email;
+
+    @Column(nullable = false)
+    private Long capitanId;
+
     @Builder.Default
     @Column(nullable = false)
     private Double puntosTotales = 0.0;

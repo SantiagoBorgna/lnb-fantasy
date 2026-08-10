@@ -80,6 +80,12 @@ public class ShowdownService {
             throw new IllegalArgumentException("El presupuesto excede los 50cr");
         }
 
+        // Validar capitan
+        List<Long> quintetoIds = List.of(base.getId(), escolta.getId(), alero.getId(), alapivot.getId(), pivot.getId());
+        if (!quintetoIds.contains(request.getCapitanId())) {
+            throw new IllegalArgumentException("El capitan debe ser uno de los 5 jugadores elegidos");
+        }
+
         // Buscar si el usuario ya participó desde este dispositivo, si es así, se actualiza
         ShowdownParticipante participante = participanteRepo
                 .findByEventoIdAndUuidDispositivo(evento.getId(), request.getUuidDispositivo())
@@ -90,6 +96,8 @@ public class ShowdownService {
 
         participante.setNombre(request.getNombre());
         participante.setApellido(request.getApellido());
+        participante.setEmail(request.getEmail());
+        participante.setCapitanId(request.getCapitanId());
         participante.setBase(base);
         participante.setEscolta(escolta);
         participante.setAlero(alero);
