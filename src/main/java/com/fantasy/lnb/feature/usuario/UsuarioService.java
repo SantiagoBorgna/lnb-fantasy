@@ -53,6 +53,8 @@ public class UsuarioService {
                 .orElseThrow(() -> new IllegalStateException("Usuario no encontrado: " + usuarioId));
         
         usuario.getAyudasVistas().add(pagina);
+        // Forzar a JPA a detectar el cambio con el AttributeConverter
+        usuario.setAyudasVistas(new java.util.HashSet<>(usuario.getAyudasVistas()));
         usuarioRepo.save(usuario);
         
         log.info("[AYUDA] Usuario {} marcó la ayuda de '{}' como vista.", usuario.getEmail(), pagina);
