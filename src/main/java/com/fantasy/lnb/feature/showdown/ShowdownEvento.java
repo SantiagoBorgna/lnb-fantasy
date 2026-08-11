@@ -31,6 +31,9 @@ public class ShowdownEvento {
     @Column(nullable = false)
     private EstadoShowdown estado;
 
+    @OneToMany(mappedBy = "evento", cascade = CascadeType.ALL, orphanRemoval = true)
+    private java.util.List<ShowdownParticipante> participantes = new java.util.ArrayList<>();
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime creadoEn;
 
