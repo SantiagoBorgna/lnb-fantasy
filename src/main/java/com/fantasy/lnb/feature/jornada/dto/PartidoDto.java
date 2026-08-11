@@ -16,4 +16,5 @@ public class PartidoDto {
     private Integer puntosLocal;
     private Integer puntosVisitante;
     private String estado;
+    private Integer jornada;
 }

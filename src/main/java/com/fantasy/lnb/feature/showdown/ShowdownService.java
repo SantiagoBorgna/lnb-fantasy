@@ -234,6 +234,7 @@ public class ShowdownService {
                         .puntosLocal(p.getPuntosLocal())
                         .puntosVisitante(p.getPuntosVisitante())
                         .estado(p.getEstado().name())
+                        .jornada(p.getJornada().getNumero())
                         .build())
                 .collect(Collectors.toList());
     }
