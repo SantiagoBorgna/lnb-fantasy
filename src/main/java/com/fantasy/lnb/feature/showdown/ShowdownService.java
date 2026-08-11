@@ -23,6 +23,7 @@ public class ShowdownService {
     private final ShowdownParticipanteRepository participanteRepo;
     private final JugadorRealRepository jugadorRepo;
     private final com.fantasy.lnb.feature.estadisticas.EstadisticaPartidoRepository estadisticaRepo;
+    private final com.fantasy.lnb.feature.jornada.PartidoRepository partidoRepo;
 
     @Transactional(readOnly = true)
     public ShowdownEventoDto getEvento(String codigo) {
@@ -189,5 +190,89 @@ public class ShowdownService {
                 .puntosTotales(participante.getPuntosTotales())
                 .jugadores(jugadoresStats)
                 .build();
+    }
+    
+    // --- Admin Methods ---
+
+    public List<com.fantasy.lnb.feature.showdown.dto.AdminShowdownDto> getTodosLosShowdowns() {
+        return eventoRepo.findAll().stream().map(evento -> {
+            EquipoReal local = evento.getPartido().getEquipoLocal();
+            EquipoReal visitante = evento.getPartido().getEquipoVisitante();
+            int count = participanteRepo.countByEventoId(evento.getId());
+
+            return com.fantasy.lnb.feature.showdown.dto.AdminShowdownDto.builder()
+                    .id(evento.getId())
+                    .codigoInscripcion(evento.getCodigoInscripcion())
+                    .estado(evento.getEstado())
+                    .localSigla(local.getSigla())
+                    .localNombre(local.getNombre())
+                    .visitanteSigla(visitante.getSigla())
+                    .visitanteNombre(visitante.getNombre())
+                    .fecha(evento.getPartido().getFechaHora().toString())
+                    .participantesCount(count)
+                    .build();
+        }).collect(Collectors.toList());
+    }
+
+    public List<com.fantasy.lnb.feature.jornada.dto.PartidoDto> getPartidosDisponiblesParaShowdown() {
+        List<com.fantasy.lnb.feature.jornada.Partido> partidosProgramados = partidoRepo.findByEstado(com.fantasy.lnb.feature.jornada.EstadoPartido.PROGRAMADO);
+        
+        // Excluir los que ya tienen showdown
+        List<Long> partidosConShowdown = eventoRepo.findAll().stream()
+                .map(e -> e.getPartido().getId())
+                .collect(Collectors.toList());
+
+        return partidosProgramados.stream()
+                .filter(p -> !partidosConShowdown.contains(p.getId()))
+                .map(p -> com.fantasy.lnb.feature.jornada.dto.PartidoDto.builder()
+                        .id(p.getId())
+                        .equipoLocal(p.getEquipoLocal().getNombre())
+                        .siglaLocal(p.getEquipoLocal().getSigla())
+                        .equipoVisitante(p.getEquipoVisitante().getNombre())
+                        .siglaVisitante(p.getEquipoVisitante().getSigla())
+                        .fechaHora(p.getFechaHora())
+                        .puntosLocal(p.getPuntosLocal())
+                        .puntosVisitante(p.getPuntosVisitante())
+                        .estado(p.getEstado().name())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public com.fantasy.lnb.feature.showdown.dto.AdminShowdownDto crearShowdownManual(Long partidoId) {
+        var partido = partidoRepo.findById(partidoId)
+                .orElseThrow(() -> new IllegalArgumentException("Partido no encontrado"));
+
+        String codigo = java.util.UUID.randomUUID().toString().substring(0, 8);
+        
+        var evento = ShowdownEvento.builder()
+                .partido(partido)
+                .codigoInscripcion(codigo)
+                .estado(EstadoShowdown.ABIERTO)
+                .build();
+        
+        evento = eventoRepo.save(evento);
+
+        EquipoReal local = evento.getPartido().getEquipoLocal();
+        EquipoReal visitante = evento.getPartido().getEquipoVisitante();
+
+        return com.fantasy.lnb.feature.showdown.dto.AdminShowdownDto.builder()
+                .id(evento.getId())
+                .codigoInscripcion(evento.getCodigoInscripcion())
+                .estado(evento.getEstado())
+                .localSigla(local.getSigla())
+                .localNombre(local.getNombre())
+                .visitanteSigla(visitante.getSigla())
+                .visitanteNombre(visitante.getNombre())
+                .fecha(evento.getPartido().getFechaHora().toString())
+                .participantesCount(0)
+                .build();
+    }
+
+    @Transactional
+    public void eliminarShowdown(Long eventoId) {
+        var evento = eventoRepo.findById(eventoId)
+                .orElseThrow(() -> new IllegalArgumentException("Evento no encontrado"));
+        eventoRepo.delete(evento);
     }
 }
