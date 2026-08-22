@@ -4,10 +4,10 @@ import com.fantasy.lnb.feature.admin.dto.AdminQuintetosResponseDto;
 import com.fantasy.lnb.feature.admin.dto.JugadorQuintetoDto;
 import com.fantasy.lnb.feature.estadisticas.EstadisticaPartido;
 import com.fantasy.lnb.feature.estadisticas.EstadisticaPartidoRepository;
-import com.fantasy.lnb.feature.jugador.PosicionJugador;
+import com.fantasy.lnb.feature.mercado.PosicionJugador;
 import com.fantasy.lnb.feature.plantel.PlantelJornada;
 import com.fantasy.lnb.feature.plantel.PlantelJornadaRepository;
-import com.fantasy.lnb.feature.plantel.PlantelJugadorJornada;
+import com.fantasy.lnb.feature.plantel.JugadorPlantel;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -36,7 +36,7 @@ public class AdminQuintetosService {
             puntajeUsuario = mejorPlantel.getPuntajeObtenidoFecha() != null ? mejorPlantel.getPuntajeObtenidoFecha() : 0.0;
 
             mejorQuintetoUsuario = mejorPlantel.getJugadores().stream()
-                    .filter(PlantelJugadorJornada::isTitular)
+                    .filter(JugadorPlantel::isTitular)
                     .map(pj -> JugadorQuintetoDto.builder()
                             .id(pj.getJugadorReal().getId())
                             .nombre(pj.getJugadorReal().getNombre())

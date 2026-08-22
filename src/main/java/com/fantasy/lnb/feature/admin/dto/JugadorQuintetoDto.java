@@ -1,6 +1,6 @@
 package com.fantasy.lnb.feature.admin.dto;
 
-import com.fantasy.lnb.feature.jugador.PosicionJugador;
+import com.fantasy.lnb.feature.mercado.PosicionJugador;
 import lombok.Builder;
 import lombok.Data;
 
