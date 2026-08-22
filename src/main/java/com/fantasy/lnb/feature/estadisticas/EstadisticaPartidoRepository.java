@@ -51,6 +51,8 @@ public interface EstadisticaPartidoRepository
 
         List<EstadisticaPartido> findByJugadorReal_Id(Long jugadorRealId);
 
+        List<EstadisticaPartido> findByJornada_Id(Long jornadaId);
+
         List<EstadisticaPartido> findByGesPartidoId(String gesPartidoId);
 
         // ── Queries para la vista de Líderes ────────────────────────────────────────

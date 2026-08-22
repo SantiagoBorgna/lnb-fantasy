@@ -52,11 +52,12 @@ public class UsuarioService {
         Usuario usuario = usuarioRepo.findById(usuarioId)
                 .orElseThrow(() -> new IllegalStateException("Usuario no encontrado: " + usuarioId));
         
-        usuario.getAyudasVistas().add(pagina);
-        // Forzar a JPA a detectar el cambio con el AttributeConverter
-        usuario.setAyudasVistas(new java.util.HashSet<>(usuario.getAyudasVistas()));
-        usuarioRepo.save(usuario);
-        
-        log.info("[AYUDA] Usuario {} marcó la ayuda de '{}' como vista.", usuario.getEmail(), pagina);
+        if (usuario.getAyudasVistas().add(pagina)) {
+            // Si efectivamente se agregó (no estaba antes), forzamos un update
+            // cambiando un campo para que JPA marque la entidad como sucia
+            usuario.setUltimoLogin(java.time.LocalDateTime.now());
+            usuarioRepo.save(usuario);
+            log.info("[AYUDA] Usuario {} marcó la ayuda de '{}' como vista.", usuario.getEmail(), pagina);
+        }
     }
 }
