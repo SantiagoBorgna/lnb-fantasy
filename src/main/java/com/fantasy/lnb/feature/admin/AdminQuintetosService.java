@@ -22,6 +22,12 @@ public class AdminQuintetosService {
     private final EstadisticaPartidoRepository estadisticaRepo;
 
     public AdminQuintetosResponseDto getQuintetosPorJornada(Long jornadaId) {
+        // Obtenemos estadisticas de la jornada
+        List<EstadisticaPartido> estadisticasJornada = estadisticaRepo.findByJornada_Id(jornadaId);
+        Map<Long, EstadisticaPartido> statsMap = estadisticasJornada.stream()
+                .filter(e -> e.getJugadorReal() != null)
+                .collect(Collectors.toMap(e -> e.getJugadorReal().getId(), e -> e, (e1, e2) -> e1));
+
         // 1. Mejor Quinteto de Usuario
         Optional<PlantelJornada> mejorPlantelOpt = plantelJornadaRepo
                 .findFirstByJornada_IdAndTorneoIsNullOrderByPuntajeObtenidoFechaDesc(jornadaId);
@@ -32,26 +38,32 @@ public class AdminQuintetosService {
 
         if (mejorPlantelOpt.isPresent()) {
             PlantelJornada mejorPlantel = mejorPlantelOpt.get();
-            nombreUsuario = mejorPlantel.getUsuario().getUsername();
+            nombreUsuario = mejorPlantel.getUsuario().getNombreDisplay();
             puntajeUsuario = mejorPlantel.getPuntajeObtenidoFecha() != null ? mejorPlantel.getPuntajeObtenidoFecha() : 0.0;
 
-            mejorQuintetoUsuario = mejorPlantel.getJugadores().stream()
-                    .filter(JugadorPlantel::isTitular)
-                    .map(pj -> JugadorQuintetoDto.builder()
+            mejorQuintetoUsuario = mejorPlantel.getTitulares().stream()
+                    .map(pj -> {
+                        EstadisticaPartido stat = statsMap.get(pj.getJugadorReal().getId());
+                        Double puntos = stat != null && stat.getPuntajeFantasyCalculado() != null ? stat.getPuntajeFantasyCalculado() : 0.0;
+                        boolean esCapitan = pj.getRol() == com.fantasy.lnb.feature.plantel.RolPlantel.CAPITAN;
+                        if (esCapitan) {
+                            puntos *= 1.5;
+                        }
+                        
+                        return JugadorQuintetoDto.builder()
                             .id(pj.getJugadorReal().getId())
-                            .nombre(pj.getJugadorReal().getNombre())
-                            .apellido(pj.getJugadorReal().getApellido())
+                            .nombre(pj.getJugadorReal().getNombreCompleto())
+                            .apellido("") // nombreCompleto tiene todo
                             .clubReal(pj.getJugadorReal().getEquipoReal() != null ? pj.getJugadorReal().getEquipoReal().getSigla() : "N/A")
                             .posicion(pj.getJugadorReal().getPosicion())
-                            .puntosFantasy(pj.getPuntajeObtenido() != null ? pj.getPuntajeObtenido() : 0.0)
-                            .esCapitan(pj.isEsCapitan())
-                            .build())
+                            .puntosFantasy(puntos)
+                            .esCapitan(esCapitan)
+                            .build();
+                    })
                     .collect(Collectors.toList());
         }
 
         // 2. Quinteto Ideal Teórico
-        List<EstadisticaPartido> estadisticasJornada = estadisticaRepo.findByJornada_Id(jornadaId);
-        
         // Agrupar por posición y obtener el mejor de cada posición
         Map<PosicionJugador, Optional<EstadisticaPartido>> mejoresPorPosicion = estadisticasJornada.stream()
                 .filter(e -> e.getPuntajeFantasyCalculado() != null && e.getJugadorReal() != null)
@@ -88,8 +100,8 @@ public class AdminQuintetosService {
 
                 quintetoIdealTeorico.add(JugadorQuintetoDto.builder()
                         .id(mejorEnPos.getJugadorReal().getId())
-                        .nombre(mejorEnPos.getJugadorReal().getNombre())
-                        .apellido(mejorEnPos.getJugadorReal().getApellido())
+                        .nombre(mejorEnPos.getJugadorReal().getNombreCompleto())
+                        .apellido("")
                         .clubReal(mejorEnPos.getJugadorReal().getEquipoReal() != null ? mejorEnPos.getJugadorReal().getEquipoReal().getSigla() : "N/A")
                         .posicion(mejorEnPos.getJugadorReal().getPosicion())
                         .puntosFantasy(puntos)
