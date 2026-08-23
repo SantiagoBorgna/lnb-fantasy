@@ -8,6 +8,8 @@ import com.fantasy.lnb.feature.mercado.PosicionJugador;
 import com.fantasy.lnb.feature.plantel.PlantelJornada;
 import com.fantasy.lnb.feature.plantel.PlantelJornadaRepository;
 import com.fantasy.lnb.feature.plantel.JugadorPlantel;
+import com.fantasy.lnb.feature.usuario.EquipoVirtual;
+import com.fantasy.lnb.feature.usuario.EquipoVirtualRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -20,6 +22,7 @@ public class AdminQuintetosService {
 
     private final PlantelJornadaRepository plantelJornadaRepo;
     private final EstadisticaPartidoRepository estadisticaRepo;
+    private final EquipoVirtualRepository equipoVirtualRepo;
 
     public AdminQuintetosResponseDto getQuintetosPorJornada(Long jornadaId) {
         // Obtenemos estadisticas de la jornada
@@ -38,7 +41,8 @@ public class AdminQuintetosService {
 
         if (mejorPlantelOpt.isPresent()) {
             PlantelJornada mejorPlantel = mejorPlantelOpt.get();
-            nombreUsuario = mejorPlantel.getUsuario().getNombreDisplay();
+            Optional<EquipoVirtual> equipoOpt = equipoVirtualRepo.findByUsuario_Id(mejorPlantel.getUsuario().getId());
+            nombreUsuario = equipoOpt.map(EquipoVirtual::getNombre).orElse(mejorPlantel.getUsuario().getNombreDisplay());
             puntajeUsuario = mejorPlantel.getPuntajeObtenidoFecha() != null ? mejorPlantel.getPuntajeObtenidoFecha() : 0.0;
 
             mejorQuintetoUsuario = mejorPlantel.getTitulares().stream()
@@ -58,6 +62,10 @@ public class AdminQuintetosService {
                             .posicion(pj.getJugadorReal().getPosicion())
                             .puntosFantasy(puntos)
                             .esCapitan(esCapitan)
+                            .numeroCamiseta(pj.getJugadorReal().getNumeroCamiseta())
+                            .modeloCamiseta(pj.getJugadorReal().getEquipoReal() != null ? pj.getJugadorReal().getEquipoReal().getModeloCamiseta() : 1)
+                            .colorPrincipal(pj.getJugadorReal().getEquipoReal() != null ? pj.getJugadorReal().getEquipoReal().getColorPrincipal() : "#FFFFFF")
+                            .colorSecundario(pj.getJugadorReal().getEquipoReal() != null ? pj.getJugadorReal().getEquipoReal().getColorSecundario() : "#000000")
                             .build();
                     })
                     .collect(Collectors.toList());
@@ -77,6 +85,8 @@ public class AdminQuintetosService {
         EstadisticaPartido capitanIdeal = null;
 
         for (PosicionJugador pos : PosicionJugador.values()) {
+            if (pos == PosicionJugador.DESCONOCIDO) continue; // Ignorar posición desconocida
+            
             Optional<EstadisticaPartido> mejorEnPosOpt = mejoresPorPosicion.getOrDefault(pos, Optional.empty());
             if (mejorEnPosOpt.isPresent()) {
                 EstadisticaPartido mejorEnPos = mejorEnPosOpt.get();
@@ -87,6 +97,8 @@ public class AdminQuintetosService {
         }
 
         for (PosicionJugador pos : PosicionJugador.values()) {
+            if (pos == PosicionJugador.DESCONOCIDO) continue; // Ignorar posición desconocida
+            
             Optional<EstadisticaPartido> mejorEnPosOpt = mejoresPorPosicion.getOrDefault(pos, Optional.empty());
             if (mejorEnPosOpt.isPresent()) {
                 EstadisticaPartido mejorEnPos = mejorEnPosOpt.get();
@@ -106,6 +118,10 @@ public class AdminQuintetosService {
                         .posicion(mejorEnPos.getJugadorReal().getPosicion())
                         .puntosFantasy(puntos)
                         .esCapitan(esCapitan)
+                        .numeroCamiseta(mejorEnPos.getJugadorReal().getNumeroCamiseta())
+                        .modeloCamiseta(mejorEnPos.getJugadorReal().getEquipoReal() != null ? mejorEnPos.getJugadorReal().getEquipoReal().getModeloCamiseta() : 1)
+                        .colorPrincipal(mejorEnPos.getJugadorReal().getEquipoReal() != null ? mejorEnPos.getJugadorReal().getEquipoReal().getColorPrincipal() : "#FFFFFF")
+                        .colorSecundario(mejorEnPos.getJugadorReal().getEquipoReal() != null ? mejorEnPos.getJugadorReal().getEquipoReal().getColorSecundario() : "#000000")
                         .build());
             }
         }

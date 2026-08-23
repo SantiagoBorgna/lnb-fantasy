@@ -14,4 +14,10 @@ public class JugadorQuintetoDto {
     private PosicionJugador posicion;
     private Double puntosFantasy;
     private Boolean esCapitan;
+    
+    // Para la CamisetaSVG
+    private Integer numeroCamiseta;
+    private Integer modeloCamiseta;
+    private String colorPrincipal;
+    private String colorSecundario;
 }
