@@ -4,5 +4,6 @@ public enum EstadoJugador {
     DISPONIBLE,
     DUDA,
     LESIONADO,
-    SUSPENDIDO
+    SUSPENDIDO,
+    BAJA
 }
