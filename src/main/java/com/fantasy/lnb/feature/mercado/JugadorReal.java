@@ -38,7 +38,7 @@ public class JugadorReal {
     private PosicionJugador posicion;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "VARCHAR(50)")
     private EstadoJugador estado;
 
     // Precio actual en el mercado Fantasy (arranca con valor base al cargar el
