@@ -37,6 +37,7 @@ public class PlantelDto {
         private Long jugadorRealId;
         private String nombreCompleto;
         private Integer numeroCamiseta;
+        private String equipoNombre;
         private String equipoSigla;
         private String colorPrincipal;
         private String colorSecundario;

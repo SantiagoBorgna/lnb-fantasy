@@ -538,6 +538,7 @@ public class PlantelService {
                                                 .jugadorRealId(jp.getJugadorReal().getId())
                                                 .nombreCompleto(jp.getJugadorReal().getNombreCompleto())
                                                 .numeroCamiseta(jp.getJugadorReal().getNumeroCamiseta())
+                                                .equipoNombre(jp.getJugadorReal().getEquipoReal().getNombre())
                                                 .equipoSigla(jp.getJugadorReal().getEquipoReal().getSigla())
                                                 .colorPrincipal(jp.getJugadorReal().getEquipoReal().getColorPrincipal())
                                                 .colorSecundario(jp.getJugadorReal().getEquipoReal()
