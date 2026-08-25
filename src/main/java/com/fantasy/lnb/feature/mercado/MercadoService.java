@@ -31,6 +31,7 @@ public class MercadoService {
         Sort sort = crearSort(orden);
         // Traemos todos los que NO sean DESCONOCIDO, aplicando el orden dinámico
         return jugadorRepo.findByPosicionNot(PosicionJugador.DESCONOCIDO, sort).stream()
+                .filter(j -> j.getEstado() != EstadoJugador.BAJA)
                 .map(this::toDto)
                 .toList();
     }
@@ -42,6 +43,7 @@ public class MercadoService {
         return jugadorRepo
                 .findByPosicion(posicion, sort)
                 .stream()
+                .filter(j -> j.getEstado() != EstadoJugador.BAJA)
                 .map(this::toDto)
                 .toList();
     }
@@ -55,6 +57,7 @@ public class MercadoService {
             return jugadorRepo
                     .buscarPorJugadorOEquipo(nombre, PosicionJugador.DESCONOCIDO, sort)
                     .stream()
+                    .filter(j -> j.getEstado() != EstadoJugador.BAJA)
                     .map(this::toDto)
                     .toList();
         } else {
@@ -62,6 +65,7 @@ public class MercadoService {
             return jugadorRepo
                     .buscarPorJugadorOEquipoYPosicion(nombre, posicion, sort)
                     .stream()
+                    .filter(j -> j.getEstado() != EstadoJugador.BAJA)
                     .map(this::toDto)
                     .toList();
         }
