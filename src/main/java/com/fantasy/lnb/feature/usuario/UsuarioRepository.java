@@ -12,4 +12,7 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
 
     // Útil para detectar si un usuario cambió de proveedor con el mismo email
     Optional<Usuario> findByProviderAndProviderId(String provider, String providerId);
+
+    // Búsqueda de usuarios premium vencidos
+    java.util.List<Usuario> findByIsPremiumTrueAndPremiumHastaBefore(java.time.LocalDateTime now);
 }

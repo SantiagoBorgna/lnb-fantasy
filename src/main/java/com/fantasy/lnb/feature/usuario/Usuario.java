@@ -65,6 +65,14 @@ public class Usuario {
     @Column(nullable = false)
     private RolUsuario rol;
 
+    @Column(nullable = false)
+    private boolean isPremium = false;
+
+    private LocalDateTime premiumHasta;
+
+    @Column(nullable = false)
+    private boolean notificacionPremiumVencido = false;
+
     @OneToMany(mappedBy = "usuario", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<SuscripcionPush> suscripcionesPush = new ArrayList<>();
 

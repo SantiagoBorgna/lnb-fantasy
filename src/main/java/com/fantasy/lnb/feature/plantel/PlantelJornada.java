@@ -84,11 +84,13 @@ public class PlantelJornada {
     // ── Helpers de dominio ──────────────────────────────────────────────────
 
     public boolean puedeHacerTransferencia() {
+        if (usuario != null && usuario.isPremium()) return true;
         int limite = torneo != null ? 4 : 3;
         return transferenciasUsadas < limite;
     }
 
     public int transferenciasRestantes() {
+        if (usuario != null && usuario.isPremium()) return 99; // infinito simbólico
         int limite = torneo != null ? 4 : 3;
         return limite - transferenciasUsadas;
     }

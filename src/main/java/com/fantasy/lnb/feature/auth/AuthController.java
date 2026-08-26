@@ -67,6 +67,10 @@ public class AuthController {
                 // ← Campo nuevo: el frontend decide a dónde redirigir
                 respuesta.put("estadoOnboarding", usuario.getEstadoOnboarding());
 
+                // Premium
+                respuesta.put("isPremium", usuario.isPremium());
+                respuesta.put("notificacionPremiumVencido", usuario.isNotificacionPremiumVencido());
+
                 // Agregar equipo favorito si existe
                 if (usuario.getEquipoFavorito() != null) {
                         respuesta.put("equipoFavoritoId", usuario.getEquipoFavorito().getId());
