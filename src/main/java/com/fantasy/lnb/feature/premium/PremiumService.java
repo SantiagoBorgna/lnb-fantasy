@@ -142,7 +142,7 @@ public class PremiumService {
         }
 
         if (advertencias.isEmpty()) {
-            consejos.add("¡Tu equipo está perfectamente optimizado! Las elecciones de Capitán y 6to Hombre son estadísticamente correctas.");
+            consejos.add("¡Tu equipo está perfectamente armado! Las elecciones de Capitán y 6to Hombre son estadísticamente correctas.");
         } else {
             consejos.add("Considerá hacer los cambios sugeridos para maximizar tus puntos en la próxima jornada.");
         }
@@ -154,3 +154,5 @@ public class PremiumService {
                 .build();
     }
 }
+
+
