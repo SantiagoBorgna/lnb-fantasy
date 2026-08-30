@@ -50,6 +50,7 @@ public class SecurityConfig {
                                                                 "/api/auth/login",
                                                                 "/login/**",
                                                                 "/oauth2/**",
+                                                                "/api/webhooks/**",
                                                                 "/api/mercado/jugadores",
                                                                 "/api/mercado/jugadores/**",
                                                                 "/api/lideres/**",
