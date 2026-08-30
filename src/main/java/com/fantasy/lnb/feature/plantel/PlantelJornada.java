@@ -92,7 +92,7 @@ public class PlantelJornada {
     public int transferenciasRestantes() {
         if (usuario != null && usuario.isPremium()) return 99; // infinito simbólico
         int limite = torneo != null ? 4 : 3;
-        return limite - transferenciasUsadas;
+        return Math.max(0, limite - transferenciasUsadas);
     }
 
     /** Devuelve solo los titulares + capitán (los 5 que suman x1.0 o x1.5) */
