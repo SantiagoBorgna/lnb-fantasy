@@ -32,7 +32,7 @@ public class CheckoutService {
         try {
             PreapprovalClient client = new PreapprovalClient();
             PreapprovalCreateRequest request = PreapprovalCreateRequest.builder()
-                    .reason("Suscripción Premium - 6to Hombre")
+                    .reason("Suscripcion Premium - 6to Hombre")
                     .externalReference(usuarioId.toString())
                     .payerEmail(usuario.getEmail())
                     .autoRecurring(PreApprovalAutoRecurringCreateRequest.builder()
@@ -51,8 +51,13 @@ public class CheckoutService {
             
             return preapproval.getInitPoint();
 
-        } catch (MPException | MPApiException e) {
-            log.error("[MP-PREAPPROVAL] Error creando la suscripción en Mercado Pago", e);
+        } catch (MPApiException e) {
+            log.error("[MP-PREAPPROVAL] Error de API Mercado Pago. Status: {}, Detalle: {}", 
+                      e.getApiResponse().getStatusCode(), 
+                      e.getApiResponse().getContent(), e);
+            throw new RuntimeException("Error en Mercado Pago", e);
+        } catch (MPException e) {
+            log.error("[MP-PREAPPROVAL] Error interno de Mercado Pago SDK", e);
             throw new RuntimeException("Error al comunicarse con Mercado Pago", e);
         }
     }
