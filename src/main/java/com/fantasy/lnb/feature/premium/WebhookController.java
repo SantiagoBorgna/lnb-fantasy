@@ -2,9 +2,11 @@ package com.fantasy.lnb.feature.premium;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.mercadopago.client.payment.PaymentClient;
+import com.mercadopago.client.preapproval.PreapprovalClient;
 import com.mercadopago.exceptions.MPApiException;
 import com.mercadopago.exceptions.MPException;
 import com.mercadopago.resources.payment.Payment;
+import com.mercadopago.resources.preapproval.Preapproval;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -23,17 +25,23 @@ public class WebhookController {
         log.info("[WEBHOOK MP] Recibido payload: {}", payload.toString());
         
         try {
-            if (payload.has("type") && "payment".equals(payload.get("type").asText())) {
-                JsonNode data = payload.get("data");
-                if (data != null && data.has("id")) {
-                    Long paymentId = data.get("id").asLong();
-                    procesarPago(paymentId);
+            String type = payload.has("type") ? payload.get("type").asText() : 
+                         (payload.has("topic") ? payload.get("topic").asText() : "");
+                         
+            JsonNode data = payload.get("data");
+            
+            if (data != null && data.has("id")) {
+                String idStr = data.get("id").asText();
+                
+                if ("payment".equals(type)) {
+                    procesarPago(Long.parseLong(idStr));
+                } else if ("subscription_preapproval".equals(type)) {
+                    procesarSuscripcion(idStr);
                 }
             }
             return ResponseEntity.ok("OK");
         } catch (Exception e) {
             log.error("[WEBHOOK MP] Error procesando webhook", e);
-            // MP espera un 200 OK igual para no reintentar infinitamente si no es un error de red
             return ResponseEntity.ok("Error interno pero ack"); 
         }
     }
@@ -46,15 +54,30 @@ public class WebhookController {
                  paymentId, payment.getStatus(), payment.getExternalReference());
                  
         if ("approved".equals(payment.getStatus())) {
-            String externalReference = payment.getExternalReference();
-            if (externalReference != null && !externalReference.isEmpty()) {
-                try {
-                    Long usuarioId = Long.parseLong(externalReference);
-                    premiumService.simularCompra(usuarioId); // Reutilizamos el método que otorga 1 mes de premium
-                    log.info("[WEBHOOK MP] Suscripción otorgada/renovada al usuario {}", usuarioId);
-                } catch (NumberFormatException e) {
-                    log.error("[WEBHOOK MP] external_reference no es un ID numérico válido: {}", externalReference);
-                }
+            otorgarPremium(payment.getExternalReference());
+        }
+    }
+    
+    private void procesarSuscripcion(String preapprovalId) throws MPException, MPApiException {
+        PreapprovalClient client = new PreapprovalClient();
+        Preapproval preapproval = client.get(preapprovalId);
+        
+        log.info("[WEBHOOK MP] Suscripción {}: estado={}, external_reference={}", 
+                 preapprovalId, preapproval.getStatus(), preapproval.getExternalReference());
+                 
+        if ("authorized".equals(preapproval.getStatus())) {
+            otorgarPremium(preapproval.getExternalReference());
+        }
+    }
+    
+    private void otorgarPremium(String externalReference) {
+        if (externalReference != null && !externalReference.isEmpty()) {
+            try {
+                Long usuarioId = Long.parseLong(externalReference);
+                premiumService.simularCompra(usuarioId);
+                log.info("[WEBHOOK MP] Premium otorgado/renovado al usuario {}", usuarioId);
+            } catch (NumberFormatException e) {
+                log.error("[WEBHOOK MP] external_reference no válido: {}", externalReference);
             }
         }
     }
