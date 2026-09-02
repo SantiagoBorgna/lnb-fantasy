@@ -1,6 +1,5 @@
 package com.fantasy.lnb.feature.premium;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.mercadopago.client.payment.PaymentClient;
 import com.mercadopago.client.preapproval.PreapprovalClient;
 import com.mercadopago.exceptions.MPApiException;
@@ -12,6 +11,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+
 @RestController
 @RequestMapping("/api/webhooks")
 @RequiredArgsConstructor
@@ -21,17 +22,18 @@ public class WebhookController {
     private final PremiumService premiumService;
 
     @PostMapping("/mercadopago")
-    public ResponseEntity<String> handleMercadoPagoWebhook(@RequestBody JsonNode payload) {
+    public ResponseEntity<String> handleMercadoPagoWebhook(@RequestBody Map<String, Object> payload) {
         log.info("[WEBHOOK MP] Recibido payload: {}", payload.toString());
         
         try {
-            String type = payload.has("type") ? payload.get("type").asText() : 
-                         (payload.has("topic") ? payload.get("topic").asText() : "");
+            String type = payload.containsKey("type") ? payload.get("type").toString() : 
+                         (payload.containsKey("topic") ? payload.get("topic").toString() : "");
                          
-            JsonNode data = payload.get("data");
+            @SuppressWarnings("unchecked")
+            Map<String, Object> data = (Map<String, Object>) payload.get("data");
             
-            if (data != null && data.has("id")) {
-                String idStr = data.get("id").asText();
+            if (data != null && data.containsKey("id")) {
+                String idStr = data.get("id").toString();
                 
                 if ("payment".equals(type)) {
                     procesarPago(Long.parseLong(idStr));
