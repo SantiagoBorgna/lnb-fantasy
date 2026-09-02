@@ -25,4 +25,10 @@ public interface JugadorPlantelRepository extends JpaRepository<JugadorPlantel, 
 
     @org.springframework.data.jpa.repository.Query("SELECT jp.jugadorReal.id FROM JugadorPlantel jp WHERE jp.plantelJornada.id IN (SELECT MAX(pj.id) FROM PlantelJornada pj WHERE pj.torneo.id = :torneoId GROUP BY pj.usuario.id)")
     List<Long> findJugadoresOcupadosEnTorneo(@org.springframework.data.repository.query.Param("torneoId") Long torneoId);
+
+    @org.springframework.data.jpa.repository.Query("SELECT jp.jugadorReal.id, COUNT(jp.id) FROM JugadorPlantel jp WHERE jp.plantelJornada.id IN (SELECT MAX(pj.id) FROM PlantelJornada pj GROUP BY pj.usuario.id, pj.torneo.id) GROUP BY jp.jugadorReal.id")
+    List<Object[]> countJugadoresEnPlantelesActuales();
+
+    @org.springframework.data.jpa.repository.Query("SELECT jp.jugadorReal.id, COUNT(jp.id) FROM JugadorPlantel jp WHERE jp.rol = 'CAPITAN' AND jp.plantelJornada.id IN (SELECT MAX(pj.id) FROM PlantelJornada pj GROUP BY pj.usuario.id, pj.torneo.id) GROUP BY jp.jugadorReal.id")
+    List<Object[]> countCapitanesEnPlantelesActuales();
 }

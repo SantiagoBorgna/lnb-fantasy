@@ -18,5 +18,7 @@ public class AdminJugadorDto {
     private String equipoSigla;
     private String gesPerfilUrl;
     private String fotoUrl;
+    private Integer cantidadPlanteles;
+    private Integer cantidadCapitan;
 }
 

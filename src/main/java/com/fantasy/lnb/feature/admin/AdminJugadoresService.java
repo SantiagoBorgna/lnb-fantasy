@@ -7,11 +7,13 @@ import com.fantasy.lnb.feature.equipo.EquipoReal;
 import com.fantasy.lnb.feature.equipo.EquipoRealRepository;
 import com.fantasy.lnb.feature.mercado.JugadorReal;
 import com.fantasy.lnb.feature.mercado.JugadorRealRepository;
+import com.fantasy.lnb.feature.plantel.JugadorPlantelRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -20,10 +22,28 @@ public class AdminJugadoresService {
 
     private final JugadorRealRepository jugadorRepo;
     private final EquipoRealRepository equipoRepo;
+    private final JugadorPlantelRepository jugadorPlantelRepo;
 
     @Transactional(readOnly = true)
     public List<AdminJugadorDto> getAllJugadores() {
-        return jugadorRepo.findAll().stream().map(this::mapToDto).collect(Collectors.toList());
+        Map<Long, Integer> plantelesCount = jugadorPlantelRepo.countJugadoresEnPlantelesActuales().stream()
+                .collect(Collectors.toMap(
+                        row -> (Long) row[0],
+                        row -> ((Number) row[1]).intValue()
+                ));
+
+        Map<Long, Integer> capitanesCount = jugadorPlantelRepo.countCapitanesEnPlantelesActuales().stream()
+                .collect(Collectors.toMap(
+                        row -> (Long) row[0],
+                        row -> ((Number) row[1]).intValue()
+                ));
+
+        return jugadorRepo.findAll().stream().map(jugador -> {
+            AdminJugadorDto dto = mapToDto(jugador);
+            dto.setCantidadPlanteles(plantelesCount.getOrDefault(jugador.getId(), 0));
+            dto.setCantidadCapitan(capitanesCount.getOrDefault(jugador.getId(), 0));
+            return dto;
+        }).collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
