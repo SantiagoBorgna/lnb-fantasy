@@ -38,7 +38,7 @@ public class CheckoutService {
                     .autoRecurring(PreApprovalAutoRecurringCreateRequest.builder()
                             .frequency(1)
                             .frequencyType("months")
-                            .transactionAmount(new BigDecimal("5000"))
+                            .transactionAmount(new BigDecimal("1000")) // PRECIO TEMPORAL PARA PRUEBA
                             .currencyId("ARS")
                             .build())
                     .backUrl(frontendUrl + "/premium/success")
