@@ -55,6 +55,8 @@ public interface EstadisticaPartidoRepository
 
         List<EstadisticaPartido> findByGesPartidoId(String gesPartidoId);
 
+        void deleteByGesPartidoId(String gesPartidoId);
+
         // ── Queries para la vista de Líderes ────────────────────────────────────────
         // Cada query devuelve Object[] con [jugadorRealId, promedio, partidosJugados]
         // Usamos JPQL con proyección manual para evitar crear una entidad extra.

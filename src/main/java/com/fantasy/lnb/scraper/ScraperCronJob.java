@@ -79,7 +79,7 @@ public class ScraperCronJob {
                 puntuacionService.calcularPuntajesDeJornada(jornadaIdActiva, false);
         }
 
-        private void procesarPartido(Partido partido) {
+        public void procesarPartido(Partido partido) {
                 // 1. Extraer marcador
                 Optional<MarcadorParser.ResultadoPartido> marcador = MarcadorParser
                                 .extraerMarcador(partido.getGesUrl());
