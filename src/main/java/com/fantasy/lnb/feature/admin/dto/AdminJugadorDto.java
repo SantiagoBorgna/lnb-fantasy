@@ -20,5 +20,6 @@ public class AdminJugadorDto {
     private String fotoUrl;
     private Integer cantidadPlanteles;
     private Integer cantidadCapitan;
+    private Double promedioFantasy;
 }
 

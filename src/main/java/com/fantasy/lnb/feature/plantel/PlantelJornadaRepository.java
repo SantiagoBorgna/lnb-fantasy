@@ -51,4 +51,6 @@ public interface PlantelJornadaRepository extends JpaRepository<PlantelJornada, 
         java.util.List<PlantelJornada> findAllByJornadaIdWithJugadores(
                         @Param("jornadaId") Long jornadaId);
 
+        @Query("SELECT pj.dt.id, COUNT(pj.id) FROM PlantelJornada pj WHERE pj.dt IS NOT NULL AND pj.id IN (SELECT MAX(p2.id) FROM PlantelJornada p2 GROUP BY p2.usuario.id, p2.torneo.id) GROUP BY pj.dt.id")
+        java.util.List<Object[]> countDtsEnPlantelesActuales();
 }

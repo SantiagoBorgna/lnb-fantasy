@@ -86,6 +86,7 @@ public class AdminJugadoresService {
                 .equipoSigla(jugador.getEquipoReal() != null ? jugador.getEquipoReal().getSigla() : "N/A")
                 .gesPerfilUrl(jugador.getGesPerfilUrl())
                 .fotoUrl(jugador.getFotoUrl())
+                .promedioFantasy(jugador.getPromedioFantasy())
                 .build();
     }
 }

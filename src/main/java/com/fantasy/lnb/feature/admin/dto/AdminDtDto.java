@@ -20,4 +20,5 @@ public class AdminDtDto {
     private String colorSecundario;
     private EstadoJugador estado;
     private Double promedioFantasy;
+    private Integer cantidadPlanteles;
 }

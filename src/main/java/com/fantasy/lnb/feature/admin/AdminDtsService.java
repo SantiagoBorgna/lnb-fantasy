@@ -6,12 +6,15 @@ import com.fantasy.lnb.feature.dt.DirectorTecnico;
 import com.fantasy.lnb.feature.dt.DirectorTecnicoRepository;
 import com.fantasy.lnb.feature.equipo.EquipoReal;
 import com.fantasy.lnb.feature.equipo.EquipoRealRepository;
+import com.fantasy.lnb.feature.plantel.PlantelJornadaRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -20,12 +23,23 @@ public class AdminDtsService {
 
     private final DirectorTecnicoRepository dtRepo;
     private final EquipoRealRepository equipoRepo;
+    private final PlantelJornadaRepository plantelRepo;
 
     @Transactional(readOnly = true)
     public List<AdminDtDto> getAllDts() {
+        Map<Long, Integer> dtCounts = plantelRepo.countDtsEnPlantelesActuales().stream()
+                .collect(Collectors.toMap(
+                        row -> (Long) row[0],
+                        row -> ((Number) row[1]).intValue()
+                ));
+
         return dtRepo.findAll().stream()
-                .map(this::toDto)
-                .toList();
+                .map(dt -> {
+                    AdminDtDto dto = toDto(dt);
+                    dto.setCantidadPlanteles(dtCounts.getOrDefault(dt.getId(), 0));
+                    return dto;
+                })
+                .collect(Collectors.toList());
     }
 
     @Transactional
