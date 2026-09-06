@@ -7,7 +7,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import java.util.List;
 import java.util.Random;
 
+import org.springframework.context.annotation.Profile;
+
 @Component
+@Profile("!prod")
 public class MockDataLoader implements CommandLineRunner {
     @Autowired
     private JdbcTemplate jdbcTemplate;
