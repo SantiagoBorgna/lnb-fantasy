@@ -23,6 +23,8 @@ public class MercadoService {
     private final EstadisticaPartidoRepository estadisticaRepo;
     private final com.fantasy.lnb.feature.plantel.PlantelDraftService plantelDraftService;
 
+    private static final double PRECIO_MINIMO = 4.0;
+
     // ── Consultas del Mercado ───────────────────────────────────────────────
 
     @Cacheable(value = "mercado", key = "'todos_' + #orden")
@@ -118,7 +120,7 @@ public class MercadoService {
 
             nuevoPrecio = Math.min(nuevoPrecio, techo);
             nuevoPrecio = Math.max(nuevoPrecio, piso);
-            nuevoPrecio = Math.max(nuevoPrecio, 1.0);
+            nuevoPrecio = Math.max(nuevoPrecio, PRECIO_MINIMO);
             nuevoPrecio = Math.round(nuevoPrecio * 100.0) / 100.0;
 
             jugador.setValorMercadoActual(nuevoPrecio);
