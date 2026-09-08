@@ -10,5 +10,6 @@ public class AdminJugadorUpdateRequestDto {
     private EstadoJugador estado;
     private Long equipoRealId;
     private Double valorMercadoActual;
+    private Integer numeroCamiseta;
 }
 

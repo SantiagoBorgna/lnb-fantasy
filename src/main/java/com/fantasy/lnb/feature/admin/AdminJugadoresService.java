@@ -71,6 +71,9 @@ public class AdminJugadoresService {
         if (request.getValorMercadoActual() != null) {
             jugador.setValorMercadoActual(request.getValorMercadoActual());
         }
+        if (request.getNumeroCamiseta() != null) {
+            jugador.setNumeroCamiseta(request.getNumeroCamiseta());
+        }
         jugadorRepo.save(jugador);
     }
 
