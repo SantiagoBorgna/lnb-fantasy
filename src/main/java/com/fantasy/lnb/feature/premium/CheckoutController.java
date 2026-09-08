@@ -6,6 +6,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -20,14 +21,20 @@ public class CheckoutController {
     private final UsuarioResolver usuarioResolver;
 
     @PostMapping("/checkout")
-    public ResponseEntity<?> createCheckout(@AuthenticationPrincipal UserDetails userDetails) {
+    public ResponseEntity<?> createCheckout(@AuthenticationPrincipal UserDetails userDetails,
+                                             @RequestBody Map<String, String> body) {
         if (userDetails == null) {
             return ResponseEntity.status(401).body(Map.of("error", "No autorizado"));
         }
-        
+
+        String payerEmail = body != null ? body.get("email") : null;
+        if (payerEmail == null || payerEmail.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Falta el email de Mercado Pago"));
+        }
+
         Long usuarioId = usuarioResolver.resolverIdDesdeEmail(userDetails.getUsername());
-        String initPoint = checkoutService.createSubscriptionPreference(usuarioId);
-        
+        String initPoint = checkoutService.createSubscriptionPreference(usuarioId, payerEmail.trim());
+
         return ResponseEntity.ok(Map.of("init_point", initPoint));
     }
 }

@@ -25,7 +25,7 @@ public class CheckoutService {
     @Value("${app.frontend-url}")
     private String frontendUrl;
 
-    public String createSubscriptionPreference(Long usuarioId) {
+    public String createSubscriptionPreference(Long usuarioId, String payerEmail) {
         Usuario usuario = usuarioRepository.findById(usuarioId)
                 .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado"));
 
@@ -34,6 +34,7 @@ public class CheckoutService {
             PreapprovalCreateRequest request = PreapprovalCreateRequest.builder()
                     .reason("Suscripcion Premium - 6to Hombre")
                     .externalReference(usuarioId.toString())
+                    .payerEmail(payerEmail)
                     .autoRecurring(PreApprovalAutoRecurringCreateRequest.builder()
                             .frequency(1)
                             .frequencyType("months")
@@ -46,7 +47,8 @@ public class CheckoutService {
 
             Preapproval preapproval = client.create(request);
             
-            log.info("[MP-PREAPPROVAL] Creado init_point para el usuario {}: {}", usuario.getEmail(), preapproval.getInitPoint());
+            log.info("[MP-PREAPPROVAL] Creado init_point para el usuario {} (mail MP: {}): {}",
+                     usuario.getEmail(), payerEmail, preapproval.getInitPoint());
             
             return preapproval.getInitPoint();
 
