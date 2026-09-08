@@ -34,7 +34,6 @@ public class CheckoutService {
             PreapprovalCreateRequest request = PreapprovalCreateRequest.builder()
                     .reason("Suscripcion Premium - 6to Hombre")
                     .externalReference(usuarioId.toString())
-                    .payerEmail(usuario.getEmail())
                     .autoRecurring(PreApprovalAutoRecurringCreateRequest.builder()
                             .frequency(1)
                             .frequencyType("months")
