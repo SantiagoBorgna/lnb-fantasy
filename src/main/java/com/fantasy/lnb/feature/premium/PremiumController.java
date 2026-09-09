@@ -16,13 +16,6 @@ public class PremiumController {
     private final PremiumService premiumService;
     private final UsuarioResolver usuarioResolver;
 
-    @PostMapping("/simular-compra")
-    public ResponseEntity<Void> simularCompra(@AuthenticationPrincipal UserDetails userDetails) {
-        Long usuarioId = usuarioResolver.resolverIdDesdeEmail(userDetails.getUsername());
-        premiumService.simularCompra(usuarioId);
-        return ResponseEntity.ok().build();
-    }
-
     @GetMapping("/consejero")
     public ResponseEntity<ConsejeroResponseDto> obtenerConsejos(@AuthenticationPrincipal UserDetails userDetails) {
         Long usuarioId = usuarioResolver.resolverIdDesdeEmail(userDetails.getUsername());
