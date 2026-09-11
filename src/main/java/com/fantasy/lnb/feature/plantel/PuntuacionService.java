@@ -3,8 +3,10 @@ package com.fantasy.lnb.feature.plantel;
 import com.fantasy.lnb.exception.PlantelIncompletoException;
 import com.fantasy.lnb.feature.jornada.Jornada;
 import com.fantasy.lnb.feature.jornada.JornadaRepository;
+import com.fantasy.lnb.feature.jornada.Partido;
 import com.fantasy.lnb.feature.jornada.PartidoRepository;
 import com.fantasy.lnb.feature.jornada.EstadoJornada;
+import com.fantasy.lnb.feature.torneo.TorneoEquipo;
 import com.fantasy.lnb.feature.usuario.EquipoVirtual;
 import com.fantasy.lnb.feature.usuario.EquipoVirtualRepository;
 import lombok.RequiredArgsConstructor;
@@ -12,7 +14,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -55,9 +59,15 @@ public class PuntuacionService {
         String tipoCalculo = esCierreDefinitivo ? "CIERRE DEFINITIVO" : "PARCIAL EN VIVO";
         log.info("[PUNTUACION] [{}] Calculando puntajes para jornada {}...", tipoCalculo, jornadaId);
 
+        // Se consultan una sola vez y se reutilizan para todos los planteles de esta
+        // jornada, en vez de repetir la misma consulta por cada uno (antes eran N
+        // consultas idénticas para N planteles).
+        List<Partido> partidosJornada = partidoRepo.findByJornada_Id(jornadaId);
+        Map<Long, List<TorneoEquipo>> equiposPorTorneo = new HashMap<>();
+
         for (PlantelJornada plantel : planteles) {
             try {
-                double puntajeTotal = calcularPuntajePlantel(plantel, jornadaId);
+                double puntajeTotal = calcularPuntajePlantel(plantel, jornadaId, partidosJornada);
 
                 // 1. Siempre actualizamos el puntaje de la jornada (lo que se ve en la
                 // canchita)
@@ -77,7 +87,10 @@ public class PuntuacionService {
                                 });
                     } else {
                         // Ranking Torneo
-                        torneoEquipoRepo.findByTorneo_Id(plantel.getTorneo().getId()).stream()
+                        Long torneoId = plantel.getTorneo().getId();
+                        List<TorneoEquipo> equiposTorneo = equiposPorTorneo
+                                .computeIfAbsent(torneoId, torneoEquipoRepo::findByTorneo_Id);
+                        equiposTorneo.stream()
                                 .filter(te -> te.getEquipoVirtual().getUsuario().getId().equals(plantel.getUsuario().getId()))
                                 .findFirst()
                                 .ifPresent(te -> {
@@ -112,7 +125,7 @@ public class PuntuacionService {
 
     // ── Privados ────────────────────────────────────────────────────────────
 
-    private double calcularPuntajePlantel(PlantelJornada plantel, Long jornadaId) {
+    private double calcularPuntajePlantel(PlantelJornada plantel, Long jornadaId, List<Partido> partidosJornada) {
 
         if (plantel.getJugadores() == null || plantel.getJugadores().isEmpty()) {
             log.warn("[PUNTUACION] Plantel {} vacio en jornada {}. Puntaje 0.", plantel.getId(), jornadaId);
@@ -126,7 +139,7 @@ public class PuntuacionService {
         // El DT es opcional — si no eligió DT su aporte es 0
         double puntajeDt = 0.0;
         if (plantel.getDt() != null) {
-            puntajeDt = calcularPuntajeDtDesdeBD(plantel, jornadaId);
+            puntajeDt = calcularPuntajeDtDesdeBD(plantel, partidosJornada);
         }
 
         double total = Math.round((puntajeJugadores + puntajeDt) * 100.0) / 100.0;
@@ -142,14 +155,14 @@ public class PuntuacionService {
      * de su equipo en esta jornada. Lo obtenemos sumando los puntos anotados
      * por todos los jugadores de ese equipo en sus estadísticas de la jornada.
      */
-    private double calcularPuntajeDtDesdeBD(PlantelJornada plantel, Long jornadaId) {
+    private double calcularPuntajeDtDesdeBD(PlantelJornada plantel, List<Partido> partidosJornada) {
         if (plantel.getDt() == null)
             return 0.0;
 
         Long equipoDtId = plantel.getDt().getEquipoReal().getId();
 
         // Buscamos el partido de esta jornada donde juegue el equipo del DT
-        return partidoRepo.findByJornada_Id(jornadaId).stream()
+        return partidosJornada.stream()
                 .filter(p -> p.getEquipoLocal().getId().equals(equipoDtId) ||
                         p.getEquipoVisitante().getId().equals(equipoDtId))
                 .findFirst()
