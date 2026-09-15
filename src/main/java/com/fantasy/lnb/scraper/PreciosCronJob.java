@@ -3,7 +3,6 @@ package com.fantasy.lnb.scraper;
 import com.fantasy.lnb.feature.mercado.MercadoService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 @Slf4j
@@ -14,15 +13,14 @@ public class PreciosCronJob {
     private final MercadoService mercadoService;
 
     /**
-     * Corre todos los días a las 4 AM.
-     * El scraper corre a las 2 AM → a las 4 AM ya están los datos persistidos.
-     * En producción estos horarios se externalizan a variables de entorno.
+     * Ya no corre en un horario fijo — la dispara JornadaTransicionCronJob una
+     * única vez, justo cuando una jornada pasa a FINALIZADA. Así el precio se
+     * recalcula exactamente una vez por jornada, nunca con la jornada todavía
+     * EN_JUEGO ni repetido varias veces sobre los mismos datos.
      *
-     * Para probar manualmente sin esperar, cambiá temporalmente a:
-     * 
-     * @Scheduled(cron = "0 * * * * *") ← cada minuto
+     * También queda disponible para disparo manual desde el panel de Admin →
+     * Utilidades.
      */
-    @Scheduled(cron = "0 0 4 * * *")
     public void actualizarPrecios() {
         log.info("[PRECIOS-CRON] Iniciando actualización de precios de mercado...");
         mercadoService.actualizarPreciosTodos();

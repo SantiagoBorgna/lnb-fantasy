@@ -35,6 +35,7 @@ public class JornadaTransicionCronJob {
         private final PushNotificationService pushNotificationService;
         private final CacheManager cacheManager;
         private final com.fantasy.lnb.feature.dt.DirectorTecnicoService directorTecnicoService;
+        private final PreciosCronJob preciosCronJob;
 
         /**
          * Corre cada 5 minutos.
@@ -89,7 +90,11 @@ public class JornadaTransicionCronJob {
                                         
                                         // 2.1 Actualizar promedios históricos de los DTs
                                         directorTecnicoService.actualizarPromediosDts();
-                                        
+
+                                        // 2.2 Recalcular precios de mercado — una única vez, con la
+                                        // jornada ya finalizada y sus puntajes ya calculados.
+                                        preciosCronJob.actualizarPrecios();
+
                                         log.info("[TRANSICION] Puntajes definitivos calculados para J{}.",
                                                         jornada.getNumero());
 
