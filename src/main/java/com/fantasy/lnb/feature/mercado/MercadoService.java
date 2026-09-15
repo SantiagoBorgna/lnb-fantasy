@@ -25,6 +25,18 @@ public class MercadoService {
 
     private static final double PRECIO_MINIMO = 4.0;
 
+    // Cuántas jornadas anteriores se usan como "promedio habitual" del jugador
+    // para juzgar si la última jornada fue una sobre/bajo-performance.
+    private static final int VENTANA_HISTORICA = 5;
+
+    // Tope de variación de precio por jornada (créditos), en cualquier sentido.
+    private static final double MAX_CAMBIO_POR_JORNADA = 0.3;
+
+    // Cuántos créditos de cambio por cada punto fantasy de diferencia contra
+    // el promedio propio. Con 0.02, una diferencia de 15 puntos ya alcanza el
+    // tope de ±0.3.
+    private static final double FACTOR_ESCALA = 0.02;
+
     // ── Consultas del Mercado ───────────────────────────────────────────────
 
     @Cacheable(value = "mercado", key = "'todos_' + #orden")
@@ -97,29 +109,38 @@ public class MercadoService {
         int actualizados = 0;
 
         for (JugadorReal jugador : jugadores) {
-            List<Double> ultimos3 = jugadorRepo.findUltimosPuntajes(jugador.getId(), 3);
+            // Traemos la última jornada + las VENTANA_HISTORICA anteriores para
+            // usarlas como "promedio habitual" de comparación.
+            List<Double> ultimos = jugadorRepo.findUltimosPuntajes(jugador.getId(), VENTANA_HISTORICA + 1);
 
-            if (ultimos3.isEmpty()) {
+            if (ultimos.isEmpty()) {
                 log.debug("[PRECIOS] {} sin historial, precio sin cambios.",
                         jugador.getNombreCompleto());
                 continue;
             }
 
-            double promedio = calcularPromedio(ultimos3);
-            jugador.setPromedioFantasy(promedio); // Guardamos el promedio en la BD
+            jugador.setPromedioFantasy(calcularPromedio(ultimos));
 
-            double valorBase = jugador.getValorBase();
+            double puntajeUltimaJornada = ultimos.get(0);
+            List<Double> anteriores = ultimos.subList(1, ultimos.size());
+
+            if (anteriores.isEmpty()) {
+                // Primera jornada con estadísticas: todavía no hay promedio
+                // propio contra el cual comparar, el precio no se mueve.
+                jugadorRepo.save(jugador);
+                log.debug("[PRECIOS] {} en su primera jornada con stats, precio sin cambios.",
+                        jugador.getNombreCompleto());
+                continue;
+            }
+
+            double promedioAnterior = calcularPromedio(anteriores);
+            double diferencia = puntajeUltimaJornada - promedioAnterior;
+
+            double deltaPrecio = diferencia * FACTOR_ESCALA;
+            deltaPrecio = Math.max(-MAX_CAMBIO_POR_JORNADA, Math.min(MAX_CAMBIO_POR_JORNADA, deltaPrecio));
+
             double precioActual = jugador.getValorMercadoActual();
-
-            double factorRendimiento = (valorBase > 0) ? promedio / valorBase : 1.0;
-            double delta = (factorRendimiento - 1.0) * 0.1;
-            double nuevoPrecio = precioActual * (1.0 + delta);
-
-            double techo = precioActual * 1.30;
-            double piso = precioActual * 0.70;
-
-            nuevoPrecio = Math.min(nuevoPrecio, techo);
-            nuevoPrecio = Math.max(nuevoPrecio, piso);
+            double nuevoPrecio = precioActual + deltaPrecio;
             nuevoPrecio = Math.max(nuevoPrecio, PRECIO_MINIMO);
             nuevoPrecio = Math.round(nuevoPrecio * 100.0) / 100.0;
 
@@ -127,11 +148,11 @@ public class MercadoService {
             jugadorRepo.save(jugador);
             actualizados++;
 
-            log.info("[PRECIOS] {} | Base: {} | Promedio(3): {} | Factor: {} | {} a {}",
+            log.info("[PRECIOS] {} | Últ. jornada: {} | Promedio anterior: {} | Δ: {} | {} a {}",
                     jugador.getNombreCompleto(),
-                    valorBase,
-                    String.format("%.2f", promedio),
-                    String.format("%.2f", factorRendimiento),
+                    String.format("%.2f", puntajeUltimaJornada),
+                    String.format("%.2f", promedioAnterior),
+                    String.format("%.2f", deltaPrecio),
                     precioActual,
                     nuevoPrecio);
         }
