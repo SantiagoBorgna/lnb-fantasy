@@ -131,6 +131,7 @@ public class JornadaService {
      * Se llama cuando fechaInicio de la jornada es alcanzada.
      * A partir de este momento el frontend debe bloquear cambios de plantel.
      */
+    @Transactional
     @CacheEvict(value = "jornadas", allEntries = true)
     public void iniciarJornada(Long jornadaId) {
         Jornada jornada = jornadaRepo.findById(jornadaId)
@@ -162,6 +163,7 @@ public class JornadaService {
      * el scraper ya procesó todos los partidos de la ventana.
      * Después de este paso el CronJob de precios puede correr.
      */
+    @Transactional
     @CacheEvict(value = "jornadas", allEntries = true)
     public void finalizarJornada(Long jornadaId) {
         Jornada jornada = jornadaRepo.findById(jornadaId)

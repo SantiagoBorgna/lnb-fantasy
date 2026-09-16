@@ -109,8 +109,11 @@ public class PushNotificationService {
             }
 
         } catch (Exception e) {
-            log.error("[PUSH] Falló el envío al endpoint del usuario {}: {}",
-                    suscripcion.getUsuario().getEmail(), e.getMessage());
+            // No usamos suscripcion.getUsuario() acá: si el usuario fue borrado y
+            // la referencia quedó huérfana, resolver el lazy-load tira su propia
+            // excepción y se pierde (y no se loguea) el error original de arriba.
+            log.error("[PUSH] Falló el envío al endpoint {} (suscripción id={}): {}",
+                    suscripcion.getEndpoint(), suscripcion.getId(), e.getMessage());
         }
     }
 

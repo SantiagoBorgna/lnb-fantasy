@@ -6,6 +6,7 @@ import com.fantasy.lnb.feature.auth.oauth2.OAuth2UserService;
 import com.fantasy.lnb.feature.auth.oauth2.CustomOidcUserService;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -27,6 +28,9 @@ public class SecurityConfig {
         private final OAuth2UserService oAuth2UserService;
         private final CustomOidcUserService customOidcUserService;
         private final RateLimitFilter rateLimitFilter;
+
+        @Value("${app.frontend-url}")
+        private String frontendUrl;
 
         @Bean
         public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -88,7 +92,7 @@ public class SecurityConfig {
                                                 .successHandler(oAuth2SuccessHandler)
                                                 .failureHandler((request, response, exception) -> {
                                                         // Redirigimos al frontend con el error
-                                                        response.sendRedirect("http://localhost:5173/login?error=" + exception.getMessage());
+                                                        response.sendRedirect(frontendUrl + "/login?error=" + exception.getMessage());
                                                 }))
 
                                 // ── JWT Filter antes del filtro estándar de username/password ────
