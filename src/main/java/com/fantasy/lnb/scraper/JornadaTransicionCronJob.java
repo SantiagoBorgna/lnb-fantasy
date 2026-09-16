@@ -1,23 +1,22 @@
 package com.fantasy.lnb.scraper;
 
 import com.fantasy.lnb.feature.jornada.EstadoJornada;
-import com.fantasy.lnb.feature.jornada.EstadoPartido;
+import com.fantasy.lnb.feature.jornada.Jornada;
 import com.fantasy.lnb.feature.jornada.JornadaRepository;
 import com.fantasy.lnb.feature.jornada.JornadaService;
-import com.fantasy.lnb.feature.jornada.Partido;
-import com.fantasy.lnb.feature.jornada.PartidoRepository;
 import com.fantasy.lnb.feature.plantel.PlantelClonadoService;
 import com.fantasy.lnb.feature.plantel.PuntuacionService;
 import com.fantasy.lnb.feature.notificaciones.PushNotificationService;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.cache.CacheManager;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
 @Slf4j
 @Component
@@ -28,11 +27,17 @@ public class JornadaTransicionCronJob {
         private final JornadaService jornadaService;
         private final PuntuacionService puntuacionService;
         private final PlantelClonadoService plantelClonadoService;
-        private final PartidoRepository partidoRepo;
         private final PushNotificationService pushNotificationService;
         private final CacheManager cacheManager;
         private final com.fantasy.lnb.feature.dt.DirectorTecnicoService directorTecnicoService;
         private final PreciosCronJob preciosCronJob;
+
+        // Referencia lazy al propio bean (proxy de Spring): la necesitamos para
+        // que cerrarJornadaCompleta() pase por el proxy y su @Transactional se
+        // aplique de verdad — una llamada directa (this.cerrarJornadaCompleta())
+        // se saltea el proxy y no abre transacción.
+        @Lazy
+        private final JornadaTransicionCronJob self;
 
         /**
          * Corre cada 5 minutos.
@@ -78,24 +83,21 @@ public class JornadaTransicionCronJob {
                                         .ifPresent(jornada -> {
                                                 log.info("[TRANSICION] Jornada {} → FINALIZADA", jornada.getNumero());
 
-                                                // 1. Finalizar jornada (transacción propia)
-                                                jornadaService.finalizarJornada(jornada.getId());
-
-                                                // 2. Calcular puntajes de todos los planteles (Cierre definitivo)
-                                                puntuacionService.calcularPuntajesDeJornada(jornada.getId(), true);
-
-                                                // 2.1 Actualizar promedios históricos de los DTs
-                                                directorTecnicoService.actualizarPromediosDts();
-
-                                                // 2.2 Recalcular precios de mercado — una única vez, con la
-                                                // jornada ya finalizada y sus puntajes ya calculados.
-                                                preciosCronJob.actualizarPrecios();
+                                                // Todo lo que sigue es un único @Transactional (ver
+                                                // cerrarJornadaCompleta): si algo falla a mitad de camino,
+                                                // hace rollback de TODO este bloque — incluida finalizarJornada.
+                                                // Así, la jornada sigue EN_JUEGO y el próximo ciclo (5 min
+                                                // después) reintenta el cierre completo de nuevo, en vez de
+                                                // quedar a mitad de camino sin reintento posible (una vez
+                                                // FINALIZADA, este mismo query ya no la vuelve a encontrar).
+                                                self.cerrarJornadaCompleta(jornada);
 
                                                 log.info("[TRANSICION] Puntajes definitivos calculados para J{}.",
                                                                 jornada.getNumero());
 
-                                                // Notificación de final de jornada. Nunca debe poder frenar el
-                                                // resto del cierre (clonado de planteles, etc.) si falla.
+                                                // Notificación de final de jornada. Deliberadamente afuera de
+                                                // la transacción de arriba: nunca debe poder frenar ni
+                                                // revertir el cierre real de la jornada si falla.
                                                 try {
                                                         pushNotificationService.enviarNotificacionMasiva(
                                                                 "Jornada finalizada 🏀",
@@ -106,13 +108,6 @@ public class JornadaTransicionCronJob {
                                                                         jornada.getNumero(), e.getMessage(), e);
                                                 }
 
-                                                // 3. Clona los equipos de la jornada que acaba de terminar hacia la próxima.
-                                                int clonados = plantelClonadoService.clonarDesdeJornadaFinalizada(jornada);
-                                                if (clonados > 0) {
-                                                        log.info("[TRANSICION] Clonado masivo completado. J{} fue base para {} planteles nuevos.",
-                                                                        jornada.getNumero(), clonados);
-                                                }
-
                                                 limpiarCache("jornadas");
                                         });
                 } catch (Exception e) {
@@ -121,19 +116,9 @@ public class JornadaTransicionCronJob {
 
                 // ── C: PROGRAMADO → FINALIZADO (partidos) ───────────────────────────
                 try {
-                        List<Partido> programados = partidoRepo.findByEstado(EstadoPartido.PROGRAMADO);
-                        LocalDateTime hace3Horas = ahora.minusHours(3);
-
-                        programados.stream()
-                                        .filter(p -> p.getFechaHora() != null && p.getFechaHora().isBefore(hace3Horas))
-                                        .forEach(p -> {
-                                                p.setEstado(EstadoPartido.FINALIZADO);
-                                                partidoRepo.save(p);
-                                                log.info("[TRANSICION] Partido {} vs {} → FINALIZADO (fecha: {})",
-                                                                p.getEquipoLocal().getSigla(),
-                                                                p.getEquipoVisitante().getSigla(),
-                                                                p.getFechaHora());
-                                        });
+                        // Método transaccional propio: recorre EquipoReal en relación lazy
+                        // de cada Partido para el log, y eso necesita una sesión abierta.
+                        jornadaService.cerrarPartidosVencidos(ahora);
                 } catch (Exception e) {
                         log.error("[TRANSICION] Error cerrando partidos programados: {}", e.getMessage(), e);
                 }
@@ -156,6 +141,30 @@ public class JornadaTransicionCronJob {
                                         });
                 } catch (Exception e) {
                         log.error("[TRANSICION] Error enviando recordatorio de 5 horas: {}", e.getMessage(), e);
+                }
+        }
+
+        /**
+         * Cierre "real" de una jornada: cambia su estado, calcula puntajes,
+         * actualiza promedios de DTs, recalcula precios y clona planteles hacia
+         * la próxima jornada — todo en una única transacción. Si cualquier paso
+         * falla, se revierte todo (la jornada vuelve a quedar EN_JUEGO) para que
+         * el próximo ciclo del cron reintente el cierre completo desde cero.
+         *
+         * Llamar siempre a través de "self" (el proxy), nunca con this., para
+         * que el @Transactional se aplique.
+         */
+        @Transactional
+        public void cerrarJornadaCompleta(Jornada jornada) {
+                jornadaService.finalizarJornada(jornada.getId());
+                puntuacionService.calcularPuntajesDeJornada(jornada.getId(), true);
+                directorTecnicoService.actualizarPromediosDts();
+                preciosCronJob.actualizarPrecios();
+
+                int clonados = plantelClonadoService.clonarDesdeJornadaFinalizada(jornada);
+                if (clonados > 0) {
+                        log.info("[TRANSICION] Clonado masivo completado. J{} fue base para {} planteles nuevos.",
+                                        jornada.getNumero(), clonados);
                 }
         }
 

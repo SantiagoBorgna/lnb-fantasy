@@ -182,6 +182,29 @@ public class JornadaService {
     }
 
     /**
+     * PROGRAMADO → FINALIZADO para partidos cuya fechaHora pasó hace más de
+     * 3 horas. Necesita transacción propia: recorre EquipoReal en relación
+     * lazy de cada Partido (para el log), y esa lectura requiere una sesión
+     * de Hibernate abierta durante todo el recorrido.
+     */
+    @Transactional
+    public void cerrarPartidosVencidos(LocalDateTime ahora) {
+        List<Partido> programados = partidoRepo.findByEstado(EstadoPartido.PROGRAMADO);
+        LocalDateTime hace3Horas = ahora.minusHours(3);
+
+        programados.stream()
+                .filter(p -> p.getFechaHora() != null && p.getFechaHora().isBefore(hace3Horas))
+                .forEach(p -> {
+                        p.setEstado(EstadoPartido.FINALIZADO);
+                        partidoRepo.save(p);
+                        log.info("[TRANSICION] Partido {} vs {} → FINALIZADO (fecha: {})",
+                                        p.getEquipoLocal().getSigla(),
+                                        p.getEquipoVisitante().getSigla(),
+                                        p.getFechaHora());
+                });
+    }
+
+    /**
      * Verifica si un partido (identificado por su timestamp) debe ser
      * contabilizado para la jornada activa, aplicando la regla del
      * fixture asimétrico: solo el PRIMER partido cronológico por equipo.

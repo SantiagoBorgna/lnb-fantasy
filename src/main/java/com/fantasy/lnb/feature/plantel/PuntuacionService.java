@@ -82,8 +82,8 @@ public class PuntuacionService {
                                 .ifPresent(equipo -> {
                                     equipo.setPuntajeGlobal(equipo.getPuntajeGlobal() + puntajeTotal);
                                     equipoVirtualRepo.save(equipo);
-                                    log.debug("[PUNTUACION] Ranking global actualizado para {}: +{}",
-                                            plantel.getUsuario().getEmail(), puntajeTotal);
+                                    log.debug("[PUNTUACION] Ranking global actualizado para usuarioId={}: +{}",
+                                            plantel.getUsuario().getId(), puntajeTotal);
                                 });
                     } else {
                         // Ranking Torneo
@@ -98,20 +98,23 @@ public class PuntuacionService {
                                         te.setPuntajeGlobal(te.getPuntajeGlobal() + puntajeTotal);
                                     }
                                     torneoEquipoRepo.save(te);
-                                    log.debug("[PUNTUACION] Ranking torneo actualizado para {}: +{}", plantel.getUsuario().getEmail(), puntajeTotal);
+                                    log.debug("[PUNTUACION] Ranking torneo actualizado para usuarioId={}: +{}", plantel.getUsuario().getId(), puntajeTotal);
                                 });
                     }
                 }
 
-                log.info("[PUNTUACION] Usuario {} | Jornada {} | Puntaje: {}",
-                        plantel.getUsuario().getEmail(),
+                log.info("[PUNTUACION] UsuarioId {} | Jornada {} | Puntaje: {}",
+                        plantel.getUsuario().getId(),
                         jornadaId,
                         puntajeTotal);
 
             } catch (PlantelIncompletoException e) {
-                log.warn("[PUNTUACION] Usuario {} con plantel incompleto. Puntaje 0.", plantel.getUsuario().getEmail());
+                log.warn("[PUNTUACION] UsuarioId {} con plantel incompleto. Puntaje 0.", plantel.getUsuario().getId());
             } catch (Exception e) {
-                log.error("[PUNTUACION] Error calculando para usuario {}: {}", plantel.getUsuario().getEmail(), e.getMessage());
+                // No usar getEmail() acá: si el usuario del plantel fue borrado, resolver
+                // el proxy lazy tira su propia excepción y se pierde el error original
+                // (getId() no dispara el lazy-load, siempre es seguro).
+                log.error("[PUNTUACION] Error calculando para usuarioId {}: {}", plantel.getUsuario().getId(), e.getMessage());
             }
         }
 
