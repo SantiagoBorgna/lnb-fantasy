@@ -85,7 +85,7 @@ public class JornadaTransicionCronJob {
                                                 // revertir el cierre real de la jornada si falla.
                                                 try {
                                                         pushNotificationService.enviarNotificacionMasiva(
-                                                                "Jornada finalizada 🏀",
+                                                                "Jornada finalizada",
                                                                 "La jornada terminó, vení a ver cómo sumó tu equipo."
                                                         );
                                                 } catch (Exception e) {
@@ -117,7 +117,7 @@ public class JornadaTransicionCronJob {
                                                 log.info("[TRANSICION] Enviando notificación de 5 horas para jornada {}", jornada.getNumero());
                                                 String horaStr = String.format("%02d:%02d", jornada.getFechaInicio().getHour(), jornada.getFechaInicio().getMinute());
                                                 pushNotificationService.enviarNotificacionMasiva(
-                                                        "¡Prepará tu equipo! ⏱️",
+                                                        "¡Prepará tu equipo!",
                                                         "Hoy a las " + horaStr + " horas empieza una nueva jornada, no olvides alistar tu equipo"
                                                 );
                                                 jornada.setNotificacionPreviaEnviada(true);
