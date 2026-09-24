@@ -89,12 +89,14 @@ public class FixtureCrawlerService {
 
                 for (Element fila : filas) {
                         try {
-                                // 3. SELECTOR INFALIBLE: Leemos las celdas "Local" (índice 0 o 1) y "Visitante"
-                                // (índice 2 o 3)
-                                // A veces la celda 0 es un escudo, por eso buscamos la que tiene la clase
-                                // 'celda-nombre'
-                                String nombreLocal = fila.select("td[class*='text-start'] strong").text().trim();
-                                String nombreVisitante = fila.select("td[class*='text-end'] strong").text().trim();
+                                // 3. SELECTOR INFALIBLE: 'nombre-equipo' identifica sin ambigüedad
+                                // el <strong> del nombre — a diferencia de 'text-start'/'text-end',
+                                // que la celda de fecha comparte con la celda del equipo local y
+                                // hacía que el nombre local quedara pegado a la fecha del partido
+                                // (ej: "PEÑAROL (MDP) 30/09/2026 20:30").
+                                Elements nombresEquipos = fila.select("strong.nombre-equipo");
+                                String nombreLocal = nombresEquipos.size() > 0 ? nombresEquipos.get(0).text().trim() : "";
+                                String nombreVisitante = nombresEquipos.size() > 1 ? nombresEquipos.get(1).text().trim() : "";
 
                                 // Fallback por si la API cambió las clases
                                 if (nombreLocal.isEmpty() || nombreVisitante.isEmpty()) {
