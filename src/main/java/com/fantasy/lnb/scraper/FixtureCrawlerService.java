@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -150,10 +151,24 @@ public class FixtureCrawlerService {
                                 }
 
                                 final LocalDateTime fechaFinal = fechaHora;
-                                partidoRepo.findByGesHash(hash).ifPresentOrElse(
+
+                                // El gesHash no sirve para saber si el partido ya existe (ver
+                                // PartidoRepository). Buscamos por equipos + día del partido; si
+                                // no se pudo parsear la fecha, caemos a buscar solo por equipos.
+                                Optional<Partido> existenteOpt = fechaFinal != null
+                                                ? partidoRepo.findByEquipoLocal_IdAndEquipoVisitante_IdAndFechaHoraGreaterThanEqualAndFechaHoraLessThan(
+                                                                local.getId(), visitante.getId(),
+                                                                fechaFinal.toLocalDate().atStartOfDay(),
+                                                                fechaFinal.toLocalDate().plusDays(1).atStartOfDay())
+                                                : partidoRepo.findByEquipoLocal_IdAndEquipoVisitante_Id(
+                                                                local.getId(), visitante.getId());
+
+                                existenteOpt.ifPresentOrElse(
                                                 existente -> {
                                                         existente.setFechaHora(fechaFinal != null ? fechaFinal
                                                                         : existente.getFechaHora());
+                                                        existente.setGesHash(hash);
+                                                        existente.setGesUrl(urlFull);
                                                         partidoRepo.save(existente);
                                                         log.debug("[FIXTURE] Actualizado: {} vs {}", local.getNombre(),
                                                                         visitante.getNombre());
