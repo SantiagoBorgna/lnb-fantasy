@@ -120,14 +120,20 @@ public class AdminJugadoresService {
 
         String nombreAnterior = principal.getNombreCompleto();
 
-        principal.setGesId(duplicado.getGesId());
-        principal.setNombreCompleto(duplicado.getNombreCompleto());
-        principal.setEquipoReal(duplicado.getEquipoReal());
-        principal.setGesPerfilUrl(duplicado.getGesPerfilUrl());
-        principal.setFotoUrl(duplicado.getFotoUrl());
-        principal.setFechaNacimiento(duplicado.getFechaNacimiento());
-        jugadorRepo.save(principal);
+        // Capturamos los datos de GES ANTES de borrar — el objeto Java sigue
+        // teniendo los valores cargados aunque la fila ya no exista en la tabla.
+        Long gesId = duplicado.getGesId();
+        String nombreGes = duplicado.getNombreCompleto();
+        var equipoGes = duplicado.getEquipoReal();
+        String gesPerfilUrl = duplicado.getGesPerfilUrl();
+        String fotoUrl = duplicado.getFotoUrl();
+        var fechaNacimiento = duplicado.getFechaNacimiento();
 
+        // IMPORTANTE: hay que borrar el duplicado ANTES de pisarle el gesId a
+        // principal. ges_id es UNIQUE y MySQL lo chequea al toque (no al commit
+        // como Postgres) — si asignáramos el gesId a principal mientras la fila
+        // de duplicado todavía existe con ese mismo valor, el UPDATE choca contra
+        // la restricción de unicidad.
         try {
             jugadorRepo.delete(duplicado);
             jugadorRepo.flush();
@@ -137,6 +143,14 @@ public class AdminJugadoresService {
                             "referencias en otra tabla (waivers, traspasos, showdown, estadísticas, etc.). " +
                             "Resolver esas referencias a mano antes de fusionar.");
         }
+
+        principal.setGesId(gesId);
+        principal.setNombreCompleto(nombreGes);
+        principal.setEquipoReal(equipoGes);
+        principal.setGesPerfilUrl(gesPerfilUrl);
+        principal.setFotoUrl(fotoUrl);
+        principal.setFechaNacimiento(fechaNacimiento);
+        jugadorRepo.save(principal);
 
         log.info("[ADMIN] Fusión: id={} ('{}') absorbió los datos de GES de id={} y quedó como '{}'.",
                 idPrincipal, nombreAnterior, idDuplicado, principal.getNombreCompleto());
