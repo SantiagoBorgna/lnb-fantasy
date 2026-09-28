@@ -13,6 +13,9 @@ public interface JugadorPlantelRepository extends JpaRepository<JugadorPlantel, 
     boolean existsByPlantelJornada_IdAndJugadorReal_Id(
             Long plantelJornadaId, Long jugadorRealId);
 
+    // Usado para chequear si un jugador ya tiene historial antes de fusionarlo/borrarlo
+    boolean existsByJugadorReal_Id(Long jugadorRealId);
+
     // Para calcular cuánto gastó el usuario en jugadores de una posición
     List<JugadorPlantel> findByPlantelJornada_Id(Long plantelJornadaId);
 
