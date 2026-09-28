@@ -16,9 +16,10 @@ public interface JugadorRealRepository extends JpaRepository<JugadorReal, Long> 
         Optional<JugadorReal> findByGesId(Long gesId);
 
         // ── Usado por el Scraper para vincular jugadores cargados a mano (sin
-        // gesId todavía) con su perfil real de GES, matcheando por nombre+equipo ──
-        Optional<JugadorReal> findByGesIdIsNullAndNombreCompletoIgnoreCaseAndEquipoReal_Id(
-                        String nombreCompleto, Long equipoId);
+        // gesId todavía) con su perfil real de GES. Trae todos los candidatos del
+        // equipo para que el matching por nombre (flexible, por tokens) se resuelva
+        // en el servicio ──
+        List<JugadorReal> findByGesIdIsNullAndEquipoReal_Id(Long equipoId);
 
         // ── Filtros del Mercado (Paso 2) ────────────────────────────────────────
 

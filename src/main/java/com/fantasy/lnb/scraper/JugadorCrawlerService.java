@@ -229,11 +229,10 @@ public class JugadorCrawlerService {
         JugadorReal existente = jugadorRepo.findByGesId(datos.gesId).orElse(null);
 
         // 2. Sin vínculo todavía: puede ser un jugador cargado a mano (gesId null)
-        // a la espera de aparecer en GES. Lo matcheamos por nombre+equipo.
+        // a la espera de aparecer en GES. Lo matcheamos por nombre+equipo, de forma
+        // flexible (nombres incompletos: "MERCHANT, EDGAR" vs "MERCHANT, EDGAR HENRY").
         if (existente == null) {
-            existente = jugadorRepo
-                    .findByGesIdIsNullAndNombreCompletoIgnoreCaseAndEquipoReal_Id(datos.nombre, equipo.getId())
-                    .orElse(null);
+            existente = buscarCandidatoManual(datos.nombre, equipo.getId());
             if (existente != null) {
                 log.info("[CRAWLER] Jugador cargado a mano '{}' vinculado con gesId {}.",
                         datos.nombre, datos.gesId);
@@ -272,6 +271,49 @@ public class JugadorCrawlerService {
                 .build();
         jugadorRepo.save(nuevo);
         return true; // Es nuevo
+    }
+
+    // ── Matching flexible de jugadores cargados a mano ──────────────────────
+    /**
+     * Busca, entre los jugadores sin gesId del equipo, uno cuyo nombre sea
+     * "compatible" con el nombre que trae GES: el conjunto de palabras de uno
+     * es subconjunto del otro (soporta nombres/apellidos incompletos cargados
+     * a mano). Si hay más de un candidato compatible, no elige ninguno — es
+     * preferible crear un jugador nuevo (revisable a mano) a vincular mal.
+     */
+    private JugadorReal buscarCandidatoManual(String nombreGes, Long equipoId) {
+        List<JugadorReal> candidatos = jugadorRepo.findByGesIdIsNullAndEquipoReal_Id(equipoId);
+        if (candidatos.isEmpty())
+            return null;
+
+        Set<String> tokensGes = tokenizarNombre(nombreGes);
+
+        List<JugadorReal> matches = candidatos.stream()
+                .filter(c -> {
+                    Set<String> tokensManual = tokenizarNombre(c.getNombreCompleto());
+                    return tokensGes.containsAll(tokensManual) || tokensManual.containsAll(tokensGes);
+                })
+                .toList();
+
+        if (matches.size() == 1) {
+            return matches.get(0);
+        }
+        if (matches.size() > 1) {
+            log.warn("[CRAWLER] '{}' matchea con {} candidatos cargados a mano en el equipo {} — ambiguo, no vinculo automáticamente.",
+                    nombreGes, matches.size(), equipoId);
+        }
+        return null;
+    }
+
+    /** Mayúsculas, sin tildes, partido en palabras (por espacios y comas). */
+    private Set<String> tokenizarNombre(String nombre) {
+        String sinTildes = java.text.Normalizer.normalize(nombre, java.text.Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "")
+                .toUpperCase()
+                .trim();
+        return java.util.Arrays.stream(sinTildes.split("[,\\s]+"))
+                .filter(t -> !t.isBlank())
+                .collect(java.util.stream.Collectors.toSet());
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
