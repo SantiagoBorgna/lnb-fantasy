@@ -19,8 +19,10 @@ public class JugadorReal {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // ID que usa GES Deportiva — clave para cruzar con el scraper
-    @Column(nullable = false, unique = true)
+    // ID que usa GES Deportiva — clave para cruzar con el scraper.
+    // Nullable: permite cargar jugadores a mano antes de que aparezcan en GES;
+    // el crawler los vincula por nombre+equipo la primera vez que los encuentra.
+    @Column(unique = true)
     private Long gesId;
 
     @Column(nullable = false)

@@ -225,39 +225,53 @@ public class JugadorCrawlerService {
         if (equipo == null)
             return false;
 
-        // Upsert: actualizar si existe, crear si no
-        return jugadorRepo.findByGesId(datos.gesId)
-                .map(existente -> {
-                    // Actualizar datos que pueden cambiar
-                    existente.setNombreCompleto(datos.nombre);
-                    existente.setNumeroCamiseta(datos.numero);
-                    existente.setEquipoReal(equipo);
-                    existente.setPosicion(datos.posicion);
-                    existente.setGesPerfilUrl(datos.perfilUrl);
-                    existente.setFotoUrl(datos.fotoUrl);
-                    if (datos.fechaNacimiento != null) {
-                        existente.setFechaNacimiento(datos.fechaNacimiento);
-                    }
-                    jugadorRepo.save(existente);
-                    return false; // No es nuevo
-                })
-                .orElseGet(() -> {
-                    JugadorReal nuevo = JugadorReal.builder()
-                            .gesId(datos.gesId)
-                            .nombreCompleto(datos.nombre)
-                            .numeroCamiseta(datos.numero)
-                            .equipoReal(equipo)
-                            .posicion(datos.posicion)
-                            .estado(EstadoJugador.DISPONIBLE)
-                            .valorMercadoActual(5.0)
-                            .valorBase(5.0)
-                            .gesPerfilUrl(datos.perfilUrl)
-                            .fotoUrl(datos.fotoUrl)
-                            .fechaNacimiento(datos.fechaNacimiento)
-                            .build();
-                    jugadorRepo.save(nuevo);
-                    return true; // Es nuevo
-                });
+        // 1. Vinculado por gesId (caso normal, jugador ya sincronizado antes)
+        JugadorReal existente = jugadorRepo.findByGesId(datos.gesId).orElse(null);
+
+        // 2. Sin vínculo todavía: puede ser un jugador cargado a mano (gesId null)
+        // a la espera de aparecer en GES. Lo matcheamos por nombre+equipo.
+        if (existente == null) {
+            existente = jugadorRepo
+                    .findByGesIdIsNullAndNombreCompletoIgnoreCaseAndEquipoReal_Id(datos.nombre, equipo.getId())
+                    .orElse(null);
+            if (existente != null) {
+                log.info("[CRAWLER] Jugador cargado a mano '{}' vinculado con gesId {}.",
+                        datos.nombre, datos.gesId);
+            }
+        }
+
+        if (existente != null) {
+            // Actualizar solo lo que GES realmente provee. numeroCamiseta y posicion
+            // NO se tocan acá: GES no los provee (el scraper siempre manda 0 /
+            // DESCONOCIDO) y pisarían los valores cargados a mano.
+            existente.setGesId(datos.gesId);
+            existente.setNombreCompleto(datos.nombre);
+            existente.setEquipoReal(equipo);
+            existente.setGesPerfilUrl(datos.perfilUrl);
+            existente.setFotoUrl(datos.fotoUrl);
+            if (datos.fechaNacimiento != null) {
+                existente.setFechaNacimiento(datos.fechaNacimiento);
+            }
+            jugadorRepo.save(existente);
+            return false; // No es nuevo
+        }
+
+        // 3. No existe de ninguna forma: alta nueva (caso normal del crawler)
+        JugadorReal nuevo = JugadorReal.builder()
+                .gesId(datos.gesId)
+                .nombreCompleto(datos.nombre)
+                .numeroCamiseta(datos.numero)
+                .equipoReal(equipo)
+                .posicion(datos.posicion)
+                .estado(EstadoJugador.DISPONIBLE)
+                .valorMercadoActual(5.0)
+                .valorBase(5.0)
+                .gesPerfilUrl(datos.perfilUrl)
+                .fotoUrl(datos.fotoUrl)
+                .fechaNacimiento(datos.fechaNacimiento)
+                .build();
+        jugadorRepo.save(nuevo);
+        return true; // Es nuevo
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
