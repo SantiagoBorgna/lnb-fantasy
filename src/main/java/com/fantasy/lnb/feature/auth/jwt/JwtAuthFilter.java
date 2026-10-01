@@ -37,22 +37,12 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         final String authHeader = request.getHeader("Authorization");
 
-        // ── DEBUG TEMPORAL ───────────────────────────────────────────────────
-        log.info("[JWT-DEBUG] Header recibido: '{}'", authHeader);
-        // ────────────────────────────────────────────────────────────────────
-
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             filterChain.doFilter(request, response);
             return;
         }
 
         final String token = authHeader.substring(7);
-
-        // ── DEBUG TEMPORAL ───────────────────────────────────────────────────
-        log.info("[JWT-DEBUG] Token extraído (primeros 30 chars): '{}'",
-                token.length() > 30 ? token.substring(0, 30) + "..." : token);
-        log.info("[JWT-DEBUG] Resultado de esValido(): {}", jwtService.esValido(token));
-        // ────────────────────────────────────────────────────────────────────
 
         if (!jwtService.esValido(token)) {
             filterChain.doFilter(request, response);
