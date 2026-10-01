@@ -31,6 +31,7 @@ import jakarta.validation.Valid;
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
+@lombok.extern.slf4j.Slf4j
 public class AuthController {
 
         private final UsuarioRepository usuarioRepository;
@@ -45,12 +46,14 @@ public class AuthController {
 
                 // 1. Verificamos si hay usuario logueado
                 if (userDetails == null) {
+                        log.warn("[LOGIN-DEBUG] /me -> 401: sin usuario autenticado (token ausente, invalido, vencido o revocado)");
                         return ResponseEntity.status(401).body(Map.of("error", "No autenticado"));
                 }
 
                 // 2. Buscamos en BD (Retorno temprano si no existe)
                 Optional<Usuario> userOpt = usuarioRepository.findByEmail(userDetails.getUsername());
                 if (userOpt.isEmpty()) {
+                        log.warn("[LOGIN-DEBUG] /me -> 404: usuario {} no existe en BD", userDetails.getUsername());
                         return ResponseEntity.status(404).body(Map.of("error", "Usuario no encontrado"));
                 }
 

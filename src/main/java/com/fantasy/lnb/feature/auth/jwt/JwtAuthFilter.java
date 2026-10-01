@@ -45,6 +45,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         final String token = authHeader.substring(7);
 
         if (!jwtService.esValido(token)) {
+            log.warn("[LOGIN-DEBUG] JWT rechazado (firma invalida o vencido) en {}", request.getRequestURI());
             filterChain.doFilter(request, response);
             return;
         }
@@ -54,6 +55,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         if (tokenRevocadoRepo.existsByTokenHash(tokenHash)) {
             log.warn("[JWT] Token revocado intentó acceder. Hash: {}",
                     tokenHash.substring(0, 8) + "...");
+            log.warn("[LOGIN-DEBUG] JWT revocado en {}", request.getRequestURI());
             filterChain.doFilter(request, response);
             return;
         }

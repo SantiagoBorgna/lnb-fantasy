@@ -70,6 +70,8 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
                                 usuario.getRol());
 
                 log.info("[OAUTH2] JWT generado para: {}", email);
+                log.info("[LOGIN-DEBUG] SuccessHandler: JWT generado para {}, redirigiendo a {}/auth/callback#token=<oculto>",
+                                email, frontendUrl);
 
                 // Redirige al frontend con el token en el fragment
                 // Ejemplo: http://localhost:5173/auth/callback#token=eyJhbGci...

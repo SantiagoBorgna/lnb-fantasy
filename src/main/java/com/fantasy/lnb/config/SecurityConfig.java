@@ -92,6 +92,12 @@ public class SecurityConfig {
                                                 .successHandler(oAuth2SuccessHandler)
                                                 .failureHandler((request, response, exception) -> {
                                                         // Redirigimos al frontend con el error
+                                                        org.slf4j.LoggerFactory.getLogger(SecurityConfig.class).warn(
+                                                                        "[LOGIN-DEBUG] OAuth2 FALLO: {} | mensaje={} | causa={} | jsessionid={}",
+                                                                        exception.getClass().getSimpleName(),
+                                                                        exception.getMessage(),
+                                                                        exception.getCause() == null ? "-" : exception.getCause().toString(),
+                                                                        request.getSession(false) != null);
                                                         response.sendRedirect(frontendUrl + "/login?error=" + exception.getMessage());
                                                 }))
 
