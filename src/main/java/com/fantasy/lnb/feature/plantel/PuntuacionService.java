@@ -155,8 +155,7 @@ public class PuntuacionService {
 
     /**
      * Para calcular el puntaje del DT necesitamos el marcador del partido
-     * de su equipo en esta jornada. Lo obtenemos sumando los puntos anotados
-     * por todos los jugadores de ese equipo en sus estadísticas de la jornada.
+     * de su equipo en esta jornada, que el scraper deja guardado en Partido.
      */
     private double calcularPuntajeDtDesdeBD(PlantelJornada plantel, List<Partido> partidosJornada) {
         if (plantel.getDt() == null)
@@ -164,27 +163,7 @@ public class PuntuacionService {
 
         Long equipoDtId = plantel.getDt().getEquipoReal().getId();
 
-        // Buscamos el partido de esta jornada donde juegue el equipo del DT
-        return partidosJornada.stream()
-                .filter(p -> p.getEquipoLocal().getId().equals(equipoDtId) ||
-                        p.getEquipoVisitante().getId().equals(equipoDtId))
-                .findFirst()
-                .map(p -> {
-                    // Sin marcador (partido por jugarse o resultado todavía sin cargar) el DT
-                    // ni suma ni resta. Sin este chequeo el unboxing de los Integer nulos
-                    // tira NPE y se pierde el puntaje entero del plantel, jugadores incluidos.
-                    if (p.getPuntosLocal() == null || p.getPuntosVisitante() == null) {
-                        return 0.0;
-                    }
-
-                    // Identificamos quién es el equipo del DT en este partido
-                    boolean esLocal = p.getEquipoLocal().getId().equals(equipoDtId);
-                    int puntosDT = esLocal ? p.getPuntosLocal() : p.getPuntosVisitante();
-                    int puntosRival = esLocal ? p.getPuntosVisitante() : p.getPuntosLocal();
-
-                    // Usamos el motor de puntuación que ya tenés inyectado
-                    return motor.calcularPuntajeDt(puntosDT, puntosRival);
-                })
-                .orElse(0.0);
+        // Solo cuenta el primer partido del equipo en la jornada (ver el motor)
+        return motor.calcularPuntajeDtEnJornada(equipoDtId, partidosJornada).orElse(0.0);
     }
 }

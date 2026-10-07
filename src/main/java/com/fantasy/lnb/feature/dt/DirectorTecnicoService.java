@@ -26,11 +26,16 @@ public class DirectorTecnicoService {
         List<DirectorTecnico> dts = dtRepo.findAll();
         int actualizados = 0;
 
+        // El scraper pasa los partidos a PROCESADO apenas carga sus estadísticas, así que
+        // mirar solo FINALIZADO dejaba afuera a todos los partidos que ya tienen marcador.
+        List<Partido> partidosJugados = partidoRepo
+            .findByEstadoIn(List.of(EstadoPartido.FINALIZADO, EstadoPartido.PROCESADO));
+
         for (DirectorTecnico dt : dts) {
             Long equipoId = dt.getEquipoReal().getId();
-            
-            // Buscar partidos finalizados de su equipo
-            List<Partido> partidos = partidoRepo.findByEstado(EstadoPartido.FINALIZADO).stream()
+
+            // Buscar partidos jugados de su equipo
+            List<Partido> partidos = partidosJugados.stream()
                 .filter(p -> p.getEquipoLocal().getId().equals(equipoId) || p.getEquipoVisitante().getId().equals(equipoId))
                 .toList();
 

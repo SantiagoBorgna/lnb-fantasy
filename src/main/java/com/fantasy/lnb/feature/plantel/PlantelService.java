@@ -31,7 +31,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
@@ -939,22 +938,8 @@ public class PlantelService {
 
                 List<Partido> partidos = partidoRepo.findByJornadaIdAndEquipoId(jornadaId, equipoDtId);
 
-                if (partidos.isEmpty())
-                        return null;
-
-                partidos.sort(Comparator.comparing(Partido::getFechaHora));
-                Partido primerPartido = partidos.get(0);
-
-                if (primerPartido.getPuntosLocal() == null || primerPartido.getPuntosVisitante() == null)
-                        return null;
-
-                // Corregimos la lógica: primero identificamos si el equipo del DT es local o
-                // visitante
-                boolean esLocal = primerPartido.getEquipoLocal().getId().equals(equipoDtId);
-
-                int puntosEquipoDt = esLocal ? primerPartido.getPuntosLocal() : primerPartido.getPuntosVisitante();
-                int puntosRival = esLocal ? primerPartido.getPuntosVisitante() : primerPartido.getPuntosLocal();
-
-                return motorPuntuacionPlantel.calcularPuntajeDt(puntosEquipoDt, puntosRival);
+                // El motor elige el primer partido y devuelve vacío si todavía no hay marcador.
+                // Es el mismo criterio que usa PuntuacionService para el ranking.
+                return motorPuntuacionPlantel.calcularPuntajeDtEnJornada(equipoDtId, partidos).orElse(null);
         }
 }

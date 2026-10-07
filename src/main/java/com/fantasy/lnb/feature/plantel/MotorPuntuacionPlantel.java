@@ -2,10 +2,14 @@ package com.fantasy.lnb.feature.plantel;
 
 import com.fantasy.lnb.feature.estadisticas.EstadisticaPartido;
 import com.fantasy.lnb.feature.estadisticas.EstadisticaPartidoRepository;
+import com.fantasy.lnb.feature.jornada.EstadoPartido;
+import com.fantasy.lnb.feature.jornada.Partido;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import java.util.Collection;
+import java.util.Comparator;
 import java.util.Optional;
 
 /**
@@ -61,6 +65,36 @@ public class MotorPuntuacionPlantel {
                 puntajeRedondeado);
 
         return puntajeRedondeado;
+    }
+
+    /**
+     * Puntaje del DT en una jornada, a partir de los partidos de esa jornada.
+     *
+     * REGLA: si el equipo del DT juega más de una vez en la jornada, solo cuenta
+     * el PRIMER partido (por fecha), igual que con los jugadores, a los que se les
+     * ignora el segundo partido (regla del fixture asimétrico). Es el único lugar
+     * que elige el partido, así lo que se guarda en el ranking y lo que se muestra
+     * en la cancha siempre salen del mismo.
+     *
+     * @return vacío si el equipo todavía no tiene un partido finalizado, o si a ese
+     *         partido le falta el marcador: el DT ni suma ni resta
+     */
+    public Optional<Double> calcularPuntajeDtEnJornada(Long equipoDtId, Collection<Partido> partidosJornada) {
+        return partidosJornada.stream()
+                .filter(p -> p.getEstado() == EstadoPartido.FINALIZADO
+                        || p.getEstado() == EstadoPartido.PROCESADO)
+                .filter(p -> p.getEquipoLocal().getId().equals(equipoDtId)
+                        || p.getEquipoVisitante().getId().equals(equipoDtId))
+                .min(Comparator.comparing(Partido::getFechaHora))
+                // Sin este chequeo el unboxing de los Integer nulos tira NPE y se pierde el
+                // puntaje entero del plantel, jugadores incluidos.
+                .filter(p -> p.getPuntosLocal() != null && p.getPuntosVisitante() != null)
+                .map(p -> {
+                    boolean esLocal = p.getEquipoLocal().getId().equals(equipoDtId);
+                    int puntosDt = esLocal ? p.getPuntosLocal() : p.getPuntosVisitante();
+                    int puntosRival = esLocal ? p.getPuntosVisitante() : p.getPuntosLocal();
+                    return calcularPuntajeDt(puntosDt, puntosRival);
+                });
     }
 
     /**
