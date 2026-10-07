@@ -19,8 +19,10 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @Slf4j
 @Component
@@ -50,33 +52,80 @@ public class ScraperCronJob {
         public void procesarPartidosDeJornadaActiva() {
                 log.info("[CRON] Iniciando scraper de jornada activa...");
 
+                // Jornadas cuyos puntajes hay que recalcular al terminar
+                Set<Long> jornadasARecalcular = new LinkedHashSet<>();
+
                 // Buscar partidos FINALIZADOS no procesados
                 List<Partido> pendientes = partidoRepo
                                 .findByEstadoAndEstadisticasProcesadasFalse(EstadoPartido.FINALIZADO);
 
                 if (pendientes.isEmpty()) {
                         log.info("[CRON] No hay partidos pendientes de procesar.");
-                        return;
+                } else {
+                        log.info("[CRON] Partidos pendientes: {}", pendientes.size());
+
+                        jornadasARecalcular.add(pendientes.get(0).getJornada().getId());
+
+                        for (Partido partido : pendientes) {
+                                try {
+                                        procesarPartido(partido);
+                                } catch (Exception e) {
+                                        log.error("[CRON] Error procesando partido {}: {}",
+                                                        partido.getGesHash(), e.getMessage(), e);
+                                }
+                        }
                 }
 
-                log.info("[CRON] Partidos pendientes: {}", pendientes.size());
+                // Partidos ya procesados a los que les quedó el marcador sin cargar
+                jornadasARecalcular.addAll(completarMarcadoresFaltantes());
 
-                Long jornadaIdActiva = pendientes.get(0).getJornada().getId();
+                // Una vez procesados los partidos pendientes, recalculamos toda la fecha
+                for (Long jornadaId : jornadasARecalcular) {
+                        log.info("[CRON] Actualizando puntajes parciales en vivo para la Jornada {}...", jornadaId);
+                        // Le pasamos "false" para indicarle que es un cálculo parcial, no el cierre
+                        // definitivo
+                        puntuacionService.calcularPuntajesDeJornada(jornadaId, false);
+                }
+        }
 
-                for (Partido partido : pendientes) {
+        /**
+         * Reintenta el marcador de los partidos que quedaron PROCESADOS sin
+         * resultado (el scraper del marcador estaba roto cuando se procesaron).
+         * El puntaje del DT sale de ese resultado, así que mientras falte los
+         * DTs de esos equipos no suman.
+         *
+         * @return ids de las jornadas con algún marcador completado, que hay
+         *         que recalcular
+         */
+        private Set<Long> completarMarcadoresFaltantes() {
+                Set<Long> jornadas = new LinkedHashSet<>();
+
+                for (Partido partido : partidoRepo.findByEstadoSinMarcador(EstadoPartido.PROCESADO)) {
                         try {
-                                procesarPartido(partido);
+                                Optional<MarcadorParser.ResultadoPartido> marcador = MarcadorParser
+                                                .extraerMarcador(partido.getGesUrl());
+
+                                if (marcador.isEmpty()) {
+                                        log.warn("[CRON] Sigue sin poder obtenerse el marcador de {}",
+                                                        partido.getGesUrl());
+                                        continue;
+                                }
+
+                                partido.setPuntosLocal(marcador.get().puntosLocal());
+                                partido.setPuntosVisitante(marcador.get().puntosVisitante());
+                                partidoRepo.save(partido);
+                                jornadas.add(partido.getJornada().getId());
+
+                                log.info("[CRON] Marcador completado: {} {} - {} {}",
+                                                partido.getEquipoLocal().getSigla(), partido.getPuntosLocal(),
+                                                partido.getPuntosVisitante(), partido.getEquipoVisitante().getSigla());
                         } catch (Exception e) {
-                                log.error("[CRON] Error procesando partido {}: {}",
+                                log.error("[CRON] Error completando el marcador de {}: {}",
                                                 partido.getGesHash(), e.getMessage(), e);
                         }
                 }
 
-                // Una vez procesados los partidos pendientes, recalculamos toda la fecha
-                log.info("[CRON] Actualizando puntajes parciales en vivo para la Jornada {}...", jornadaIdActiva);
-                // Le pasamos "false" para indicarle que es un cálculo parcial, no el cierre
-                // definitivo
-                puntuacionService.calcularPuntajesDeJornada(jornadaIdActiva, false);
+                return jornadas;
         }
 
         public void procesarPartido(Partido partido) {
@@ -84,15 +133,19 @@ public class ScraperCronJob {
                 Optional<MarcadorParser.ResultadoPartido> marcador = MarcadorParser
                                 .extraerMarcador(partido.getGesUrl());
 
-                boolean equipoLocalGano = marcador
-                                .map(MarcadorParser.ResultadoPartido::localGano)
-                                .orElse(false);
+                // Sin marcador no se sabe quién ganó, así que no se puede dar el bonus de
+                // victoria a los jugadores ni calcular el DT. Se corta antes de persistir
+                // nada: el partido queda FINALIZADO y el próximo cron lo reintenta.
+                if (marcador.isEmpty()) {
+                        throw new IllegalStateException(
+                                        "No se pudo obtener el marcador de " + partido.getGesUrl());
+                }
+
+                boolean equipoLocalGano = marcador.get().localGano();
 
                 // Persistir resultado en la entidad Partido
-                marcador.ifPresent(m -> {
-                        partido.setPuntosLocal(m.puntosLocal());
-                        partido.setPuntosVisitante(m.puntosVisitante());
-                });
+                partido.setPuntosLocal(marcador.get().puntosLocal());
+                partido.setPuntosVisitante(marcador.get().puntosVisitante());
 
                 // 2. Extraer estadísticas de jugadores
                 List<JugadorStatsDto> dtos = scraperService
@@ -108,8 +161,8 @@ public class ScraperCronJob {
                                 equipoLocalGano,
                                 partido.getJornada());
 
-                // 4. Calcular puntos del DT
-                // marcador.ifPresent(m -> calcularPuntajeDt(partido, m));
+                // 4. Los puntos del DT no se calculan acá: PuntuacionService los deriva del
+                // marcador que quedó persistido en el Partido.
 
                 // 5. Marcar partido como procesado
                 partido.setEstadisticasProcesadas(true);

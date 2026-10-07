@@ -19,6 +19,18 @@ public interface PartidoRepository extends JpaRepository<Partido, Long> {
      List<Partido> findByEstadoAndEstadisticasProcesadasFalse(
                EstadoPartido estado);
 
+     /**
+      * Partidos de un estado dado a los que les falta el marcador. Sirve para
+      * reintentar los PROCESADOS cuyo marcador no se pudo scrapear en su
+      * momento: sin resultado no se puede calcular el puntaje de los DTs.
+      */
+     @Query("""
+                   SELECT p FROM Partido p
+                   WHERE p.estado = :estado
+                   AND (p.puntosLocal IS NULL OR p.puntosVisitante IS NULL)
+               """)
+     List<Partido> findByEstadoSinMarcador(@Param("estado") EstadoPartido estado);
+
      Optional<Partido> findByGesHash(String gesHash);
 
      boolean existsByGesHash(String gesHash);

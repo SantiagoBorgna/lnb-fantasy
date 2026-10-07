@@ -170,6 +170,13 @@ public class PuntuacionService {
                         p.getEquipoVisitante().getId().equals(equipoDtId))
                 .findFirst()
                 .map(p -> {
+                    // Sin marcador (partido por jugarse o resultado todavía sin cargar) el DT
+                    // ni suma ni resta. Sin este chequeo el unboxing de los Integer nulos
+                    // tira NPE y se pierde el puntaje entero del plantel, jugadores incluidos.
+                    if (p.getPuntosLocal() == null || p.getPuntosVisitante() == null) {
+                        return 0.0;
+                    }
+
                     // Identificamos quién es el equipo del DT en este partido
                     boolean esLocal = p.getEquipoLocal().getId().equals(equipoDtId);
                     int puntosDT = esLocal ? p.getPuntosLocal() : p.getPuntosVisitante();
