@@ -38,6 +38,9 @@ public class AdminQuintetosService {
                 .findFirstByJornada_IdAndTorneoIsNullOrderByPuntajeObtenidoFechaDesc(jornadaId);
 
         String nombreUsuario = "N/A";
+        Long usuarioId = null;
+        String emailUsuario = null;
+        String nombreDisplayUsuario = null;
         Double puntajeUsuario = 0.0;
         List<JugadorQuintetoDto> mejorQuintetoUsuario = new ArrayList<>();
 
@@ -45,6 +48,9 @@ public class AdminQuintetosService {
             PlantelJornada mejorPlantel = mejorPlantelOpt.get();
             Optional<EquipoVirtual> equipoOpt = equipoVirtualRepo.findByUsuario_Id(mejorPlantel.getUsuario().getId());
             nombreUsuario = equipoOpt.map(EquipoVirtual::getNombre).orElse(mejorPlantel.getUsuario().getNombreDisplay());
+            usuarioId = mejorPlantel.getUsuario().getId();
+            emailUsuario = mejorPlantel.getUsuario().getEmail();
+            nombreDisplayUsuario = mejorPlantel.getUsuario().getNombreDisplay();
             puntajeUsuario = mejorPlantel.getPuntajeObtenidoFecha() != null ? mejorPlantel.getPuntajeObtenidoFecha() : 0.0;
 
             mejorQuintetoUsuario = mejorPlantel.getTitulares().stream()
@@ -130,6 +136,9 @@ public class AdminQuintetosService {
 
         return AdminQuintetosResponseDto.builder()
                 .nombreUsuarioGanador(nombreUsuario)
+                .usuarioIdGanador(usuarioId)
+                .emailUsuarioGanador(emailUsuario)
+                .nombreDisplayUsuarioGanador(nombreDisplayUsuario)
                 .puntajeUsuarioGanador(puntajeUsuario)
                 .mejorQuintetoUsuario(mejorQuintetoUsuario)
                 .puntajeQuintetoIdeal(puntajeTotalIdeal)
