@@ -107,8 +107,11 @@ public class JornadaRecalculoService {
                 mercadoService.actualizarPromediosTodos();
 
                 // Después del commit: si se limpiaran antes, una lectura concurrente podría
-                // volver a cachear los datos viejos.
-                limpiarCachesAlConfirmar("mercado", "lideres");
+                // volver a cachear los datos viejos. Son todos los cachés que guardan
+                // puntajes de jornada, promedios o el estado de los partidos.
+                limpiarCachesAlConfirmar("mercado", "lideres", "partidos",
+                                "ranking_jornada", "ranking_jornada_torneo",
+                                "plantel_historico", "plantel_historico_torneo");
 
                 log.info("[RECALCULO] Jornada {} recalculada. Partidos completados: {}.",
                                 jornada.getNumero(), partidosCompletados);
