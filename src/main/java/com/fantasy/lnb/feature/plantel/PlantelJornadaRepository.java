@@ -40,6 +40,28 @@ public interface PlantelJornadaRepository extends JpaRepository<PlantelJornada, 
         // Busca el mejor plantel global de una jornada
         Optional<PlantelJornada> findFirstByJornada_IdAndTorneoIsNullOrderByPuntajeObtenidoFechaDesc(Long jornadaId);
 
+        // Puntaje total por usuario de sus planteles globales en las jornadas con el
+        // estado dado. Permite reconstruir el ranking global desde cero en vez de ir
+        // sumando deltas. Cada fila: [usuarioId, suma].
+        @Query("""
+                            SELECT p.usuario.id, SUM(p.puntajeObtenidoFecha)
+                            FROM PlantelJornada p
+                            WHERE p.torneo IS NULL AND p.jornada.estado = :estado
+                            GROUP BY p.usuario.id
+                        """)
+        java.util.List<Object[]> sumarPuntajesGlobalesPorUsuario(
+                        @Param("estado") com.fantasy.lnb.feature.jornada.EstadoJornada estado);
+
+        // Ídem para los planteles de torneo. Cada fila: [torneoId, usuarioId, suma].
+        @Query("""
+                            SELECT p.torneo.id, p.usuario.id, SUM(p.puntajeObtenidoFecha)
+                            FROM PlantelJornada p
+                            WHERE p.torneo IS NOT NULL AND p.jornada.estado = :estado
+                            GROUP BY p.torneo.id, p.usuario.id
+                        """)
+        java.util.List<Object[]> sumarPuntajesDeTorneosPorUsuario(
+                        @Param("estado") com.fantasy.lnb.feature.jornada.EstadoJornada estado);
+
         // Para el motor de puntuación (Paso 4):
         // trae todos los planteles de una jornada para calcular puntajes en batch
         @Query("""

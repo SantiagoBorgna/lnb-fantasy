@@ -160,6 +160,29 @@ public class MercadoService {
         log.info("[PRECIOS] Actualización completada. Jugadores actualizados: {}", actualizados);
     }
 
+    /**
+     * Recalcula solo el promedio fantasy de cada jugador, sin tocar su precio. A
+     * diferencia de actualizarPreciosTodos es idempotente (el precio suma un delta
+     * cada vez que corre), así que se puede repetir sin efectos acumulados.
+     */
+    @Transactional
+    public void actualizarPromediosTodos() {
+        int actualizados = 0;
+
+        for (JugadorReal jugador : jugadorRepo.findAll()) {
+            List<Double> ultimos = jugadorRepo.findUltimosPuntajes(jugador.getId(), VENTANA_HISTORICA + 1);
+            if (ultimos.isEmpty()) {
+                continue;
+            }
+
+            jugador.setPromedioFantasy(calcularPromedio(ultimos));
+            jugadorRepo.save(jugador);
+            actualizados++;
+        }
+
+        log.info("[PROMEDIOS] Promedios actualizados. Jugadores con historial: {}", actualizados);
+    }
+
     public List<JugadorMercadoDto> listarLibresTorneo(Long torneoId, PosicionJugador posicion, String nombre, String orden) {
         List<JugadorMercadoDto> todos = listarJugadoresFiltrados(posicion, nombre, orden);
         

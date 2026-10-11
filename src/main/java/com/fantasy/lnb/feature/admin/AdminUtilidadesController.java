@@ -2,9 +2,11 @@ package com.fantasy.lnb.feature.admin;
 
 import com.fantasy.lnb.feature.auth.LogoutService;
 import com.fantasy.lnb.feature.draft.DraftService;
+import com.fantasy.lnb.feature.jornada.Jornada;
 import com.fantasy.lnb.feature.mercado.WaiverService;
 import com.fantasy.lnb.feature.premium.PremiumService;
 import com.fantasy.lnb.feature.showdown.ShowdownPuntuacionService;
+import com.fantasy.lnb.scraper.JornadaRecalculoService;
 import com.fantasy.lnb.scraper.JornadaTransicionCronJob;
 import com.fantasy.lnb.scraper.PreciosCronJob;
 import com.fantasy.lnb.scraper.ScraperCronJob;
@@ -35,6 +37,7 @@ public class AdminUtilidadesController {
     private final WaiverService waiverService;
     private final PremiumService premiumService;
     private final LogoutService logoutService;
+    private final JornadaRecalculoService jornadaRecalculoService;
 
     @PostMapping("/crons/scraper-partidos")
     public ResponseEntity<Map<String, Object>> correrScraperPartidos() {
@@ -74,6 +77,18 @@ public class AdminUtilidadesController {
     @PostMapping("/crons/tokens-expirados")
     public ResponseEntity<Map<String, Object>> correrLimpiezaTokens() {
         return ejecutar("Limpieza de tokens expirados", logoutService::limpiarTokensExpirados);
+    }
+
+    /**
+     * Rehace el cierre de una jornada FINALIZADA (estadísticas faltantes, puntajes de
+     * planteles, rankings, H2H y promedios). Se puede repetir sin duplicar puntos.
+     * Valida la jornada antes de lanzarlo para poder responder 400/409.
+     */
+    @PostMapping("/jornadas/{jornadaId}/recalcular")
+    public ResponseEntity<Map<String, Object>> recalcularJornada(@PathVariable Long jornadaId) {
+        Jornada jornada = jornadaRecalculoService.validarRecalculable(jornadaId);
+        return ejecutar("Recálculo de la jornada " + jornada.getNumero(),
+                () -> jornadaRecalculoService.recalcularJornadaFinalizada(jornadaId));
     }
 
     private ResponseEntity<Map<String, Object>> ejecutar(String nombre, Runnable job) {
