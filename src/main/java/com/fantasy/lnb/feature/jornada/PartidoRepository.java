@@ -16,8 +16,10 @@ public interface PartidoRepository extends JpaRepository<Partido, Long> {
 
      long countByJornada_Id(Long jornadaId);
 
-     // Busca partidos finalizados no procesados para el scraper
-     List<Partido> findByEstadoAndEstadisticasProcesadasFalse(
+     // Busca partidos finalizados no procesados para el scraper. Van ordenados por
+     // fecha: la regla del fixture asimétrico da por válido el primer partido de
+     // cada equipo que se procesa, así que tiene que ser el primero cronológico.
+     List<Partido> findByEstadoAndEstadisticasProcesadasFalseOrderByFechaHoraAsc(
                EstadoPartido estado);
 
      /**

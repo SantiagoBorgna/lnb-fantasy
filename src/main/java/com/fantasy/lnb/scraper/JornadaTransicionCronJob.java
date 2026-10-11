@@ -1,8 +1,11 @@
 package com.fantasy.lnb.scraper;
 
 import com.fantasy.lnb.feature.jornada.EstadoJornada;
+import com.fantasy.lnb.feature.jornada.EstadoPartido;
+import com.fantasy.lnb.feature.jornada.Jornada;
 import com.fantasy.lnb.feature.jornada.JornadaRepository;
 import com.fantasy.lnb.feature.jornada.JornadaService;
+import com.fantasy.lnb.feature.jornada.PartidoRepository;
 import com.fantasy.lnb.feature.notificaciones.PushNotificationService;
 
 import lombok.RequiredArgsConstructor;
@@ -11,6 +14,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.cache.CacheManager;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 
 @Slf4j
@@ -18,7 +22,14 @@ import java.time.LocalDateTime;
 @RequiredArgsConstructor
 public class JornadaTransicionCronJob {
 
+        // Cuánto se espera, pasada la fechaFin, a que GES publique las estadísticas de
+        // los partidos que faltan antes de cerrar la jornada igual (por ejemplo, un
+        // partido suspendido que nunca va a tener acta).
+        private static final Duration ESPERA_MAXIMA_ESTADISTICAS = Duration.ofHours(3);
+
         private final JornadaRepository jornadaRepo;
+        private final PartidoRepository partidoRepo;
+        private final ScraperCronJob scraperCronJob;
         private final JornadaService jornadaService;
         private final JornadaCierreService jornadaCierreService;
         private final PushNotificationService pushNotificationService;
@@ -38,7 +49,8 @@ public class JornadaTransicionCronJob {
          * → Transiciona a EN_JUEGO (bloquea cambios de plantel)
          *
          * B) ¿Hay alguna jornada EN_JUEGO cuya fechaFin ya pasó?
-         * → Transiciona a FINALIZADA (habilita el CronJob de precios)
+         * → Carga las estadísticas pendientes y la transiciona a FINALIZADA
+         * (habilita el CronJob de precios)
          */
         @Scheduled(cron = "0 */5 * * * *")
         public void evaluarTransiciones() {
@@ -66,6 +78,10 @@ public class JornadaTransicionCronJob {
                         jornadaRepo
                                         .findByEstadoAndFechaFinLessThan(EstadoJornada.EN_JUEGO, ahora)
                                         .ifPresent(jornada -> {
+                                                if (!estadisticasListasParaCerrar(jornada, ahora)) {
+                                                        return;
+                                                }
+
                                                 log.info("[TRANSICION] Jornada {} → FINALIZADA", jornada.getNumero());
 
                                                 // Todo lo que sigue es un único @Transactional (ver
@@ -127,6 +143,36 @@ public class JornadaTransicionCronJob {
                 } catch (Exception e) {
                         log.error("[TRANSICION] Error enviando recordatorio de 5 horas: {}", e.getMessage(), e);
                 }
+        }
+
+        /**
+         * El scraper de estadísticas corre una vez por noche (2 AM), pero el cierre
+         * puede dispararse antes: si se cierra con partidos sin cargar, los puntajes
+         * definitivos, el ranking, los promedios y los precios se calculan sin esas
+         * estadísticas y después nadie los recalcula. Por eso, antes de cerrar se
+         * cargan los partidos pendientes y se espera a que estén todos procesados,
+         * hasta ESPERA_MAXIMA_ESTADISTICAS después del fin de la jornada.
+         */
+        private boolean estadisticasListasParaCerrar(Jornada jornada, LocalDateTime ahora) {
+                scraperCronJob.procesarPartidosDeJornadaActiva();
+
+                long sinProcesar = partidoRepo.findByJornada_Id(jornada.getId()).stream()
+                                .filter(p -> p.getEstado() != EstadoPartido.PROCESADO)
+                                .count();
+
+                if (sinProcesar == 0) {
+                        return true;
+                }
+
+                if (ahora.isAfter(jornada.getFechaFin().plus(ESPERA_MAXIMA_ESTADISTICAS))) {
+                        log.error("[TRANSICION] J{} se cierra con {} partido(s) sin estadísticas: pasaron más de {} h desde su fin.",
+                                        jornada.getNumero(), sinProcesar, ESPERA_MAXIMA_ESTADISTICAS.toHours());
+                        return true;
+                }
+
+                log.warn("[TRANSICION] J{} no se cierra todavía: {} partido(s) sin estadísticas cargadas. Se reintenta en 5 min.",
+                                jornada.getNumero(), sinProcesar);
+                return false;
         }
 
         private void limpiarCache(String... nombres) {

@@ -57,7 +57,7 @@ public class ScraperCronJob {
 
                 // Buscar partidos FINALIZADOS no procesados
                 List<Partido> pendientes = partidoRepo
-                                .findByEstadoAndEstadisticasProcesadasFalse(EstadoPartido.FINALIZADO);
+                                .findByEstadoAndEstadisticasProcesadasFalseOrderByFechaHoraAsc(EstadoPartido.FINALIZADO);
 
                 if (pendientes.isEmpty()) {
                         log.info("[CRON] No hay partidos pendientes de procesar.");
@@ -150,6 +150,15 @@ public class ScraperCronJob {
                 // 2. Extraer estadísticas de jugadores
                 List<JugadorStatsDto> dtos = scraperService
                                 .extraerEstadisticasDePartido(partido.getGesUrl());
+
+                // Un acta vacía es GES sin publicar todavía o un error de conexión (el
+                // scraper lo loguea y devuelve lista vacía). Si se marcara PROCESADO, el
+                // partido quedaría para siempre sin estadísticas: se corta antes y el
+                // próximo ciclo lo reintenta.
+                if (dtos.isEmpty()) {
+                        throw new IllegalStateException(
+                                        "No se obtuvieron estadísticas de " + partido.getGesUrl());
+                }
 
                 // 3. Persistir estadísticas (método ya existente)
                 scraperService.persistirEstadisticas(

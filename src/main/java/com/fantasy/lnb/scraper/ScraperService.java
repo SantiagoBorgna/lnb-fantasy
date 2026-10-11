@@ -147,15 +147,17 @@ public class ScraperService {
         }
 
         // ── Paso 1: Regla del fixture asimétrico ────────────────────────────
-        // Si cualquiera de los dos equipos ya tiene estadísticas en esta jornada,
-        // el partido se descarta (evita duplicar puntos en equipos que juegan 2 veces).
+        // Si un equipo ya tiene estadísticas en esta jornada, este es su segundo
+        // partido y sus jugadores se ignoran (evita duplicar puntos en equipos que
+        // juegan 2 veces). La regla es por equipo, no por partido: el rival que
+        // todavía no jugó tiene que cargar igual, porque este es su primer partido.
         boolean localYaProcesado = estadisticaRepo
                 .existsByEquipoRealIdAndJornadaId(equipoLocalId, jornada.getId());
         boolean visitanteYaProcesado = estadisticaRepo
                 .existsByEquipoRealIdAndJornadaId(equipoVisitanteId, jornada.getId());
 
-        if (localYaProcesado || visitanteYaProcesado) {
-            log.info("[FIXTURE] Partido {} ignorado — uno de los equipos ya tiene estadísticas en J{}.",
+        if (localYaProcesado && visitanteYaProcesado) {
+            log.info("[FIXTURE] Partido {} ignorado — ambos equipos ya tienen estadísticas en J{}.",
                     gesPartidoId, jornada.getNumero());
             return;
         }
@@ -183,6 +185,16 @@ public class ScraperService {
                 continue;
             }
 
+            Long equipoJugadorId = jugadorReal.getEquipoReal().getId();
+            boolean esLocal = equipoJugadorId.equals(equipoLocalId);
+            boolean esVisitante = equipoJugadorId.equals(equipoVisitanteId);
+
+            // Segundo partido de su equipo en la jornada: no suma
+            if ((esLocal && localYaProcesado) || (esVisitante && visitanteYaProcesado)) {
+                omitidos++;
+                continue;
+            }
+
             // Doble chequeo de integridad individual
             if (estadisticaRepo.existsByJugadorReal_IdAndJornada_Id(jugadorReal.getId(), jornada.getId())) {
                 log.warn("[SCRAPER] {} ya tiene stats en J{}. Omitido.", dto.getNombre(), jornada.getNumero());
@@ -191,7 +203,6 @@ public class ScraperService {
             }
 
             // Determinar si el equipo del jugador ganó
-            boolean esLocal = jugadorReal.getEquipoReal().getId().equals(equipoLocalId);
             boolean esteJugadorGano = esLocal ? equipoLocalGano : !equipoLocalGano;
 
             // Calcular puntaje Fantasy usando el motor
