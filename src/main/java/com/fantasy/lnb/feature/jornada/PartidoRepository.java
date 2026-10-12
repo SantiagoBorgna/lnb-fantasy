@@ -46,15 +46,28 @@ public interface PartidoRepository extends JpaRepository<Partido, Long> {
       *
       * Usamos equipo local + visitante + el DÍA del partido (no la hora
       * exacta): la hora puede corregirse entre corridas sin dejar de ser
-      * el mismo partido, pero el día sí distingue revanchas entre los
-      * mismos dos equipos en series de playoffs.
+      * el mismo partido (la LNB publica "00:00" mientras no confirma el
+      * horario), pero el día sí distingue revanchas entre los mismos dos
+      * equipos en series de playoffs.
+      *
+      * Devuelve una lista (la más vieja primero) y no un Optional: si por
+      * corridas anteriores ya hay duplicados, un Optional tira
+      * IncorrectResultSizeDataAccessException y ese partido nunca se podía
+      * corregir (cada corrida lo contaba como error).
       */
-     Optional<Partido> findByEquipoLocal_IdAndEquipoVisitante_IdAndFechaHoraGreaterThanEqualAndFechaHoraLessThan(
-               Long equipoLocalId, Long equipoVisitanteId, LocalDateTime desde, LocalDateTime hasta);
-
-     // Fallback para cuando no se pudo parsear la fecha del partido.
-     Optional<Partido> findByEquipoLocal_IdAndEquipoVisitante_Id(
-               Long equipoLocalId, Long equipoVisitanteId);
+     @Query("""
+                   SELECT p FROM Partido p
+                   WHERE p.equipoLocal.id = :equipoLocalId
+                   AND p.equipoVisitante.id = :equipoVisitanteId
+                   AND p.fechaHora >= :desde
+                   AND p.fechaHora < :hasta
+                   ORDER BY p.id ASC
+               """)
+     List<Partido> findByEquiposYDia(
+               @Param("equipoLocalId") Long equipoLocalId,
+               @Param("equipoVisitanteId") Long equipoVisitanteId,
+               @Param("desde") LocalDateTime desde,
+               @Param("hasta") LocalDateTime hasta);
 
      List<Partido> findByEstado(EstadoPartido estado);
 

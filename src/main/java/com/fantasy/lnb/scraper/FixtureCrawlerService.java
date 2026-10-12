@@ -15,7 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Optional;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -43,7 +43,11 @@ public class FixtureCrawlerService {
          * Escanea la URL del fixture/calendario de la LNB,
          * extrae todos los partidos y los persiste en la tabla `partido`.
          *
-         * @param jornadaId  ID de la jornada Fantasy a la que asignar los partidos
+         * Se puede correr las veces que haga falta sobre el mismo rango de fechas:
+         * un partido que ya está cargado no se duplica, se le corrige la hora si
+         * cambió (ver {@link #procesarFilas}).
+         *
+         * @param jornadaId  ID de la jornada Fantasy a la que asignar los partidos nuevos
          * @param urlFixture URL de la página del fixture/calendario en GES
          */
         @Transactional
@@ -75,7 +79,7 @@ public class FixtureCrawlerService {
                                         .get();
                 } catch (IOException e) {
                         log.error("[FIXTURE] Error cargando API: {}", e.getMessage());
-                        return new FixtureResultado(0, 0, 0);
+                        return new FixtureResultado(0, 0, 0, 1);
                 }
 
                 // 2. Como le pegamos a la API directa, la respuesta probablemente sean solo las
@@ -84,8 +88,28 @@ public class FixtureCrawlerService {
 
                 log.info("[FIXTURE] Filas totales detectadas en la API: {}", filas.size());
 
+                FixtureResultado resultado = procesarFilas(filas, jornada);
+
+                log.info("[FIXTURE] Sincronización terminada: {}", resultado);
+                return resultado;
+        }
+
+        /**
+         * Persiste las filas del fixture. Una fila es "el mismo partido" que uno ya
+         * cargado si coinciden equipo local, equipo visitante y día (ver
+         * {@link PartidoRepository#findByEquiposYDia}): el gesHash no sirve porque
+         * la LNB lo regenera en cada carga, y la hora tampoco porque publica "00:00"
+         * hasta que la confirma.
+         *
+         * Sobre un partido que ya existe solo se corrige la hora. El gesHash y la
+         * gesUrl no se tocan: las estadísticas (y Showdown) se buscan por el gesHash
+         * guardado en el partido, así que pisarlo dejaría huérfanas las ya cargadas.
+         * Los partidos PROCESADOS no se modifican en absoluto.
+         */
+        FixtureResultado procesarFilas(Elements filas, Jornada jornada) {
                 int nuevos = 0;
                 int actualizados = 0;
+                int sinCambios = 0;
                 int errores = 0;
 
                 for (Element fila : filas) {
@@ -132,12 +156,18 @@ public class FixtureCrawlerService {
                                         fechaTexto = fechaTexto.substring(0, 16);
                                 }
 
-                                LocalDateTime fechaHora = null;
+                                LocalDateTime fechaHora;
                                 try {
                                         fechaHora = LocalDateTime.parse(fechaTexto,
                                                         DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));
                                 } catch (Exception e) {
-                                        log.debug("[FIXTURE] Fecha no parseada: '{}'", fechaTexto);
+                                        // Sin fecha no hay forma de reconocer un partido ya cargado, y
+                                        // guardarlo con la hora de la corrida lo dejaría con una fecha
+                                        // falsa que después no coincide con la real.
+                                        log.warn("[FIXTURE] Fecha no parseada: '{}' ({} vs {}). Se omite el partido.",
+                                                        fechaTexto, nombreLocal, nombreVisitante);
+                                        errores++;
+                                        continue;
                                 }
 
                                 EquipoReal local = buscarEquipoPorNombre(nombreLocal);
@@ -150,47 +180,49 @@ public class FixtureCrawlerService {
                                         continue;
                                 }
 
-                                final LocalDateTime fechaFinal = fechaHora;
+                                List<Partido> existentes = partidoRepo.findByEquiposYDia(
+                                                local.getId(), visitante.getId(),
+                                                fechaHora.toLocalDate().atStartOfDay(),
+                                                fechaHora.toLocalDate().plusDays(1).atStartOfDay());
 
-                                // El gesHash no sirve para saber si el partido ya existe (ver
-                                // PartidoRepository). Buscamos por equipos + día del partido; si
-                                // no se pudo parsear la fecha, caemos a buscar solo por equipos.
-                                Optional<Partido> existenteOpt = fechaFinal != null
-                                                ? partidoRepo.findByEquipoLocal_IdAndEquipoVisitante_IdAndFechaHoraGreaterThanEqualAndFechaHoraLessThan(
-                                                                local.getId(), visitante.getId(),
-                                                                fechaFinal.toLocalDate().atStartOfDay(),
-                                                                fechaFinal.toLocalDate().plusDays(1).atStartOfDay())
-                                                : partidoRepo.findByEquipoLocal_IdAndEquipoVisitante_Id(
-                                                                local.getId(), visitante.getId());
+                                if (existentes.isEmpty()) {
+                                        partidoRepo.save(Partido.builder()
+                                                        .jornada(jornada)
+                                                        .equipoLocal(local)
+                                                        .equipoVisitante(visitante)
+                                                        .gesHash(hash)
+                                                        .gesUrl(urlFull)
+                                                        .fechaHora(fechaHora)
+                                                        .estado(EstadoPartido.PROGRAMADO)
+                                                        .estadisticasProcesadas(false)
+                                                        .build());
+                                        log.info("[FIXTURE] Nuevo partido: {} vs {} ({})", local.getNombre(),
+                                                        visitante.getNombre(), fechaHora);
+                                        nuevos++;
+                                        continue;
+                                }
 
-                                existenteOpt.ifPresentOrElse(
-                                                existente -> {
-                                                        existente.setFechaHora(fechaFinal != null ? fechaFinal
-                                                                        : existente.getFechaHora());
-                                                        existente.setGesHash(hash);
-                                                        existente.setGesUrl(urlFull);
-                                                        partidoRepo.save(existente);
-                                                        log.debug("[FIXTURE] Actualizado: {} vs {}", local.getNombre(),
-                                                                        visitante.getNombre());
-                                                },
-                                                () -> {
-                                                        Partido nuevo = Partido.builder()
-                                                                        .jornada(jornada)
-                                                                        .equipoLocal(local)
-                                                                        .equipoVisitante(visitante)
-                                                                        .gesHash(hash)
-                                                                        .gesUrl(urlFull)
-                                                                        .fechaHora(fechaFinal != null ? fechaFinal
-                                                                                        : LocalDateTime.now())
-                                                                        .estado(EstadoPartido.PROGRAMADO)
-                                                                        .estadisticasProcesadas(false)
-                                                                        .build();
-                                                        partidoRepo.save(nuevo);
-                                                        log.info("[FIXTURE] Nuevo partido: {} vs {}", local.getNombre(),
-                                                                        visitante.getNombre());
-                                                });
+                                // Duplicados de corridas viejas (antes de identificar el partido por
+                                // equipos + día): se actualiza el más antiguo y se avisa de los demás.
+                                // Borrarlos a mano es decisión del admin: pueden tener estadísticas.
+                                if (existentes.size() > 1) {
+                                        log.warn("[FIXTURE] {} vs {} del {} está duplicado en la base (ids {}). "
+                                                        + "Se actualiza solo el id {}; borrá los demás desde el admin.",
+                                                        local.getNombre(), visitante.getNombre(), fechaHora.toLocalDate(),
+                                                        existentes.stream().map(Partido::getId).toList(),
+                                                        existentes.get(0).getId());
+                                }
 
-                                nuevos++;
+                                Partido existente = existentes.get(0);
+                                LocalDateTime horaAnterior = existente.getFechaHora();
+
+                                if (actualizarHora(existente, fechaHora)) {
+                                        log.info("[FIXTURE] Hora actualizada: {} vs {} ({} -> {})", local.getNombre(),
+                                                        visitante.getNombre(), horaAnterior, fechaHora);
+                                        actualizados++;
+                                } else {
+                                        sinCambios++;
+                                }
 
                         } catch (Exception e) {
                                 log.error("[FIXTURE] Error en fila: {}", e.getMessage());
@@ -198,8 +230,23 @@ public class FixtureCrawlerService {
                         }
                 }
 
-                log.info("[FIXTURE] Sincronización terminada. Procesados: {} | Errores: {}", nuevos, errores);
-                return new FixtureResultado(nuevos, 0, errores);
+                return new FixtureResultado(nuevos, actualizados, sinCambios, errores);
+        }
+
+        /**
+         * Corrige la hora de un partido ya cargado.
+         *
+         * @return true si el partido cambió (y se guardó)
+         */
+        private boolean actualizarHora(Partido existente, LocalDateTime fechaHora) {
+                if (existente.getEstado() == EstadoPartido.PROCESADO
+                                || fechaHora.equals(existente.getFechaHora())) {
+                        return false;
+                }
+
+                existente.setFechaHora(fechaHora);
+                partidoRepo.save(existente);
+                return true;
         }
 
         // ── Extrae datos del partido desde el elemento del link ──────────────────
@@ -279,6 +326,12 @@ public class FixtureCrawlerService {
                 return null;
         }
 
-        public record FixtureResultado(int nuevos, int actualizados, int errores) {
+        /**
+         * @param nuevos       partidos que no estaban en la base y se crearon
+         * @param actualizados partidos ya cargados a los que se les corrigió la hora
+         * @param sinCambios   partidos ya cargados que no necesitaban nada
+         * @param errores      filas que no se pudieron procesar (equipo o fecha no resueltos)
+         */
+        public record FixtureResultado(int nuevos, int actualizados, int sinCambios, int errores) {
         }
 }

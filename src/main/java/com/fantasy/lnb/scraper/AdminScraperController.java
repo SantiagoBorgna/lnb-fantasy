@@ -50,6 +50,11 @@ public class AdminScraperController {
      * POST /api/admin/scraper/fixture/sincronizar
      * Carga los partidos de una jornada específica.
      * Body: { "jornadaId": 1, "urlFixture": "https://..." }
+     *
+     * Se puede volver a correr sobre el mismo fixture: los partidos que ya
+     * están cargados no se duplican, se les corrige la hora (por ejemplo
+     * cuando la LNB confirma un horario que estaba en 00:00). El resultado
+     * (nuevos / actualizados / sinCambios / errores) queda en el log.
      */
     @PostMapping("/fixture/sincronizar")
     public ResponseEntity<Map<String, Object>> sincronizarFixture(
@@ -59,9 +64,16 @@ public class AdminScraperController {
         String urlFixture = body.get("urlFixture").toString();
 
         CompletableFuture.runAsync(() -> {
-            FixtureCrawlerService.FixtureResultado resultado = fixtureCrawlerService.sincronizarFixture(jornadaId,
-                    urlFixture);
-            log.info("[ADMIN] Fixture cargado: {}", resultado);
+            // Sin este try/catch, una falla (por ejemplo la transacción revertida
+            // entera) se perdía en silencio dentro del CompletableFuture.
+            try {
+                FixtureCrawlerService.FixtureResultado resultado = fixtureCrawlerService.sincronizarFixture(
+                        jornadaId, urlFixture);
+                log.info("[ADMIN] Fixture cargado: {}", resultado);
+            } catch (Exception e) {
+                log.error("[ADMIN] Falló la sincronización del fixture de la jornada {}: {}",
+                        jornadaId, e.getMessage(), e);
+            }
         });
 
         return ResponseEntity.accepted().body(Map.of(
