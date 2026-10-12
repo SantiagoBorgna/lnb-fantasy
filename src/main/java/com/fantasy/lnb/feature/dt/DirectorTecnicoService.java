@@ -10,6 +10,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -31,38 +34,29 @@ public class DirectorTecnicoService {
         List<Partido> partidosJugados = partidoRepo
             .findByEstadoIn(List.of(EstadoPartido.FINALIZADO, EstadoPartido.PROCESADO));
 
+        // El promedio es por jornada, no por partido: si el equipo juega más de una vez en
+        // la jornada solo cuenta el primero, igual que en el puntaje del plantel. Se le
+        // delega el criterio al motor para que ambos salgan siempre del mismo partido.
+        Map<Long, List<Partido>> partidosPorJornada = partidosJugados.stream()
+            .collect(Collectors.groupingBy(p -> p.getJornada().getId()));
+
         for (DirectorTecnico dt : dts) {
             Long equipoId = dt.getEquipoReal().getId();
 
-            // Buscar partidos jugados de su equipo
-            List<Partido> partidos = partidosJugados.stream()
-                .filter(p -> p.getEquipoLocal().getId().equals(equipoId) || p.getEquipoVisitante().getId().equals(equipoId))
+            // Puntaje del DT en cada jornada en que su equipo tiene un partido con marcador
+            List<Double> puntajesPorJornada = partidosPorJornada.values().stream()
+                .map(partidosJornada -> motorPuntuacionPlantel.calcularPuntajeDtEnJornada(equipoId, partidosJornada))
+                .flatMap(Optional::stream)
                 .toList();
 
-            if (partidos.isEmpty()) {
+            if (puntajesPorJornada.isEmpty()) {
                 dt.setPromedioFantasy(0.0);
             } else {
-                double sumaPuntajes = 0.0;
-                int partidosValidos = 0;
-                
-                for (Partido p : partidos) {
-                    if (p.getPuntosLocal() == null || p.getPuntosVisitante() == null) continue;
-                    
-                    boolean esLocal = p.getEquipoLocal().getId().equals(equipoId);
-                    int puntosDT = esLocal ? p.getPuntosLocal() : p.getPuntosVisitante();
-                    int puntosRival = esLocal ? p.getPuntosVisitante() : p.getPuntosLocal();
-                    
-                    double puntajeDt = motorPuntuacionPlantel.calcularPuntajeDt(puntosDT, puntosRival);
-                    sumaPuntajes += puntajeDt;
-                    partidosValidos++;
-                }
-                
-                if (partidosValidos == 0) {
-                    dt.setPromedioFantasy(0.0);
-                } else {
-                    double promedio = sumaPuntajes / partidosValidos;
-                    dt.setPromedioFantasy(Math.round(promedio * 100.0) / 100.0);
-                }
+                double promedio = puntajesPorJornada.stream()
+                    .mapToDouble(Double::doubleValue)
+                    .average()
+                    .orElse(0.0);
+                dt.setPromedioFantasy(Math.round(promedio * 100.0) / 100.0);
             }
             actualizados++;
             dtRepo.save(dt);
