@@ -173,11 +173,15 @@ public class PlantelController {
          */
         @GetMapping("/equipo/{equipoId}/jornada/{jornadaId}")
         public ResponseEntity<PlantelDto> obtenerPlantelAjeno(
+                        @AuthenticationPrincipal UserDetails userDetails,
                         @PathVariable Long equipoId,
                         @PathVariable Long jornadaId,
                         @RequestParam(required = false) Long torneoId) {
 
-                return plantelService.obtenerPlantelAjeno(equipoId, jornadaId, torneoId)
+                Long usuarioId = usuarioResolver.resolverIdDesdeEmail(
+                                userDetails.getUsername());
+
+                return plantelService.obtenerPlantelAjeno(usuarioId, equipoId, jornadaId, torneoId)
                                 .map(ResponseEntity::ok)
                                 .orElse(ResponseEntity.noContent().build());
         }
@@ -189,12 +193,16 @@ public class PlantelController {
          */
         @GetMapping("/equipo/{equipoId}/estadisticas/{jornadaId}")
         public ResponseEntity<List<JugadorEstadisticaDto>> obtenerEstadisticasAjenas(
+                        @AuthenticationPrincipal UserDetails userDetails,
                         @PathVariable Long equipoId,
                         @PathVariable Long jornadaId,
                         @RequestParam(required = false) Long torneoId) {
 
+                Long usuarioId = usuarioResolver.resolverIdDesdeEmail(
+                                userDetails.getUsername());
+
                 return ResponseEntity.ok(
-                                plantelService.obtenerEstadisticasAjenas(equipoId, jornadaId, torneoId));
+                                plantelService.obtenerEstadisticasAjenas(usuarioId, equipoId, jornadaId, torneoId));
         }
 
         /**
@@ -203,10 +211,14 @@ public class PlantelController {
          */
         @GetMapping("/equipo/{equipoId}/actual")
         public ResponseEntity<PlantelDto> obtenerPlantelAjenoActual(
+                        @AuthenticationPrincipal UserDetails userDetails,
                         @PathVariable Long equipoId,
                         @RequestParam(required = false) Long torneoId) {
 
-                return plantelService.obtenerPlantelAjenoActual(equipoId, torneoId)
+                Long usuarioId = usuarioResolver.resolverIdDesdeEmail(
+                                userDetails.getUsername());
+
+                return plantelService.obtenerPlantelAjenoActual(usuarioId, equipoId, torneoId)
                                 .map(ResponseEntity::ok)
                                 .orElse(ResponseEntity.noContent().build());
         }
@@ -217,10 +229,14 @@ public class PlantelController {
          */
         @GetMapping("/equipo/{equipoId}/actual/estadisticas")
         public ResponseEntity<List<JugadorEstadisticaDto>> obtenerEstadisticasAjenasActual(
+                        @AuthenticationPrincipal UserDetails userDetails,
                         @PathVariable Long equipoId,
                         @RequestParam(required = false) Long torneoId) {
 
+                Long usuarioId = usuarioResolver.resolverIdDesdeEmail(
+                                userDetails.getUsername());
+
                 return ResponseEntity.ok(
-                                plantelService.obtenerEstadisticasAjenasActual(equipoId, torneoId));
+                                plantelService.obtenerEstadisticasAjenasActual(usuarioId, equipoId, torneoId));
         }
 }

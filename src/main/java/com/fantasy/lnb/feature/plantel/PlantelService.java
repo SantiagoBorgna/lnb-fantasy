@@ -20,6 +20,7 @@ import com.fantasy.lnb.feature.plantel.dto.JugadorEstadisticaDto;
 import com.fantasy.lnb.feature.plantel.dto.PlantelDto;
 import com.fantasy.lnb.feature.plantel.dto.TransferenciaRequest;
 import com.fantasy.lnb.feature.plantel.dto.TransferenciaResultadoDto;
+import com.fantasy.lnb.feature.torneo.TorneoEquipoRepository;
 import com.fantasy.lnb.feature.usuario.EquipoVirtual;
 import com.fantasy.lnb.feature.usuario.EquipoVirtualRepository;
 import com.fantasy.lnb.feature.usuario.OnboardingService;
@@ -44,6 +45,7 @@ public class PlantelService {
         private final JornadaRepository jornadaRepo;
         private final UsuarioRepository usuarioRepo;
         private final EquipoVirtualRepository equipoVirtualRepo;
+        private final TorneoEquipoRepository torneoEquipoRepo;
         private final JugadorPlantelRepository jugadorPlantelRepo;
         private final DirectorTecnicoRepository dtRepo;
         private final OnboardingService onboardingService;
@@ -198,11 +200,32 @@ public class PlantelService {
         }
 
         /**
+         * Solo se puede ver el equipo de otro jugador desde un torneo en el que el
+         * solicitante participa. El equipo propio siempre se puede consultar.
+         */
+        private void validarAccesoEquipoAjeno(Long usuarioId, Long equipoVirtualId, Long torneoId) {
+                EquipoVirtual propio = equipoVirtualRepo.findByUsuario_Id(usuarioId)
+                                .orElseThrow(() -> new IllegalStateException(
+                                                "Solo los participantes del torneo pueden ver el equipo de otros jugadores."));
+
+                if (propio.getId().equals(equipoVirtualId)) {
+                        return;
+                }
+
+                if (torneoId == null || !torneoEquipoRepo.existsByTorneo_IdAndEquipoVirtual_Id(torneoId, propio.getId())) {
+                        throw new IllegalStateException(
+                                        "Solo los participantes del torneo pueden ver el equipo de otros jugadores.");
+                }
+        }
+
+        /**
          * Devuelve el plantel de otro jugador para una jornada específica.
          * Requiere que la jornada esté EN_JUEGO o FINALIZADA por seguridad.
          */
         @Transactional(readOnly = true)
-        public Optional<PlantelDto> obtenerPlantelAjeno(Long equipoVirtualId, Long jornadaId, Long torneoId) {
+        public Optional<PlantelDto> obtenerPlantelAjeno(Long usuarioId, Long equipoVirtualId, Long jornadaId, Long torneoId) {
+                validarAccesoEquipoAjeno(usuarioId, equipoVirtualId, torneoId);
+
                 Jornada jornada = jornadaRepo.findById(jornadaId)
                                 .orElseThrow(() -> new IllegalArgumentException("Jornada no encontrada"));
                 
@@ -234,7 +257,9 @@ public class PlantelService {
          * Requiere que la jornada est EN_JUEGO o FINALIZADA por seguridad.
          */
         @Transactional(readOnly = true)
-        public List<JugadorEstadisticaDto> obtenerEstadisticasAjenas(Long equipoVirtualId, Long jornadaId, Long torneoId) {
+        public List<JugadorEstadisticaDto> obtenerEstadisticasAjenas(Long usuarioId, Long equipoVirtualId, Long jornadaId, Long torneoId) {
+                validarAccesoEquipoAjeno(usuarioId, equipoVirtualId, torneoId);
+
                 Jornada jornada = jornadaRepo.findById(jornadaId)
                                 .orElseThrow(() -> new IllegalArgumentException("Jornada no encontrada"));
                 
@@ -256,7 +281,9 @@ public class PlantelService {
         }
 
         @Transactional(readOnly = true)
-        public Optional<PlantelDto> obtenerPlantelAjenoActual(Long equipoVirtualId, Long torneoId) {
+        public Optional<PlantelDto> obtenerPlantelAjenoActual(Long usuarioId, Long equipoVirtualId, Long torneoId) {
+                validarAccesoEquipoAjeno(usuarioId, equipoVirtualId, torneoId);
+
                 EquipoVirtual equipo = equipoVirtualRepo.findById(equipoVirtualId)
                                 .orElseThrow(() -> new IllegalArgumentException("Equipo virtual no encontrado"));
                 
@@ -268,7 +295,9 @@ public class PlantelService {
         }
 
         @Transactional(readOnly = true)
-        public List<JugadorEstadisticaDto> obtenerEstadisticasAjenasActual(Long equipoVirtualId, Long torneoId) {
+        public List<JugadorEstadisticaDto> obtenerEstadisticasAjenasActual(Long usuarioId, Long equipoVirtualId, Long torneoId) {
+                validarAccesoEquipoAjeno(usuarioId, equipoVirtualId, torneoId);
+
                 EquipoVirtual equipo = equipoVirtualRepo.findById(equipoVirtualId)
                                 .orElseThrow(() -> new IllegalArgumentException("Equipo virtual no encontrado"));
                 
