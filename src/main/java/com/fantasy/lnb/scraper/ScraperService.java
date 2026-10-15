@@ -45,6 +45,26 @@ public class ScraperService {
     private static final Pattern STATS_PATTERN = Pattern.compile("EstadisticasComponente\\((\\{.*?\\}),\\s*'");
 
     /**
+     * https://.../laliga/partido/{hash}/local-vs-visitante → https://.../laliga/partido/estadisticas/{hash}
+     * (el iframe con la tabla). Respeta el prefijo de la liga: /laliga/, /laligaargentina/, ...
+     */
+    static String urlDeEstadisticas(String urlPartido) {
+        if (!urlPartido.contains("/partido/") || urlPartido.contains("/partido/estadisticas/")) {
+            return urlPartido;
+        }
+        try {
+            String[] partes = urlPartido.split("/partido/");
+            String gesId = partes[1].split("/")[0];
+            String url = partes[0] + "/partido/estadisticas/" + gesId;
+            log.info("[SCRAPER] URL detectada como cáscara. Re-escribiendo a la URL del iframe: {}", url);
+            return url;
+        } catch (Exception e) {
+            log.warn("[SCRAPER] Falló la re-escritura de URL, usando la original: {}", urlPartido);
+            return urlPartido;
+        }
+    }
+
+    /**
      * Descarga el HTML de la URL del partido, extrae los
      * <tr>
      * con stats
@@ -52,24 +72,9 @@ public class ScraperService {
      */
     public List<JugadorStatsDto> extraerEstadisticasDePartido(String urlPartido) {
 
-        // --- NUEVO: INTERCEPTOR DE IFRAMES ---
         // Si la URL es la "cáscara" general del partido, la transformamos para apuntar
         // directo a la tabla de estadísticas
-        if (urlPartido.contains("/partido/") && !urlPartido.contains("/partido/estadisticas/")) {
-            try {
-                // Separamos la URL. Ejemplo: https://.../partido/ID_DEL_PARTIDO/nombres-equipos
-                String[] partes = urlPartido.split("/partido/");
-                String idYSong = partes[1]; // Queda: "bHi-NtwpQM_q0vQEtnKdLQ==/regatas-c-vs-ferro"
-                String gesId = idYSong.split("/")[0]; // Queda: "bHi-NtwpQM_q0vQEtnKdLQ=="
-
-                // Armamos la URL secreta del Iframe
-                urlPartido = "https://www.laliganacional.com.ar/laliga/partido/estadisticas/" + gesId;
-                log.info("[SCRAPER] URL detectada como cáscara. Re-escribiendo a la URL del iframe: {}", urlPartido);
-            } catch (Exception e) {
-                log.warn("[SCRAPER] Falló la re-escritura de URL, usando la original: {}", urlPartido);
-            }
-        }
-        // --- FIN INTERCEPTOR ---
+        urlPartido = urlDeEstadisticas(urlPartido);
 
         List<JugadorStatsDto> resultado = new ArrayList<>();
         Document doc;

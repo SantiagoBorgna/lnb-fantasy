@@ -1,5 +1,6 @@
 package com.fantasy.lnb.scraper;
 
+import com.fantasy.lnb.config.LigaConfig;
 import com.fantasy.lnb.feature.equipo.EquipoReal;
 import com.fantasy.lnb.feature.equipo.EquipoRealRepository;
 import com.fantasy.lnb.feature.jornada.*;
@@ -27,8 +28,8 @@ public class FixtureCrawlerService {
         private final PartidoRepository partidoRepo;
         private final JornadaRepository jornadaRepo;
         private final EquipoRealRepository equipoRepo;
+        private final LigaConfig liga;
 
-        private static final String BASE_URL = "https://www.laliganacional.com.ar";
         private static final int TIMEOUT = 15_000;
 
         // El User-Agent realista para evadir el bloqueo de bots
@@ -36,8 +37,10 @@ public class FixtureCrawlerService {
 
         // Regex para extraer el hash de URLs como:
         // /laliga/partido/3VWwSYr-VWW2MsbRAzCHJVg==/la-union-fsa-vs-independiente-o
-        private static final Pattern HASH_PATTERN = Pattern.compile(
-                        "/laliga/partido/([^/]+)/[^/]+");
+        // (el prefijo depende de la liga: /laliga/, /laligaargentina/, ...)
+        private Pattern hashPattern() {
+                return Pattern.compile(Pattern.quote(liga.ruta("partido")) + "([^/]+)/[^/]+");
+        }
 
         /**
          * Escanea la URL del fixture/calendario de la LNB,
@@ -140,17 +143,17 @@ public class FixtureCrawlerService {
                                         fechaTexto = fila.select("td[class*='fecha-campo']").text().trim();
                                 }
 
-                                String hrefPartido = fila.select("a[href*='/laliga/partido/']").attr("href");
+                                String hrefPartido = fila.select("a[href*='" + liga.ruta("partido") + "']").attr("href");
 
                                 if (hrefPartido.isBlank())
                                         continue;
 
-                                Matcher m = HASH_PATTERN.matcher(hrefPartido);
+                                Matcher m = hashPattern().matcher(hrefPartido);
                                 if (!m.find())
                                         continue;
 
                                 String hash = m.group(1);
-                                String urlFull = hrefPartido.startsWith("http") ? hrefPartido : BASE_URL + hrefPartido;
+                                String urlFull = liga.urlAbsoluta(hrefPartido);
 
                                 if (fechaTexto.length() > 16) {
                                         fechaTexto = fechaTexto.substring(0, 16);
@@ -254,7 +257,7 @@ public class FixtureCrawlerService {
                         Element link, String hash, Jornada jornada) {
 
                 String href = link.attr("href");
-                String urlFull = href.startsWith("http") ? href : BASE_URL + href;
+                String urlFull = liga.urlAbsoluta(href);
 
                 // El slug del partido tiene formato: equipo-local-vs-equipo-visitante
                 // Ejemplo: /la-union-fsa-vs-independiente-o

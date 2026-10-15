@@ -1,5 +1,6 @@
 package com.fantasy.lnb.scraper;
 
+import com.fantasy.lnb.config.LigaConfig;
 import com.fantasy.lnb.feature.equipo.EquipoReal;
 import com.fantasy.lnb.feature.equipo.EquipoRealRepository;
 import com.fantasy.lnb.feature.mercado.EstadoJugador;
@@ -30,9 +31,8 @@ public class JugadorCrawlerService {
 
     private final JugadorRealRepository jugadorRepo;
     private final EquipoRealRepository equipoRepo;
+    private final LigaConfig liga;
 
-    private static final String BASE_URL = "https://www.laliganacional.com.ar";
-    private static final String URL_FIXTURE = BASE_URL + "/laliga/fixture";
     private static final int TIMEOUT_MS = 15_000;
 
     // 1. User-Agent realista para evadir el bloqueo de bots (Error 404/Empty)
@@ -91,13 +91,13 @@ public class JugadorCrawlerService {
     private Set<String> extraerUrlsEquipos() {
         Set<String> urls = new LinkedHashSet<>(); // LinkedHashSet mantiene orden de inserción
         try {
-            Document doc = Jsoup.connect(URL_FIXTURE)
+            Document doc = Jsoup.connect(liga.urlFixture())
                     .userAgent(REAL_USER_AGENT) // Usamos el User-Agent realista
                     .timeout(TIMEOUT_MS)
                     .get();
 
             // 2. Selector más robusto por atributo en lugar de clases css
-            Elements links = doc.select("a[href*='/laliga/equipo/']");
+            Elements links = doc.select("a[href*='" + liga.ruta("equipo") + "']");
 
             for (Element link : links) {
                 String href = link.attr("href").trim();
@@ -107,7 +107,7 @@ public class JugadorCrawlerService {
                 // 3. Transformar la URL para ir a la lista de jugadores y no a la home del club
                 href = href.replace("/inicio", "/roster");
 
-                String url = href.startsWith("http") ? href : BASE_URL + href;
+                String url = liga.urlAbsoluta(href);
                 urls.add(url); // Set elimina duplicados automáticamente
             }
 
@@ -135,11 +135,11 @@ public class JugadorCrawlerService {
 
         // Buscar links a perfiles de jugadores
         // Formato esperado: /laliga/jugador/{idLiga}/{idEquipo}/{idJugador}/{slug}
-        Elements linksJugadores = docEquipo.select("a[href*='/laliga/jugador/']");
+        Elements linksJugadores = docEquipo.select("a[href*='" + liga.ruta("jugador") + "']");
 
         for (Element link : linksJugadores) {
             String href = link.attr("href");
-            String url = href.startsWith("http") ? href : BASE_URL + href;
+            String url = liga.urlAbsoluta(href);
 
             // Extraer gesId del path: /laliga/jugador/XXXX/YYYY/GESID/slug
             try {

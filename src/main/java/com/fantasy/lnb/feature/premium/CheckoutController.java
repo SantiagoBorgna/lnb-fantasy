@@ -19,12 +19,17 @@ public class CheckoutController {
 
     private final CheckoutService checkoutService;
     private final UsuarioResolver usuarioResolver;
+    private final PremiumCompartidoService premiumCompartido;
 
     @PostMapping("/checkout")
     public ResponseEntity<?> createCheckout(@AuthenticationPrincipal UserDetails userDetails,
                                              @RequestBody Map<String, String> body) {
         if (userDetails == null) {
             return ResponseEntity.status(401).body(Map.of("error", "No autorizado"));
+        }
+        if (premiumCompartido.esCompartido()) {
+            // En esta liga el Premium se compra desde la Liga Nacional
+            return ResponseEntity.status(409).body(Map.of("error", "El Premium se compra desde la Liga Nacional"));
         }
 
         String payerEmail = body != null ? body.get("email") : null;

@@ -1,5 +1,6 @@
 package com.fantasy.lnb.feature.torneo;
 
+import com.fantasy.lnb.config.LigaConfig;
 import com.fantasy.lnb.feature.torneo.dto.CrearTorneoRequest;
 import com.fantasy.lnb.feature.torneo.dto.EditarTorneoRequest;
 import com.fantasy.lnb.feature.torneo.dto.EnfrentamientoDto;
@@ -28,6 +29,7 @@ import java.util.UUID;
 public class TorneoService {
 
         private final TorneoRepository torneoRepo;
+        private final LigaConfig liga;
         private final TorneoEquipoRepository torneoEquipoRepo;
         private final UsuarioRepository usuarioRepo;
         private final EquipoVirtualRepository equipoVirtualRepo;
@@ -260,7 +262,7 @@ public class TorneoService {
                                 .maxParticipantes(t.getMaxParticipantes())
                                 .codigoInvitacion(t.getCodigoInvitacion())
                                 .urlInvitacion(frontendUrl + "/u/"
-                                                + t.getCodigoInvitacion())
+                                                + t.getCodigoInvitacion() + "?liga=" + liga.getId())
                                 .creadorNombre(t.getCreador().getNombreDisplay())
                                 .cantidadParticipantes(t.cantidadParticipantes())
                                 .creadoEn(t.getCreadoEn())

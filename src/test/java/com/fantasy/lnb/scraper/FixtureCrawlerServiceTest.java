@@ -1,5 +1,6 @@
 package com.fantasy.lnb.scraper;
 
+import com.fantasy.lnb.config.LigaConfig;
 import com.fantasy.lnb.feature.equipo.EquipoReal;
 import com.fantasy.lnb.feature.equipo.EquipoRealRepository;
 import com.fantasy.lnb.feature.jornada.EstadoPartido;
@@ -53,9 +54,7 @@ class FixtureCrawlerServiceTest {
     @BeforeEach
     void setUp() {
         partidoRepo = mock(PartidoRepository.class);
-        EquipoRealRepository equipoRepo = mock(EquipoRealRepository.class);
-        when(equipoRepo.findByNombreIgnoreCase("RACING (CH)")).thenReturn(java.util.Optional.of(racing));
-        when(equipoRepo.findByNombreIgnoreCase("BOCA")).thenReturn(java.util.Optional.of(boca));
+        EquipoRealRepository equipoRepo = equipoRepoConRacingYBoca();
 
         when(partidoRepo.findByEquiposYDia(anyLong(), anyLong(), any(), any())).thenAnswer(inv -> {
             Long local = inv.getArgument(0);
@@ -79,7 +78,7 @@ class FixtureCrawlerServiceTest {
             return p;
         });
 
-        crawler = new FixtureCrawlerService(partidoRepo, mock(JornadaRepository.class), equipoRepo);
+        crawler = new FixtureCrawlerService(partidoRepo, mock(JornadaRepository.class), equipoRepo, LigaConfig.ligaNacional());
     }
 
     @Test
@@ -214,7 +213,39 @@ class FixtureCrawlerServiceTest {
         assertEquals(new FixtureResultado(0, 0, 0, 0), crawler.procesarFilas(conEncabezado, jornada));
     }
 
+    @Test
+    void enLaLigaArgentinaLeeLosLinksDeSuPropiaRuta() {
+        FixtureCrawlerService crawlerLa = new FixtureCrawlerService(partidoRepo, mock(JornadaRepository.class),
+                equipoRepoConRacingYBoca(),
+                new LigaConfig("liga-argentina", "Liga Argentina", "laligaargentina", "https://www.laliganacional.com.ar"));
+
+        FixtureResultado r = crawlerLa.procesarFilas(
+                filas(fila("RACING (CH)", "BOCA", "23/10/2026 21:00", "laligaargentina")), jornada);
+
+        assertEquals(new FixtureResultado(1, 0, 0, 0), r);
+        Partido creado = enBase.get(0);
+        assertEquals("HASH-DE-LA-CARGA-1==", creado.getGesHash());
+        assertEquals("https://www.laliganacional.com.ar/laligaargentina/partido/HASH-DE-LA-CARGA-1==/x-vs-y",
+                creado.getGesUrl());
+    }
+
+    @Test
+    void laLigaNacionalIgnoraLinksDeOtraLiga() {
+        FixtureResultado r = crawler.procesarFilas(
+                filas(fila("RACING (CH)", "BOCA", "23/10/2026 21:00", "laligaargentina")), jornada);
+
+        assertEquals(new FixtureResultado(0, 0, 0, 0), r);
+        assertEquals(0, enBase.size());
+    }
+
     // ── helpers ──────────────────────────────────────────────────────────────
+
+    private EquipoRealRepository equipoRepoConRacingYBoca() {
+        EquipoRealRepository equipoRepo = mock(EquipoRealRepository.class);
+        when(equipoRepo.findByNombreIgnoreCase("RACING (CH)")).thenReturn(java.util.Optional.of(racing));
+        when(equipoRepo.findByNombreIgnoreCase("BOCA")).thenReturn(java.util.Optional.of(boca));
+        return equipoRepo;
+    }
 
     private Partido partidoEnBase(LocalDateTime fechaHora, EstadoPartido estado) {
         Partido p = Partido.builder()
@@ -241,15 +272,19 @@ class FixtureCrawlerServiceTest {
      * la LNB. El hash del link cambia en cada llamada, como en la página real.
      */
     private String fila(String local, String visitante, String fechaHora) {
+        return fila(local, visitante, fechaHora, "laliga");
+    }
+
+    private String fila(String local, String visitante, String fechaHora, String slugLiga) {
         return """
                 <tr class="fila-tabla-calendarios datos-estadisticos">
-                  <td class="text-start celda-nombre"><a class="equipo" href="/laliga/equipo/1/1/x/inicio"><strong class="nombre-equipo">%s</strong></a></td>
+                  <td class="text-start celda-nombre"><a class="equipo" href="/%5$s/equipo/1/1/x/inicio"><strong class="nombre-equipo">%1$s</strong></a></td>
                   <td class="resultados"><strong>0</strong></td>
                   <td class="resultados"><strong>0</strong></td>
-                  <td class="text-end celda-nombre"><a class="equipo" href="/laliga/equipo/2/2/y/inicio"><strong class="nombre-equipo">%s</strong></a></td>
-                  <td class="fecha-campo text-start"><strong>%s</strong><small>GRILON ARENA</small></td>
-                  <td class="celda-estadisticas"><a class="btn-estadisticas" href="/laliga/partido/HASH-DE-LA-CARGA-%d==/x-vs-y" title="Ver estadísticas">stats</a></td>
+                  <td class="text-end celda-nombre"><a class="equipo" href="/%5$s/equipo/2/2/y/inicio"><strong class="nombre-equipo">%2$s</strong></a></td>
+                  <td class="fecha-campo text-start"><strong>%3$s</strong><small>GRILON ARENA</small></td>
+                  <td class="celda-estadisticas"><a class="btn-estadisticas" href="/%5$s/partido/HASH-DE-LA-CARGA-%4$d==/x-vs-y" title="Ver estadísticas">stats</a></td>
                 </tr>
-                """.formatted(local, visitante, fechaHora, ++cargasDeLaPagina);
+                """.formatted(local, visitante, fechaHora, ++cargasDeLaPagina, slugLiga);
     }
 }
