@@ -2,6 +2,7 @@ package com.fantasy.lnb.feature.ranking;
 
 import com.fantasy.lnb.feature.plantel.PlantelJornada;
 import com.fantasy.lnb.feature.plantel.PlantelJornadaRepository;
+import com.fantasy.lnb.feature.ranking.dto.MiResumenJornadaDto;
 import com.fantasy.lnb.feature.ranking.dto.PosicionGlobalDto;
 import com.fantasy.lnb.feature.usuario.EquipoVirtual;
 import com.fantasy.lnb.feature.usuario.EquipoVirtualRepository;
@@ -178,5 +179,53 @@ public class RankingService {
                     return ev != null && ev.getId().equals(p.getEquipoVirtualId());
                 })
                 .findFirst();
+    }
+
+    /**
+     * Resumen de la jornada del usuario (modo clásico global) para la tarjeta compartible.
+     * A diferencia de obtenerRankingJornada no tiene tope de 100/500: el puesto se calcula
+     * sobre todos los planteles de la fecha. Solo para jornadas FINALIZADAS.
+     */
+    @Transactional(readOnly = true)
+    public Optional<MiResumenJornadaDto> obtenerMiResumenJornada(Long usuarioId, Long jornadaId) {
+        Optional<PlantelJornada> miPlantelOpt = plantelJornadaRepo
+                .findByUsuario_IdAndJornada_IdAndTorneoIsNull(usuarioId, jornadaId);
+        if (miPlantelOpt.isEmpty() || !miPlantelOpt.get().getJornada().estaFinalizada()) {
+            return Optional.empty();
+        }
+
+        PlantelJornada miPlantel = miPlantelOpt.get();
+        double miPuntaje = valor(miPlantel.getPuntajeObtenidoFecha());
+
+        List<PlantelJornada> planteles = plantelJornadaRepo.findByJornada_IdAndTorneoIsNull(jornadaId);
+        long mejoresEnLaFecha = planteles.stream()
+                .filter(p -> valor(p.getPuntajeObtenidoFecha()) > miPuntaje)
+                .count();
+
+        EquipoVirtual equipo = equipoVirtualRepo.findByUsuario_Id(usuarioId).orElse(null);
+        Double puntajeGlobal = equipo != null ? valor(equipo.getPuntajeGlobal()) : null;
+        Integer posicionGlobal = puntajeGlobal != null
+                ? (int) equipoVirtualRepo.countByPuntajeGlobalGreaterThan(puntajeGlobal) + 1
+                : null;
+
+        Usuario usuario = miPlantel.getUsuario();
+        String colorFavorito = usuario.getEquipoFavorito() != null
+                ? usuario.getEquipoFavorito().getColorPrincipal()
+                : null;
+
+        return Optional.of(MiResumenJornadaDto.builder()
+                .jornadaNumero(miPlantel.getJornada().getNumero())
+                .nombreEquipo(equipo != null ? equipo.getNombre() : null)
+                .puntajeFecha(miPuntaje)
+                .posicionFecha((int) mejoresEnLaFecha + 1)
+                .totalParticipantesFecha(planteles.size())
+                .posicionGlobal(posicionGlobal)
+                .puntajeGlobal(puntajeGlobal)
+                .equipoFavoritoColor(colorFavorito)
+                .build());
+    }
+
+    private static double valor(Double puntaje) {
+        return puntaje != null ? puntaje : 0.0;
     }
 }

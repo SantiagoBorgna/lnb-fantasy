@@ -1,5 +1,6 @@
 package com.fantasy.lnb.feature.ranking;
 
+import com.fantasy.lnb.feature.ranking.dto.MiResumenJornadaDto;
 import com.fantasy.lnb.feature.ranking.dto.PosicionGlobalDto;
 import com.fantasy.lnb.feature.torneo.TorneoService;
 import com.fantasy.lnb.feature.torneo.dto.PosicionTorneoDto;
@@ -70,6 +71,30 @@ public class RankingController {
             @RequestParam(defaultValue = "100") int limite) {
         return ResponseEntity.ok(
                 rankingService.obtenerRankingJornada(jornadaId, limite));
+    }
+
+    /**
+     * GET /api/ranking/jornada/{jornadaId}/mi-resumen
+     * Puntaje y puestos (fecha y general) del usuario autenticado en una jornada finalizada.
+     * Lo usa la tarjeta "Compartí tu jornada". 204 si no jugó esa jornada o no terminó.
+     */
+    @GetMapping("/jornada/{jornadaId}/mi-resumen")
+    public ResponseEntity<MiResumenJornadaDto> miResumenJornada(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long jornadaId) {
+
+        if (userDetails == null) {
+            return ResponseEntity.status(401).build();
+        }
+
+        var userOpt = usuarioRepository.findByEmail(userDetails.getUsername());
+        if (userOpt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        return rankingService.obtenerMiResumenJornada(userOpt.get().getId(), jornadaId)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.noContent().build());
     }
 
     /**
