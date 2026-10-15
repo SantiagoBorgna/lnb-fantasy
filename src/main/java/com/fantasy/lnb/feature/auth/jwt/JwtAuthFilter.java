@@ -1,6 +1,7 @@
 package com.fantasy.lnb.feature.auth.jwt;
 
-import com.fantasy.lnb.feature.usuario.UsuarioRepository;
+import com.fantasy.lnb.feature.auth.AltaDesdeTokenService;
+import com.fantasy.lnb.feature.premium.PremiumCompartidoService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -26,7 +27,8 @@ import java.util.List;
 public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
-    private final UsuarioRepository usuarioRepository;
+    private final AltaDesdeTokenService altaDesdeToken;
+    private final PremiumCompartidoService premiumCompartido;
     private final TokenRevocadoRepository tokenRevocadoRepo;
 
     @Override
@@ -64,11 +66,16 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         if (SecurityContextHolder.getContext().getAuthentication() == null) {
             String email = jwtService.extraerEmail(token);
 
+            var rol = jwtService.extraerRol(token);
+
             // Verificamos que el usuario todavía exista en nuestra BD
-            usuarioRepository.findByEmail(email).ifPresent(usuario -> {
+            // (en otra liga que no sea la Liga Nacional, la primera vez se lo da de alta)
+            altaDesdeToken.buscarOCrear(email, jwtService.extraerNombre(token), rol).ifPresent(usuario -> {
+
+                premiumCompartido.sincronizar(usuario, token);
 
                 // Construir authorities con el rol del token
-                String rolStr = jwtService.extraerRol(token).name(); // "USER" o "ADMIN"
+                String rolStr = rol.name(); // "USER" o "ADMIN"
                 var authority = new SimpleGrantedAuthority("ROLE_" + rolStr);
 
                 var userDetails = User.withUsername(usuario.getEmail())

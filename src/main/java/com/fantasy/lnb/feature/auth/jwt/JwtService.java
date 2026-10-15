@@ -91,6 +91,10 @@ public class JwtService {
         return parsearClaims(token).getSubject();
     }
 
+    public String extraerNombre(String token) {
+        return parsearClaims(token).get("nombre", String.class);
+    }
+
     public Long extraerUsuarioId(String token) {
         return parsearClaims(token).get("id", Long.class);
     }

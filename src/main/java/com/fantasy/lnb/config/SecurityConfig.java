@@ -52,6 +52,7 @@ public class SecurityConfig {
                                                 // ── Rutas completamente públicas ─────────────────────────────
                                                 .requestMatchers(
                                                                 "/api/auth/login",
+                                                                "/api/config",
                                                                 "/login/**",
                                                                 "/oauth2/**",
                                                                 "/api/webhooks/**",
