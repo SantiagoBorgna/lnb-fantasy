@@ -71,8 +71,9 @@ public class RankingService {
                 .toList();
     }
 
+    // El límite va en la clave: si no, el primer pedido fijaba el tamaño de la lista para todos
     @Transactional(readOnly = true)
-    @org.springframework.cache.annotation.Cacheable(value = "ranking_jornada", key = "#jornadaId")
+    @org.springframework.cache.annotation.Cacheable(value = "ranking_jornada", key = "#jornadaId + '_' + #limite")
     public List<PosicionGlobalDto> obtenerRankingJornada(Long jornadaId, int limite) {
         int limiteSeguro = Math.min(limite, 500);
         AtomicInteger posicion = new AtomicInteger(1);
@@ -114,7 +115,7 @@ public class RankingService {
     }
 
     @Transactional(readOnly = true)
-    @org.springframework.cache.annotation.Cacheable(value = "ranking_jornada_torneo", key = "#torneoId + '_' + #jornadaId")
+    @org.springframework.cache.annotation.Cacheable(value = "ranking_jornada_torneo", key = "#torneoId + '_' + #jornadaId + '_' + #limite")
     public List<PosicionGlobalDto> obtenerRankingJornadaTorneo(Long torneoId, Long jornadaId, int limite) {
         Torneo torneo = torneoRepo.findById(torneoId).orElseThrow();
         int limiteSeguro = Math.min(limite, 500);
@@ -168,17 +169,37 @@ public class RankingService {
                 .toList();
     }
 
+    /**
+     * Posición del usuario en el ranking global. Se calcula contando cuántos equipos
+     * tienen más puntos, así funciona sin importar la cantidad de usuarios
+     * (antes buscaba dentro del top 500 y más abajo no devolvía nada).
+     */
     @Transactional(readOnly = true)
     public Optional<PosicionGlobalDto> obtenerMiPosicion(Long usuarioId) {
-        List<PosicionGlobalDto> ranking = obtenerRankingGlobal(500);
-        return ranking.stream()
-                .filter(p -> {
-                    // Comparamos por equipoVirtualId
-                    EquipoVirtual ev = equipoVirtualRepo
-                            .findByUsuario_Id(usuarioId).orElse(null);
-                    return ev != null && ev.getId().equals(p.getEquipoVirtualId());
-                })
-                .findFirst();
+        Optional<EquipoVirtual> equipoOpt = equipoVirtualRepo.findByUsuario_Id(usuarioId);
+        if (equipoOpt.isEmpty()) return Optional.empty();
+
+        EquipoVirtual ev = equipoOpt.get();
+        double puntaje = valor(ev.getPuntajeGlobal());
+        int posicion = (int) equipoVirtualRepo.countByPuntajeGlobalGreaterThan(puntaje) + 1;
+
+        Usuario u = ev.getUsuario();
+        String sigla = "";
+        String color = "";
+        if (u != null && u.getEquipoFavorito() != null) {
+            sigla = u.getEquipoFavorito().getSigla();
+            color = u.getEquipoFavorito().getColorPrincipal();
+        }
+
+        return Optional.of(PosicionGlobalDto.builder()
+                .posicion(posicion)
+                .nombreEquipo(ev.getNombre())
+                .nombreUsuario(u != null ? u.getNombreDisplay() : null)
+                .equipoFavoritoSigla(sigla)
+                .equipoFavoritoColor(color)
+                .puntajeGlobal(ev.getPuntajeGlobal())
+                .equipoVirtualId(ev.getId())
+                .build());
     }
 
     /**
