@@ -15,4 +15,7 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
 
     // Búsqueda de usuarios premium vencidos
     java.util.List<Usuario> findByIsPremiumTrueAndPremiumHastaBefore(java.time.LocalDateTime now);
+
+    // Panel de admin: cuántos usuarios hay en cada etapa del onboarding
+    long countByEstadoOnboarding(EstadoOnboarding estado);
 }
