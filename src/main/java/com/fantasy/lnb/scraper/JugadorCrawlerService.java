@@ -20,6 +20,9 @@ import java.io.IOException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -56,9 +59,30 @@ public class JugadorCrawlerService {
         int actualizados = 0;
         int errores = 0;
 
+        // Pasada 1: bajar cada plantel una sola vez (el nombre del equipo sale del título)
+        Map<String, Document> planteles = new LinkedHashMap<>();
         for (String urlEquipo : urlsEquipos) {
             try {
-                List<JugadorExtraido> jugadores = extraerJugadoresDeEquipo(urlEquipo);
+                Document doc = Jsoup.connect(urlEquipo)
+                        .userAgent(REAL_USER_AGENT)
+                        .timeout(TIMEOUT_MS)
+                        .get();
+                planteles.put(nombreDelEquipo(doc), doc);
+                Thread.sleep(500); // Pausa entre requests para no sobrecargar GES
+            } catch (Exception e) {
+                log.error("[CRAWLER] Error cargando plantel {}: {}", urlEquipo, e.getMessage());
+                errores++;
+            }
+        }
+
+        // Todos los equipos, aunque todavía no tengan jugadores (ej. arranque de temporada),
+        // creados en orden alfabético para que los ids sigan ese orden
+        int equiposCreados = crearEquiposFaltantes(planteles.keySet());
+
+        // Pasada 2: jugadores de cada plantel
+        for (Map.Entry<String, Document> plantel : planteles.entrySet()) {
+            try {
+                List<JugadorExtraido> jugadores = extraerJugadoresDeEquipo(plantel.getKey(), plantel.getValue());
                 for (JugadorExtraido jugador : jugadores) {
                     try {
                         boolean esNuevo = persistirJugador(jugador);
@@ -72,17 +96,15 @@ public class JugadorCrawlerService {
                         errores++;
                     }
                 }
-                // Pausa entre requests para no sobrecargar GES
-                Thread.sleep(500);
             } catch (Exception e) {
                 log.error("[CRAWLER] Error procesando equipo {}: {}",
-                        urlEquipo, e.getMessage());
+                        plantel.getKey(), e.getMessage());
                 errores++;
             }
         }
 
-        log.info("[CRAWLER] Sincronización completada. Nuevos: {} | Actualizados: {} | Errores: {}",
-                nuevos, actualizados, errores);
+        log.info("[CRAWLER] Sincronización completada. Equipos creados: {} | Nuevos: {} | Actualizados: {} | Errores: {}",
+                equiposCreados, nuevos, actualizados, errores);
 
         return new SincronizacionResultado(nuevos, actualizados, errores);
     }
@@ -120,18 +142,9 @@ public class JugadorCrawlerService {
     }
 
     // ── Paso 2: extraer jugadores de la página del equipo ───────────────────
-    private List<JugadorExtraido> extraerJugadoresDeEquipo(String urlEquipo)
-            throws IOException, InterruptedException {
+    private List<JugadorExtraido> extraerJugadoresDeEquipo(String nombreEquipo, Document docEquipo) {
 
         List<JugadorExtraido> resultado = new ArrayList<>();
-
-        Document docEquipo = Jsoup.connect(urlEquipo)
-                .userAgent(REAL_USER_AGENT) // Usamos el User-Agent realista
-                .timeout(TIMEOUT_MS)
-                .get();
-
-        // Extraer nombre del equipo del título de la página
-        String nombreEquipo = docEquipo.title().split("\\|")[0].trim();
 
         // Buscar links a perfiles de jugadores
         // Formato esperado: /laliga/jugador/{idLiga}/{idEquipo}/{idJugador}/{slug}
@@ -203,24 +216,7 @@ public class JugadorCrawlerService {
         // Buscar o crear el EquipoReal automáticamente
         EquipoReal equipo = equipoRepo
                 .findByNombreIgnoreCase(datos.nombreEquipo)
-                .orElseGet(() -> {
-                    log.info("[CRAWLER] Equipo '{}' no encontrado. Creándolo automáticamente...", datos.nombreEquipo);
-
-                    EquipoReal nuevoEquipo = new EquipoReal();
-                    nuevoEquipo.setNombre(datos.nombreEquipo);
-
-                    // Armamos una sigla temporal con las primeras 3 letras
-                    String siglaTemporal = datos.nombreEquipo.replaceAll("[^a-zA-Z]", "");
-                    if (siglaTemporal.length() > 3)
-                        siglaTemporal = siglaTemporal.substring(0, 3);
-                    nuevoEquipo.setSigla(siglaTemporal.toUpperCase());
-
-                    // 👇 ACÁ ESTÁ LA MAGIA SALVADORA 👇
-                    nuevoEquipo.setColorPrincipal("#000000"); // Negro por defecto
-                    nuevoEquipo.setColorSecundario("#FFFFFF"); // Blanco por defecto
-
-                    return equipoRepo.save(nuevoEquipo);
-                });
+                .orElseGet(() -> equipoRepo.save(nuevoEquipo(datos.nombreEquipo)));
 
         if (equipo == null)
             return false;
@@ -271,6 +267,49 @@ public class JugadorCrawlerService {
                 .build();
         jugadorRepo.save(nuevo);
         return true; // Es nuevo
+    }
+
+    // ── Equipos ──────────────────────────────────────────────────────────────
+    /** Nombre del equipo a partir del título de su página ("NOMBRE | ..."). */
+    private static String nombreDelEquipo(Document docEquipo) {
+        return docEquipo.title().split("\\|")[0].trim();
+    }
+
+    /**
+     * Crea los equipos que todavía no existen, en orden alfabético (sin distinguir
+     * mayúsculas ni tildes), así los ids quedan en ese orden.
+     * @return cuántos se crearon
+     */
+    int crearEquiposFaltantes(Collection<String> nombres) {
+        java.text.Collator orden = java.text.Collator.getInstance(new java.util.Locale("es", "AR"));
+        orden.setStrength(java.text.Collator.PRIMARY);
+
+        int creados = 0;
+        for (String nombre : nombres.stream().filter(n -> !n.isBlank()).distinct().sorted(orden).toList()) {
+            if (equipoRepo.findByNombreIgnoreCase(nombre).isEmpty()) {
+                equipoRepo.save(nuevoEquipo(nombre));
+                creados++;
+            }
+        }
+        return creados;
+    }
+
+    /** Equipo nuevo con valores provisorios (sigla y colores se corrigen a mano). */
+    private EquipoReal nuevoEquipo(String nombre) {
+        log.info("[CRAWLER] Equipo '{}' no encontrado. Creándolo automáticamente...", nombre);
+
+        EquipoReal nuevoEquipo = new EquipoReal();
+        nuevoEquipo.setNombre(nombre);
+
+        // Sigla temporal con las primeras 3 letras
+        String siglaTemporal = nombre.replaceAll("[^a-zA-Z]", "");
+        if (siglaTemporal.length() > 3)
+            siglaTemporal = siglaTemporal.substring(0, 3);
+        nuevoEquipo.setSigla(siglaTemporal.toUpperCase());
+
+        nuevoEquipo.setColorPrincipal("#000000"); // Negro por defecto
+        nuevoEquipo.setColorSecundario("#FFFFFF"); // Blanco por defecto
+        return nuevoEquipo;
     }
 
     // ── Matching flexible de jugadores cargados a mano ──────────────────────
