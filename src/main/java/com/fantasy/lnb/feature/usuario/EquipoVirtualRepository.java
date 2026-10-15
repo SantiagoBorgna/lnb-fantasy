@@ -19,4 +19,7 @@ public interface EquipoVirtualRepository extends JpaRepository<EquipoVirtual, Lo
                 ORDER BY ev.puntajeGlobal DESC
             """)
     List<EquipoVirtual> findAllOrderByPuntajeGlobalDesc(Pageable pageable);
+
+    // Para calcular el puesto global de un equipo sin traer todo el ranking
+    long countByPuntajeGlobalGreaterThan(Double puntaje);
 }
