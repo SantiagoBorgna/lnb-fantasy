@@ -1,6 +1,7 @@
 package com.fantasy.lnb.feature.notificaciones;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -17,4 +18,8 @@ public interface SuscripcionPushRepository extends JpaRepository<SuscripcionPush
     // Opcional: Borrar todas las suscripciones de un usuario (para un "Cerrar
     // sesión global")
     void deleteByUsuarioId(Long usuarioId);
+
+    // Panel de admin: usuarios distintos con al menos un dispositivo suscripto
+    @Query("SELECT COUNT(DISTINCT s.usuario.id) FROM SuscripcionPush s")
+    long contarUsuariosConSuscripcion();
 }

@@ -5,6 +5,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import com.fantasy.lnb.feature.notificaciones.SuscripcionPushRepository;
+
 import java.util.Map;
 
 @RestController
@@ -13,6 +15,25 @@ import java.util.Map;
 public class AdminUsuarioController {
 
     private final UsuarioRepository usuarioRepo;
+    private final SuscripcionPushRepository suscripcionRepo;
+
+    /**
+     * GET /api/admin/usuarios/resumen
+     * Números para el panel de admin: registrados, cuántos terminaron el onboarding
+     * (ACTIVO) y cuántos tienen las notificaciones activadas.
+     */
+    @GetMapping("/resumen")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Map<String, Long>> resumen() {
+        long registrados = usuarioRepo.count();
+        long activos = usuarioRepo.countByEstadoOnboarding(EstadoOnboarding.ACTIVO);
+        return ResponseEntity.ok(Map.of(
+                "registrados", registrados,
+                "activos", activos,
+                "sinTerminarOnboarding", registrados - activos,
+                "usuariosConPush", suscripcionRepo.contarUsuariosConSuscripcion(),
+                "dispositivosPush", suscripcionRepo.count()));
+    }
 
     /**
      * PATCH /api/admin/usuarios/{id}/rol

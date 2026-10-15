@@ -121,14 +121,19 @@ public class PushNotificationService {
      * Envía una notificación push a todos los usuarios suscritos.
      */
     public void enviarNotificacionMasiva(String titulo, String mensaje) {
+        enviarNotificacionMasiva(titulo, mensaje, "/", "DEFAULT");
+    }
+
+    /**
+     * Igual que la anterior pero eligiendo a qué pantalla lleva al tocarla (url interna).
+     */
+    public void enviarNotificacionMasiva(String titulo, String mensaje, String url, String type) {
         List<SuscripcionPush> suscripciones = suscripcionRepo.findAll();
         log.info("[PUSH] Enviando notificación masiva a {} dispositivos", suscripciones.size());
-        
+
         for (SuscripcionPush sub : suscripciones) {
-            // Enviar de forma asincrónica usando un hilo o directamente (lo ideal sería usar @Async)
-            // Para simplicidad en este CronJob lo mandamos síncrono o se podría mandar en un Executor
-            // Pero como son notificaciones, vamos a mandarlas iterando.
-            enviarNotificacion(sub, titulo, mensaje);
+            // Se mandan de a una; quien necesite no bloquear (ej. el panel de admin) lo llama en otro hilo
+            enviarNotificacion(sub, titulo, mensaje, url, type);
         }
     }
 
