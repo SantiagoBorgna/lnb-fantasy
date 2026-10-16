@@ -11,6 +11,7 @@ import jakarta.persistence.EntityNotFoundException;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -33,6 +34,7 @@ public class AdminPartidosService {
         return partidoRepo.findAll();
     }
 
+    @CacheEvict(value = {"jornadas", "partidos"}, allEntries = true)
     @Transactional
     public Partido actualizarPartido(Long id, AdminPartidoRequest request) {
         Partido partido = partidoRepo.findById(id)
@@ -50,6 +52,7 @@ public class AdminPartidosService {
         return partidoRepo.save(partido);
     }
 
+    @CacheEvict(value = {"jornadas", "partidos"}, allEntries = true)
     @Transactional
     public Partido recalcularEstadisticas(Long id) {
         Partido partido = partidoRepo.findById(id)

@@ -4,6 +4,7 @@ import com.fantasy.lnb.feature.admin.dto.AdminJornadaRequest;
 import com.fantasy.lnb.feature.jornada.Jornada;
 import com.fantasy.lnb.feature.jornada.JornadaRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,6 +20,7 @@ public class AdminJornadasService {
         return jornadaRepository.findAll();
     }
 
+    @CacheEvict(value = {"jornadas", "partidos"}, allEntries = true)
     @Transactional
     public Jornada crearJornada(AdminJornadaRequest request) {
         Jornada jornada = Jornada.builder()
@@ -30,6 +32,7 @@ public class AdminJornadasService {
         return jornadaRepository.save(jornada);
     }
 
+    @CacheEvict(value = {"jornadas", "partidos"}, allEntries = true)
     @Transactional
     public Jornada actualizarJornada(Long id, AdminJornadaRequest request) {
         Jornada jornada = jornadaRepository.findById(id)
@@ -41,6 +44,7 @@ public class AdminJornadasService {
         return jornadaRepository.save(jornada);
     }
 
+    @CacheEvict(value = {"jornadas", "partidos"}, allEntries = true)
     @Transactional
     public void eliminarJornada(Long id) {
         if (!jornadaRepository.existsById(id)) {
