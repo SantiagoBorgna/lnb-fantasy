@@ -53,6 +53,7 @@ public class SecurityConfig {
                                                 .requestMatchers(
                                                                 "/api/auth/login",
                                                                 "/api/config",
+                                                                "/api/arrepentimiento",
                                                                 "/login/**",
                                                                 "/oauth2/**",
                                                                 "/api/webhooks/**",

@@ -144,6 +144,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
     private boolean esRutaAuth(String path) {
         return path.startsWith("/login")
                 || path.startsWith("/oauth2")
-                || path.startsWith("/api/auth");
+                || path.startsWith("/api/auth")
+                || path.startsWith("/api/arrepentimiento"); // formulario público: límite estricto contra spam
     }
 }
