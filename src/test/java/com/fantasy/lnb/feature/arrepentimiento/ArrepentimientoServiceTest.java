@@ -1,6 +1,7 @@
 package com.fantasy.lnb.feature.arrepentimiento;
 
 import com.fantasy.lnb.feature.arrepentimiento.dto.SolicitudArrepentimientoRequest;
+import com.fantasy.lnb.feature.email.EmailService;
 import com.fantasy.lnb.feature.notificaciones.PushNotificationService;
 import com.fantasy.lnb.feature.usuario.RolUsuario;
 import com.fantasy.lnb.feature.usuario.Usuario;
@@ -21,6 +22,7 @@ class ArrepentimientoServiceTest {
     private SolicitudArrepentimientoRepository repo;
     private UsuarioRepository usuarioRepo;
     private PushNotificationService push;
+    private EmailService email;
     private ArrepentimientoService service;
 
     @BeforeEach
@@ -28,6 +30,8 @@ class ArrepentimientoServiceTest {
         repo = mock(SolicitudArrepentimientoRepository.class);
         usuarioRepo = mock(UsuarioRepository.class);
         push = mock(PushNotificationService.class);
+        email = mock(EmailService.class);
+        when(email.getEmailAdmin()).thenReturn("admin@sexto.com");
         when(repo.save(any())).thenAnswer(inv -> {
             SolicitudArrepentimiento s = inv.getArgument(0);
             if (s.getId() == null) s.setId(123L);
@@ -35,7 +39,7 @@ class ArrepentimientoServiceTest {
         });
         when(usuarioRepo.findByEmail(anyString())).thenReturn(Optional.empty());
         when(usuarioRepo.findByRol(RolUsuario.ADMIN)).thenReturn(List.of());
-        service = new ArrepentimientoService(repo, usuarioRepo, push);
+        service = new ArrepentimientoService(repo, usuarioRepo, push, email);
     }
 
     private static SolicitudArrepentimientoRequest pedido(String email, LocalDate fecha, String motivo) {
@@ -71,6 +75,14 @@ class ArrepentimientoServiceTest {
         service.registrar(pedido("ana@gmail.com", null, null));
 
         verify(push).enviarNotificacionAUsuario(eq(admin), eq("Botón de arrepentimiento"), contains("ARR-000123"), eq("/admin"), anyString());
+    }
+
+    @Test
+    void mandaElAvisoAlAdminYLaConstanciaAQuienLoPidio() {
+        service.registrar(pedido("ana@gmail.com", null, "<script>x</script>"));
+
+        verify(email).enviar(eq("admin@sexto.com"), contains("ARR-000123"), contains("&lt;script&gt;"), eq("ana@gmail.com"));
+        verify(email).enviar(eq("ana@gmail.com"), contains("ARR-000123"), contains("ARR-000123"), eq("admin@sexto.com"));
     }
 
     @Test

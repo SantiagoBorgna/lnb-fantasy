@@ -1,6 +1,7 @@
 package com.fantasy.lnb.feature.arrepentimiento;
 
 import com.fantasy.lnb.feature.arrepentimiento.dto.SolicitudArrepentimientoRequest;
+import com.fantasy.lnb.feature.email.EmailService;
 import com.fantasy.lnb.feature.notificaciones.PushNotificationService;
 import com.fantasy.lnb.feature.usuario.RolUsuario;
 import com.fantasy.lnb.feature.usuario.Usuario;
@@ -26,6 +27,7 @@ public class ArrepentimientoService {
     private final SolicitudArrepentimientoRepository solicitudRepo;
     private final UsuarioRepository usuarioRepo;
     private final PushNotificationService pushNotificationService;
+    private final EmailService emailService;
 
     /** Registra el pedido y devuelve la solicitud guardada (con su código). */
     @Transactional
@@ -52,6 +54,7 @@ public class ArrepentimientoService {
 
         log.info("[ARREPENTIMIENTO] Nuevo pedido {} de {}", guardada.getCodigo(), email);
         avisarAdmins(guardada);
+        mandarMails(guardada);
         return guardada;
     }
 
@@ -69,6 +72,35 @@ public class ArrepentimientoService {
             solicitudRepo.save(s);
         }
         return s;
+    }
+
+    private static final java.time.format.DateTimeFormatter FECHA = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy");
+
+    // Aviso a nosotros (por si no se ve la push) y constancia por escrito a quien lo pidió
+    private void mandarMails(SolicitudArrepentimiento s) {
+        String email = EmailService.escapar(s.getEmail());
+        String fecha = s.getFechaContratacion() == null ? "sin dato" : s.getFechaContratacion().format(FECHA);
+        String motivo = s.getMotivo() == null ? "—" : EmailService.escapar(s.getMotivo());
+
+        emailService.enviar(emailService.getEmailAdmin(),
+                "Botón de arrepentimiento " + s.getCodigo() + " (" + s.getEmail() + ")",
+                "<p>Nuevo pedido de arrepentimiento de la suscripción Premium. Hay que responder dentro de las 24 h.</p>"
+                        + "<ul><li><b>Código:</b> " + s.getCodigo() + "</li>"
+                        + "<li><b>Email:</b> " + email + (s.getUsuarioId() == null ? " (no tiene cuenta con ese email)" : "") + "</li>"
+                        + "<li><b>Fecha de contratación:</b> " + fecha + "</li>"
+                        + "<li><b>Motivo:</b> " + motivo + "</li></ul>"
+                        + "<p>Cancelá la suscripción y devolvé el pago desde Mercado Pago, sacale el Premium y marcá el pedido como resuelto en Admin → Comunidad.</p>",
+                s.getEmail());
+
+        emailService.enviar(s.getEmail(),
+                "Recibimos tu pedido de arrepentimiento (" + s.getCodigo() + ")",
+                "<p>¡Hola!</p>"
+                        + "<p>Recibimos tu pedido para revocar la suscripción Premium de Sexto Hombre Fantasy.</p>"
+                        + "<p>Tu código de constancia es <b style=\"font-size:18px\">" + s.getCodigo() + "</b>.</p>"
+                        + "<p>Vamos a cancelar la suscripción y devolverte lo que pagaste por Mercado Pago. Te escribimos cuando esté hecho.</p>"
+                        + "<p>Si tenés alguna duda, respondé este mail o escribinos a " + emailService.getEmailAdmin() + ".</p>"
+                        + "<p>Sexto Hombre Fantasy</p>",
+                emailService.getEmailAdmin());
     }
 
     // El pedido hay que atenderlo rápido: se avisa a los admins (si falla, el pedido igual queda guardado)
