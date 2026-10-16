@@ -10,6 +10,7 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -53,6 +54,7 @@ public class FixtureCrawlerService {
          * @param jornadaId  ID de la jornada Fantasy a la que asignar los partidos nuevos
          * @param urlFixture URL de la página del fixture/calendario en GES
          */
+        @CacheEvict(value = {"jornadas", "partidos"}, allEntries = true)
         @Transactional
         public FixtureResultado sincronizarFixture(Long jornadaId, String urlFixture) {
                 log.info("[FIXTURE] Escaneando jornada {}: {}", jornadaId, urlFixture);
