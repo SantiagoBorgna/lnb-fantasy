@@ -18,4 +18,6 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
 
     // Panel de admin: cuántos usuarios hay en cada etapa del onboarding
     long countByEstadoOnboarding(EstadoOnboarding estado);
+
+    java.util.List<Usuario> findByRol(RolUsuario rol);
 }
