@@ -54,6 +54,7 @@ public class SecurityConfig {
                                                                 "/api/auth/login",
                                                                 "/api/config",
                                                                 "/api/arrepentimiento",
+                                                                "/api/nombres-equipo/libre",
                                                                 "/login/**",
                                                                 "/oauth2/**",
                                                                 "/api/webhooks/**",

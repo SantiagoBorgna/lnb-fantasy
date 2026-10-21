@@ -19,6 +19,7 @@ public class UsuarioService {
     private final EquipoVirtualRepository equipoVirtualRepo;
     private final EquipoRealRepository equipoRealRepo;
     private final OnboardingService onboardingService;
+    private final NombreEquipoService nombreEquipoService;
 
     @Transactional
     public UsuarioPerfilDto actualizarPerfil(Long usuarioId, ActualizarPerfilRequest request) {
@@ -32,6 +33,8 @@ public class UsuarioService {
 
         EquipoVirtual equipoVirtual = equipoVirtualRepo.findByUsuario_Id(usuarioId)
                 .orElseThrow(() -> new IllegalStateException("Equipo virtual no encontrado para usuario: " + usuarioId));
+
+        nombreEquipoService.validarDisponible(request.getNombreEquipo(), usuario.getEmail(), equipoVirtual.getNombre());
 
         // Actualizar datos
         usuario.setNombreDisplay(request.getNombreDisplay());

@@ -18,6 +18,7 @@ public class OnboardingService {
         private final UsuarioRepository usuarioRepo;
         private final EquipoVirtualRepository equipoVirtualRepo;
         private final EquipoRealRepository equipoRealRepo;
+        private final NombreEquipoService nombreEquipoService;
 
         // ── Paso 1: completar perfil ─────────────────────────────────────────────
         @Transactional
@@ -35,6 +36,11 @@ public class OnboardingService {
                                 .findById(request.getEquipoFavoritoId())
                                 .orElseThrow(() -> new IllegalArgumentException(
                                                 "Equipo no encontrado: " + request.getEquipoFavoritoId()));
+
+                nombreEquipoService.validarDisponible(
+                                request.getNombreEquipoVirtual(),
+                                usuario.getEmail(),
+                                equipoVirtualRepo.findByUsuario_Id(usuarioId).map(EquipoVirtual::getNombre).orElse(null));
 
                 // Actualizar equipo favorito
                 usuario.setEquipoFavorito(equipoFavorito);

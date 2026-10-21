@@ -20,6 +20,10 @@ public interface EquipoVirtualRepository extends JpaRepository<EquipoVirtual, Lo
             """)
     List<EquipoVirtual> findAllOrderByPuntajeGlobalDesc(Pageable pageable);
 
+    // Nombre de cada equipo con el email de su dueño (para el control de nombres repetidos)
+    @Query("SELECT ev.nombre, u.email FROM EquipoVirtual ev JOIN ev.usuario u")
+    List<Object[]> findNombresConEmail();
+
     // Para calcular el puesto global de un equipo sin traer todo el ranking
     long countByPuntajeGlobalGreaterThan(Double puntaje);
 }
