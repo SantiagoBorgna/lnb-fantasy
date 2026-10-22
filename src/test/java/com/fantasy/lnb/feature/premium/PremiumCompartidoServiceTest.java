@@ -20,6 +20,7 @@ class PremiumCompartidoServiceTest {
     private final AtomicLong ahora = new AtomicLong(1_000_000);
     private final AtomicInteger consultas = new AtomicInteger();
     private final AtomicReference<Optional<Boolean>> respuesta = new AtomicReference<>(Optional.of(true));
+    private final AtomicReference<String> avatar = new AtomicReference<>("");
     private Usuario usuario;
 
     @BeforeEach
@@ -32,7 +33,7 @@ class PremiumCompartidoServiceTest {
         return new PremiumCompartidoService(repo, fuenteUrl, token -> {
             consultas.incrementAndGet();
             assertEquals("TOKEN", token);
-            return respuesta.get();
+            return respuesta.get().map(p -> new PremiumCompartidoService.DatosLigaNacional(p, avatar.get()));
         }, ahora::get);
     }
 
@@ -101,5 +102,27 @@ class PremiumCompartidoServiceTest {
         ahora.addAndGet(1);
         s.sincronizar(usuario, "TOKEN");
         assertEquals(2, consultas.get());
+    }
+
+    @Test
+    void copiaLaFotoDePerfilDeLaLigaNacional() {
+        usuario.setPremium(true);
+        avatar.set("https://foto.example.com/yo.png");
+
+        servicio("https://lnb.example.com").sincronizar(usuario, "TOKEN");
+
+        assertEquals("https://foto.example.com/yo.png", usuario.getAvatarUrl());
+        verify(repo).save(usuario);
+    }
+
+    @Test
+    void siLaLigaNacionalNoTieneFotoNoBorraLaQueHabia() {
+        usuario.setPremium(true);
+        usuario.setAvatarUrl("https://foto.example.com/vieja.png");
+
+        servicio("https://lnb.example.com").sincronizar(usuario, "TOKEN");
+
+        assertEquals("https://foto.example.com/vieja.png", usuario.getAvatarUrl());
+        verify(repo, never()).save(any());
     }
 }

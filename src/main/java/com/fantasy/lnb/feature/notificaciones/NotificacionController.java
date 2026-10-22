@@ -50,4 +50,16 @@ public class NotificacionController {
         log.info("[DEBUG] Suscripción procesada exitosamente y retornando 200 OK.");
         return ResponseEntity.ok().build();
     }
+
+    @PostMapping("/desuscribir")
+    public ResponseEntity<Void> desuscribirDispositivo(
+            @RequestBody PushRequestDto request,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        if (request == null || request.getEndpoint() == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        usuarioRepository.findByEmail(userDetails.getUsername())
+                .ifPresent(usuario -> pushService.eliminarSuscripcion(usuario, request.getEndpoint()));
+        return ResponseEntity.noContent().build();
+    }
 }
