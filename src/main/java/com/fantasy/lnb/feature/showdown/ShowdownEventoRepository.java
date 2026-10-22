@@ -5,4 +5,5 @@ import java.util.Optional;
 
 public interface ShowdownEventoRepository extends JpaRepository<ShowdownEvento, Long> {
     Optional<ShowdownEvento> findByCodigoInscripcion(String codigoInscripcion);
+    boolean existsByPartido_Id(Long partidoId);
 }

@@ -71,6 +71,17 @@ public class PushNotificationService {
                 });
     }
 
+    /** Borra la suscripción de ese dispositivo, solo si es de este usuario. */
+    @Transactional
+    public void eliminarSuscripcion(Usuario usuario, String endpoint) {
+        suscripcionRepo.findByEndpoint(endpoint)
+                .filter(s -> s.getUsuario() != null && s.getUsuario().getId().equals(usuario.getId()))
+                .ifPresent(s -> {
+                    suscripcionRepo.delete(s);
+                    log.info("[PUSH] {} desactivó las notificaciones en un dispositivo", usuario.getEmail());
+                });
+    }
+
     /**
      * Envía una notificación push asíncrona a un dispositivo específico.
      */

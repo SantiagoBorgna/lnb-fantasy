@@ -6,6 +6,7 @@ import com.fantasy.lnb.feature.jornada.Jornada;
 import com.fantasy.lnb.feature.jornada.JornadaRepository;
 import com.fantasy.lnb.feature.jornada.Partido;
 import com.fantasy.lnb.feature.jornada.PartidoRepository;
+import com.fantasy.lnb.feature.showdown.ShowdownEventoRepository;
 import com.fantasy.lnb.scraper.ScraperCronJob;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,6 +26,7 @@ public class AdminPartidosService {
     private final JornadaRepository jornadaRepo;
     private final EstadisticaPartidoRepository estadisticaRepo;
     private final ScraperCronJob scraperCronJob;
+    private final ShowdownEventoRepository showdownRepo;
 
     @Transactional(readOnly = true)
     public List<Partido> listarPartidos(Long jornadaId) {
@@ -50,6 +52,31 @@ public class AdminPartidosService {
         partido.setPuntosVisitante(request.getPuntosVisitante());
 
         return partidoRepo.save(partido);
+    }
+
+    /**
+     * Borra un partido que no se va a jugar en su fecha (postergado sin fecha nueva).
+     * Cuando se reprograme, vuelve a aparecer al sincronizar el fixture de su nueva jornada.
+     * No se puede borrar si ya tiene estadísticas o un evento de Modo Estadio.
+     */
+    @CacheEvict(value = {"jornadas", "partidos"}, allEntries = true)
+    @Transactional
+    public void eliminarPartido(Long id) {
+        Partido partido = partidoRepo.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Partido no encontrado"));
+
+        if (Boolean.TRUE.equals(partido.getEstadisticasProcesadas())
+                || (partido.getGesHash() != null && !estadisticaRepo.findByGesPartidoId(partido.getGesHash()).isEmpty())) {
+            throw new IllegalStateException("El partido ya tiene estadísticas cargadas: no se puede eliminar.");
+        }
+        if (showdownRepo.existsByPartido_Id(id)) {
+            throw new IllegalStateException("El partido tiene un evento de Modo Estadio: eliminalo primero.");
+        }
+
+        partidoRepo.delete(partido);
+        log.info("[ADMIN] Partido eliminado: {} vs {} ({}) de la jornada {}",
+                partido.getEquipoLocal().getNombre(), partido.getEquipoVisitante().getNombre(),
+                partido.getFechaHora(), partido.getJornada().getNumero());
     }
 
     @CacheEvict(value = {"jornadas", "partidos"}, allEntries = true)

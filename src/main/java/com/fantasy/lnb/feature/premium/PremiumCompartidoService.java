@@ -24,6 +24,7 @@ import java.util.function.LongSupplier;
  * Un solo Premium para todas las ligas: se compra en la Liga Nacional y los demás backends
  * (con app.premium.fuente-url apuntando al backend de la Liga Nacional) se lo preguntan,
  * reenviando el token del usuario, y copian el resultado en su base.
+ * En la misma consulta se copia la foto de perfil, que no viaja en el token.
  *
  * Así el resto del código sigue usando usuario.isPremium() sin cambios.
  * Se consulta como mucho una vez cada {@link #CADA_MS} por usuario.
@@ -36,7 +37,7 @@ public class PremiumCompartidoService {
 
     private final UsuarioRepository usuarioRepository;
     private final String fuenteUrl;
-    private final Function<String, Optional<Boolean>> consulta;
+    private final Function<String, Optional<DatosLigaNacional>> consulta;
     private final LongSupplier reloj;
     private final Map<String, Long> ultimaConsulta = new ConcurrentHashMap<>();
 
@@ -50,8 +51,11 @@ public class PremiumCompartidoService {
         this(usuarioRepository, fuenteUrl, null, System::currentTimeMillis);
     }
 
+    /** Lo que se copia de la Liga Nacional. */
+    record DatosLigaNacional(boolean premium, String avatarUrl) {}
+
     PremiumCompartidoService(UsuarioRepository usuarioRepository, String fuenteUrl,
-            Function<String, Optional<Boolean>> consulta, LongSupplier reloj) {
+            Function<String, Optional<DatosLigaNacional>> consulta, LongSupplier reloj) {
         this.usuarioRepository = usuarioRepository;
         this.fuenteUrl = fuenteUrl == null ? "" : fuenteUrl.replaceAll("/+$", "");
         this.consulta = consulta != null ? consulta : this::consultarFuente;
@@ -63,7 +67,7 @@ public class PremiumCompartidoService {
         return !fuenteUrl.isBlank();
     }
 
-    /** Actualiza usuario.isPremium con lo que dice la Liga Nacional (si hace falta). */
+    /** Actualiza el Premium y la foto del usuario con lo que dice la Liga Nacional (si hace falta). */
     public void sincronizar(Usuario usuario, String token) {
         if (!esCompartido()) return;
 
@@ -72,18 +76,25 @@ public class PremiumCompartidoService {
         if (ultima != null && ahora - ultima < CADA_MS) return;
         ultimaConsulta.put(usuario.getEmail(), ahora);
 
-        Optional<Boolean> premium = consulta.apply(token);
-        if (premium.isEmpty()) return; // si la Liga Nacional no responde, dejamos lo que había
+        Optional<DatosLigaNacional> datos = consulta.apply(token);
+        if (datos.isEmpty()) return; // si la Liga Nacional no responde, dejamos lo que había
 
-        if (premium.get() != usuario.isPremium()) {
-            usuario.setPremium(premium.get());
-            usuarioRepository.save(usuario);
+        boolean cambio = false;
+        if (datos.get().premium() != usuario.isPremium()) {
+            usuario.setPremium(datos.get().premium());
+            cambio = true;
             log.info("[PREMIUM] {} ahora {} es Premium (según la Liga Nacional)",
-                    usuario.getEmail(), premium.get() ? "sí" : "no");
+                    usuario.getEmail(), datos.get().premium() ? "sí" : "no");
         }
+        String avatar = datos.get().avatarUrl();
+        if (avatar != null && !avatar.isBlank() && !avatar.equals(usuario.getAvatarUrl())) {
+            usuario.setAvatarUrl(avatar);
+            cambio = true;
+        }
+        if (cambio) usuarioRepository.save(usuario);
     }
 
-    private Optional<Boolean> consultarFuente(String token) {
+    private Optional<DatosLigaNacional> consultarFuente(String token) {
         try {
             HttpRequest req = HttpRequest.newBuilder(URI.create(fuenteUrl + "/api/auth/me"))
                     .header("Authorization", "Bearer " + token)
@@ -96,7 +107,9 @@ public class PremiumCompartidoService {
                 return Optional.empty();
             }
             JsonNode body = JSON.readTree(res.body());
-            return Optional.of(body.path("isPremium").asBoolean(false));
+            return Optional.of(new DatosLigaNacional(
+                    body.path("isPremium").asBoolean(false),
+                    body.path("avatarUrl").asText("")));
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             return Optional.empty();

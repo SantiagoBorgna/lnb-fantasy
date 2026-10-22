@@ -28,6 +28,12 @@ public class AdminPartidosController {
         return ResponseEntity.ok(adminPartidosService.actualizarPartido(id, request));
     }
 
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> eliminarPartido(@PathVariable Long id) {
+        adminPartidosService.eliminarPartido(id);
+        return ResponseEntity.noContent().build();
+    }
+
     @PostMapping("/{id}/scrape")
     public ResponseEntity<Partido> recalcularEstadisticas(@PathVariable Long id) {
         return ResponseEntity.ok(adminPartidosService.recalcularEstadisticas(id));
