@@ -12,5 +12,8 @@ WORKDIR /app
 # Copiamos el .jar compilado de la etapa anterior
 COPY --from=build /app/target/*.jar app.jar
 EXPOSE 8080
+# Topes de memoria para que la JVM no se expanda hasta el límite del contenedor
+# (Railway cobra por RAM usada). Se puede pisar con la variable JAVA_TOOL_OPTIONS.
+ENV JAVA_TOOL_OPTIONS="-Xmx384m -Xss512k -XX:MaxMetaspaceSize=160m -XX:ReservedCodeCacheSize=64m -XX:+UseSerialGC -XX:+ExitOnOutOfMemoryError"
 # Ejecutamos con el perfil "prod" para apagar el simulador
 ENTRYPOINT ["java", "-jar", "-Dspring.profiles.active=prod", "app.jar"]
