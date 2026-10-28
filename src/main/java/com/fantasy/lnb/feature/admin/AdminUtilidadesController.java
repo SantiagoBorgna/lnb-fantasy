@@ -8,6 +8,7 @@ import com.fantasy.lnb.feature.premium.PremiumService;
 import com.fantasy.lnb.feature.showdown.ShowdownPuntuacionService;
 import com.fantasy.lnb.scraper.JornadaRecalculoService;
 import com.fantasy.lnb.scraper.JornadaTransicionCronJob;
+import com.fantasy.lnb.scraper.MvpJornadaService;
 import com.fantasy.lnb.scraper.PreciosCronJob;
 import com.fantasy.lnb.scraper.ScraperCronJob;
 
@@ -38,6 +39,7 @@ public class AdminUtilidadesController {
     private final PremiumService premiumService;
     private final LogoutService logoutService;
     private final JornadaRecalculoService jornadaRecalculoService;
+    private final MvpJornadaService mvpJornadaService;
 
     @PostMapping("/crons/scraper-partidos")
     public ResponseEntity<Map<String, Object>> correrScraperPartidos() {
@@ -89,6 +91,17 @@ public class AdminUtilidadesController {
         Jornada jornada = jornadaRecalculoService.validarRecalculable(jornadaId);
         return ejecutar("Recálculo de la jornada " + jornada.getNumero(),
                 () -> jornadaRecalculoService.recalcularJornadaFinalizada(jornadaId));
+    }
+
+    /**
+     * Suma el bono de MVP a los partidos ya cargados de una jornada EN_JUEGO y
+     * recalcula el puntaje parcial. Se puede repetir sin duplicar el bono.
+     */
+    @PostMapping("/jornadas/{jornadaId}/aplicar-mvp")
+    public ResponseEntity<Map<String, Object>> aplicarMvpJornada(@PathVariable Long jornadaId) {
+        Jornada jornada = mvpJornadaService.validarAplicable(jornadaId);
+        return ejecutar("MVP de la jornada " + jornada.getNumero(),
+                () -> mvpJornadaService.aplicarMvpJornada(jornadaId));
     }
 
     private ResponseEntity<Map<String, Object>> ejecutar(String nombre, Runnable job) {

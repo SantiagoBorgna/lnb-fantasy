@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -171,6 +172,10 @@ public class ScraperService {
         int guardados = 0;
         int omitidos = 0;
 
+        // El MVP sale de la planilla completa, aunque después algún equipo no sume
+        // (segundo partido en la jornada) o el jugador no esté en nuestra BD
+        Set<Long> mvps = MotorPuntuacion.mvpsDelPartido(dtos);
+
         for (JugadorStatsDto dto : dtos) {
 
             // Descartar filas de totales (ID nulo)
@@ -210,8 +215,10 @@ public class ScraperService {
             // Determinar si el equipo del jugador ganó
             boolean esteJugadorGano = esLocal ? equipoLocalGano : !equipoLocalGano;
 
+            boolean fueMvp = mvps.contains(dto.getIdJugador());
+
             // Calcular puntaje Fantasy usando el motor
-            double puntaje = MotorPuntuacion.calcular(dto, esteJugadorGano);
+            double puntaje = MotorPuntuacion.calcular(dto, esteJugadorGano, fueMvp);
 
             // Calcular fallos para persistencia
             int tirosCampoFallados = calcularTirosCampoFallados(dto);
@@ -240,6 +247,7 @@ public class ScraperService {
                     .fueDescalificado(false)
                     .fueTitularEnPartidoReal(Boolean.TRUE.equals(dto.getCincoInicial()))
                     .equipoGano(esteJugadorGano)
+                    .fueMvp(fueMvp)
                     .puntajeFantasyCalculado(puntaje)
                     .creadoEn(LocalDateTime.now())
                     .build();
