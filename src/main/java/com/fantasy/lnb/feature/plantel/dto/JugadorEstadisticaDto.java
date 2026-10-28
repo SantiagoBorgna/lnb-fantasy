@@ -23,5 +23,10 @@ public class JugadorEstadisticaDto {
     private Integer tirosDeCampoFallados;
     private Integer tirosLibresFallados;
 
+    // Bonos que suman al puntaje, para mostrarlos como sellos en el modal
+    private Boolean dobleDoble;
+    private Boolean tripleDoble;
+    private Boolean fueMvp;
+
     private Boolean jugó; // false → mostrar "--"
 }

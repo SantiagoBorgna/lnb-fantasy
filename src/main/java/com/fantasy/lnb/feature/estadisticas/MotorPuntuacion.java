@@ -160,24 +160,30 @@ public class MotorPuntuacion {
                 .collect(Collectors.toSet());
     }
 
-    // ── Helpers privados ────────────────────────────────────────────────────
-
     /**
-     * Detecta doble-doble y triple-doble contando categorías con valor >= 10.
+     * Cuenta las categorías con valor >= 10: 2 es doble-doble, 3 o más es triple-doble.
      * Categorías válidas: puntos, rebotes totales, asistencias, recuperaciones.
      */
+    public static int categoriasConDiez(Integer puntos, Integer rebotes, Integer asistencias, Integer recuperos) {
+        int categoriasCon10 = 0;
+        if (safe(puntos) >= 10)
+            categoriasCon10++;
+        if (safe(rebotes) >= 10)
+            categoriasCon10++;
+        if (safe(asistencias) >= 10)
+            categoriasCon10++;
+        if (safe(recuperos) >= 10)
+            categoriasCon10++;
+        return categoriasCon10;
+    }
+
+    // ── Helpers privados ────────────────────────────────────────────────────
+
+    /** El triple-doble reemplaza al doble-doble: nunca suman los dos. */
     private static double calcularBonoMultiDouble(
             int puntos, int rebotes, int asistencias, int recuperos) {
 
-        int categoriasCon10 = 0;
-        if (puntos >= 10)
-            categoriasCon10++;
-        if (rebotes >= 10)
-            categoriasCon10++;
-        if (asistencias >= 10)
-            categoriasCon10++;
-        if (recuperos >= 10)
-            categoriasCon10++;
+        int categoriasCon10 = categoriasConDiez(puntos, rebotes, asistencias, recuperos);
 
         if (categoriasCon10 >= 3)
             return PTS_TRIPLE_DOBLE;
