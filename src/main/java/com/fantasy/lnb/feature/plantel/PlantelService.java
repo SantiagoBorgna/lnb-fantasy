@@ -7,6 +7,7 @@ import com.fantasy.lnb.exception.TransferenciasAgotadasException;
 import com.fantasy.lnb.feature.dt.DirectorTecnico;
 import com.fantasy.lnb.feature.dt.DirectorTecnicoRepository;
 import com.fantasy.lnb.feature.estadisticas.EstadisticaPartidoRepository;
+import com.fantasy.lnb.feature.estadisticas.MotorPuntuacion;
 import com.fantasy.lnb.feature.jornada.EstadoJornada;
 import com.fantasy.lnb.feature.jornada.Jornada;
 import com.fantasy.lnb.feature.jornada.JornadaRepository;
@@ -33,6 +34,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 @Slf4j
@@ -132,7 +134,13 @@ public class PlantelService {
 
                                         return estadisticaRepo
                                                         .findByJugadorReal_IdAndJornada_Id(jugadorId, jornadaId)
-                                                        .map(e -> JugadorEstadisticaDto.builder()
+                                                        .map(e -> {
+                                                                int categoriasConDiez = MotorPuntuacion.categoriasConDiez(
+                                                                                e.getPuntos(),
+                                                                                Objects.requireNonNullElse(e.getRebotesDefensivos(), 0)
+                                                                                                + Objects.requireNonNullElse(e.getRebotesOfensivos(), 0),
+                                                                                e.getAsistencias(), e.getRecuperaciones());
+                                                                return JugadorEstadisticaDto.builder()
                                                                         .jugadorRealId(jugadorId)
                                                                         .puntajeFantasy(e.getPuntajeFantasyCalculado())
                                                                         .puntos(e.getPuntos())
@@ -149,8 +157,12 @@ public class PlantelService {
                                                                         .taponesRecibidos(e.getTaponesRecibidos())
                                                                         .tirosDeCampoFallados(e.getTirosCampoFallados())
                                                                         .tirosLibresFallados(e.getTirosLibresFallados())
+                                                                        .dobleDoble(categoriasConDiez == 2)
+                                                                        .tripleDoble(categoriasConDiez >= 3)
+                                                                        .fueMvp(Boolean.TRUE.equals(e.getFueMvp()))
                                                                         .jugó(true)
-                                                                        .build())
+                                                                        .build();
+                                                        })
                                                         .orElse(JugadorEstadisticaDto.builder()
                                                                         .jugadorRealId(jugadorId)
                                                                         .jugó(false)
