@@ -110,6 +110,12 @@ public class EstadisticaPartido {
     @Column(nullable = false, columnDefinition = "BOOLEAN DEFAULT FALSE")
     private Boolean equipoGano = false;
 
+    // Valoración más alta del partido: ya está sumado en puntajeFantasyCalculado.
+    // Sirve para no sumar el bono dos veces al aplicarlo a partidos ya cargados.
+    @Builder.Default
+    @Column(nullable = false, columnDefinition = "BOOLEAN DEFAULT FALSE")
+    private Boolean fueMvp = false;
+
     // --- Puntaje calculado y persistido ---
     @Builder.Default
     @Column(nullable = false, columnDefinition = "DECIMAL(6,2) DEFAULT 0.00")

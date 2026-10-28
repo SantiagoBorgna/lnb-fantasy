@@ -3,6 +3,10 @@ package com.fantasy.lnb.feature.estadisticas;
 import com.fantasy.lnb.scraper.dto.JugadorStatsDto;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 /**
  * Clase utilitaria sin estado (@Component no necesario).
  * Centraliza TODAS las reglas de puntuación del PRD en un único lugar
@@ -27,7 +31,8 @@ import lombok.extern.slf4j.Slf4j;
  * -3 si fue expulsado por 5ta falta
  * -3 por falta técnica/antideportiva
  * -5 por descalificación
- * MVP del partido (jugador con mas valoracion en la planilla) +10 puntos
+ * MVP del partido (jugador con mas valoracion en la planilla) +10 puntos.
+ * Si hay empate en la valoración máxima, suman todos los empatados.
  */
 @Slf4j
 public class MotorPuntuacion {
@@ -52,15 +57,17 @@ public class MotorPuntuacion {
     private static final double PTS_DESCALIFICADO = -5.0;
     private static final double PTS_TIRO_CAMPO_FALLADO = -1.0;
     private static final double PTS_TIRO_LIBRE_FALLADO = -1.0;
+    public static final double PTS_MVP = 10.0;
 
     // ── Método principal ────────────────────────────────────────────────────
 
     /**
      * @param dto        Stats scrapeadas del jugador
      * @param equipoGano true si el equipo del jugador ganó el partido
+     * @param fueMvp     true si tuvo la valoración más alta del partido (ver {@link #mvpsDelPartido})
      * @return puntaje Fantasy calculado según las reglas del PRD
      */
-    public static double calcular(JugadorStatsDto dto, boolean equipoGano) {
+    public static double calcular(JugadorStatsDto dto, boolean equipoGano, boolean fueMvp) {
         double puntaje = 0.0;
 
         // Valores con null-safe (GES puede omitir campos en jugadores con 0 minutos)
@@ -102,6 +109,11 @@ public class MotorPuntuacion {
             puntaje += PTS_EQUIPO_GANO;
         }
 
+        // ── MVP del partido ──
+        if (fueMvp) {
+            puntaje += PTS_MVP;
+        }
+
         // ── Estadísticas negativas ──
         puntaje += perdidas * PTS_PERDIDA;
         puntaje += fr * PTS_FALTA_RECIBIDA;
@@ -125,6 +137,27 @@ public class MotorPuntuacion {
 
         log.debug("[MOTOR] {} : puntaje bruto calculado: {}", dto.getNombre(), puntaje);
         return Math.round(puntaje * 100.0) / 100.0; // Redondeo a 2 decimales
+    }
+
+    /**
+     * IDs de GES de los MVP del partido: los jugadores con la valoración más alta
+     * de la planilla completa (los dos equipos). Si hay empate son todos los
+     * empatados. Vacío si GES no publicó ninguna valoración.
+     */
+    public static Set<Long> mvpsDelPartido(List<JugadorStatsDto> planilla) {
+        List<JugadorStatsDto> jugadores = planilla.stream()
+                .filter(d -> d.getIdJugador() != null && d.getValoracion() != null)
+                .toList();
+
+        if (jugadores.isEmpty()) {
+            return Set.of();
+        }
+
+        int maxima = jugadores.stream().mapToInt(JugadorStatsDto::getValoracion).max().getAsInt();
+        return jugadores.stream()
+                .filter(d -> d.getValoracion() == maxima)
+                .map(JugadorStatsDto::getIdJugador)
+                .collect(Collectors.toSet());
     }
 
     // ── Helpers privados ────────────────────────────────────────────────────
