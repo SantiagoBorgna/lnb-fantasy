@@ -51,19 +51,35 @@ public class PremiumService {
         }
     }
 
+    /**
+     * Acredita el mes que cubre un pago: Premium hasta fechaPago + 1 mes.
+     * Se cuenta desde la fecha del pago y no desde hoy, así un aviso repetido o tardío de Mercado Pago
+     * sobre un pago viejo no regala otro mes (pasa, por ejemplo, con un usuario que pagó y canceló).
+     * Nunca acorta un Premium que ya llega más lejos.
+     */
     @Transactional
-    public void simularCompra(Long usuarioId) {
+    public void acreditarPago(Long usuarioId, LocalDateTime fechaPago, String origen) {
         Usuario usuario = usuarioRepository.findById(usuarioId)
                 .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado"));
-        
+
+        LocalDateTime hasta = fechaPago.plusMonths(1);
+        if (usuario.getPremiumHasta() != null && !hasta.isAfter(usuario.getPremiumHasta())) {
+            log.info("[PREMIUM] {} de {} ({}) ya estaba acreditado: sigue Premium hasta {}",
+                     origen, usuario.getEmail(), fechaPago, usuario.getPremiumHasta());
+            return;
+        }
+        if (!hasta.isAfter(LocalDateTime.now())) {
+            log.info("[PREMIUM] {} de {} ({}) cubre un mes que ya terminó, no se acredita",
+                     origen, usuario.getEmail(), fechaPago);
+            return;
+        }
+
         usuario.setPremium(true);
         usuario.setNotificacionPremiumVencido(false);
-        // Para probar el vencimiento hoy mismo, le podríamos poner LocalDateTime.now().minusDays(1), 
-        // pero lo dejamos para el flujo normal
-        usuario.setPremiumHasta(LocalDateTime.now().plusMonths(1));
+        usuario.setPremiumHasta(hasta);
         usuarioRepository.save(usuario);
-        
-        log.info("[PREMIUM] Usuario {} ahora es Premium hasta {}", usuario.getEmail(), usuario.getPremiumHasta());
+
+        log.info("[PREMIUM] Usuario {} ahora es Premium hasta {} ({})", usuario.getEmail(), hasta, origen);
     }
 
     @Transactional(readOnly = true)
