@@ -1,5 +1,8 @@
 package com.fantasy.lnb.feature.premium;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.mercadopago.MercadoPagoConfig;
 import com.mercadopago.client.payment.PaymentClient;
 import com.mercadopago.client.preapproval.PreapprovalClient;
 import com.mercadopago.exceptions.MPApiException;
@@ -14,8 +17,15 @@ import org.springframework.web.bind.annotation.*;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.time.Duration;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.Map;
 
 @RestController
@@ -23,6 +33,9 @@ import java.util.Map;
 @RequiredArgsConstructor
 @Slf4j
 public class WebhookController {
+
+    private static final HttpClient HTTP = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
+    private static final ObjectMapper JSON = new ObjectMapper();
 
     private final PremiumService premiumService;
 
@@ -55,9 +68,11 @@ public class WebhookController {
                 String idStr = data.get("id").toString();
                 
                 if ("payment".equals(type)) {
-                    procesarPago(Long.parseLong(idStr));
+                    procesarPago(Long.parseLong(idStr), null);
                 } else if ("subscription_preapproval".equals(type)) {
                     procesarSuscripcion(idStr);
+                } else if ("subscription_authorized_payment".equals(type)) {
+                    procesarCobroMensual(idStr);
                 }
             }
             return ResponseEntity.ok("OK");
@@ -67,36 +82,76 @@ public class WebhookController {
         }
     }
 
-    private void procesarPago(Long paymentId) throws MPException, MPApiException {
+    /**
+     * Cada pago aprobado acredita el mes que va desde su fecha de aprobación. Los avisos repetidos del mismo
+     * pago (MP los reenvía cuando el pago cambia, por ejemplo al liberar la plata) no suman nada.
+     * referenciaSuscripcion se usa si el pago no trae external_reference (cobros de una suscripción).
+     */
+    private void procesarPago(Long paymentId, String referenciaSuscripcion) throws MPException, MPApiException {
         PaymentClient client = new PaymentClient();
         Payment payment = client.get(paymentId);
-        
-        log.info("[WEBHOOK MP] Pago {}: estado={}, external_reference={}", 
-                 paymentId, payment.getStatus(), payment.getExternalReference());
-                 
-        if ("approved".equals(payment.getStatus())) {
-            otorgarPremium(payment.getExternalReference());
+
+        log.info("[WEBHOOK MP] Pago {}: estado={}, external_reference={}, aprobado={}",
+                 paymentId, payment.getStatus(), payment.getExternalReference(), payment.getDateApproved());
+
+        if ("approved".equals(payment.getStatus()) && payment.getDateApproved() != null) {
+            String referencia = payment.getExternalReference() != null && !payment.getExternalReference().isBlank()
+                    ? payment.getExternalReference() : referenciaSuscripcion;
+            acreditar(referencia, payment.getDateApproved(), "pago " + paymentId);
         }
     }
-    
+
+    /**
+     * La suscripción sólo da Premium al activarse, y por el mes que arranca en su creación.
+     * Los meses siguientes los acredita cada cobro aprobado: MP manda este aviso con estado "authorized"
+     * cada vez que la suscripción cambia (incluso si el cobro del mes falla), así que no sirve para renovar.
+     */
     private void procesarSuscripcion(String preapprovalId) throws MPException, MPApiException {
         PreapprovalClient client = new PreapprovalClient();
         Preapproval preapproval = client.get(preapprovalId);
-        
-        log.info("[WEBHOOK MP] Suscripción {}: estado={}, external_reference={}", 
-                 preapprovalId, preapproval.getStatus(), preapproval.getExternalReference());
-                 
-        if ("authorized".equals(preapproval.getStatus())) {
-            otorgarPremium(preapproval.getExternalReference());
+
+        log.info("[WEBHOOK MP] Suscripción {}: estado={}, external_reference={}, creada={}",
+                 preapprovalId, preapproval.getStatus(), preapproval.getExternalReference(), preapproval.getDateCreated());
+
+        if ("authorized".equals(preapproval.getStatus()) && preapproval.getDateCreated() != null) {
+            acreditar(preapproval.getExternalReference(), preapproval.getDateCreated(), "suscripción " + preapprovalId);
         }
     }
-    
-    private void otorgarPremium(String externalReference) {
+
+    /** Cobro mensual de una suscripción: se acredita sólo si el pago asociado quedó aprobado. */
+    private void procesarCobroMensual(String authorizedPaymentId) throws Exception {
+        HttpRequest req = HttpRequest.newBuilder(URI.create("https://api.mercadopago.com/authorized_payments/" + authorizedPaymentId))
+                .header("Authorization", "Bearer " + MercadoPagoConfig.getAccessToken())
+                .timeout(Duration.ofSeconds(10))
+                .GET()
+                .build();
+        HttpResponse<String> res = HTTP.send(req, HttpResponse.BodyHandlers.ofString());
+        if (res.statusCode() != 200) {
+            log.warn("[WEBHOOK MP] Cobro mensual {}: MP respondió {}", authorizedPaymentId, res.statusCode());
+            return;
+        }
+        JsonNode cobro = JSON.readTree(res.body());
+        JsonNode pago = cobro.path("payment");
+        log.info("[WEBHOOK MP] Cobro mensual {}: estado={}, pago={} ({}), suscripción={}",
+                 authorizedPaymentId, cobro.path("status").asText(), pago.path("id").asText(),
+                 pago.path("status").asText(), cobro.path("preapproval_id").asText());
+
+        if (!"approved".equals(pago.path("status").asText()) || !pago.path("id").canConvertToLong()) {
+            return;
+        }
+        String referencia = cobro.path("external_reference").asText("");
+        if (referencia.isBlank() && !cobro.path("preapproval_id").asText("").isBlank()) {
+            referencia = new PreapprovalClient().get(cobro.path("preapproval_id").asText()).getExternalReference();
+        }
+        procesarPago(pago.path("id").asLong(), referencia);
+    }
+
+    private void acreditar(String externalReference, OffsetDateTime fechaPago, String origen) {
         if (externalReference != null && !externalReference.isEmpty()) {
             try {
                 Long usuarioId = Long.parseLong(externalReference);
-                premiumService.simularCompra(usuarioId);
-                log.info("[WEBHOOK MP] Premium otorgado/renovado al usuario {}", usuarioId);
+                premiumService.acreditarPago(usuarioId,
+                        fechaPago.atZoneSameInstant(ZoneId.systemDefault()).toLocalDateTime(), origen);
             } catch (NumberFormatException e) {
                 log.error("[WEBHOOK MP] external_reference no válido: {}", externalReference);
             }
