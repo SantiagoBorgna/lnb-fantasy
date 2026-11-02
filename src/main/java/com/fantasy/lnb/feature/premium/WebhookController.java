@@ -102,9 +102,9 @@ public class WebhookController {
     }
 
     /**
-     * La suscripción sólo da Premium al activarse, y por el mes que arranca en su creación.
-     * Los meses siguientes los acredita cada cobro aprobado: MP manda este aviso con estado "authorized"
-     * cada vez que la suscripción cambia (incluso si el cobro del mes falla), así que no sirve para renovar.
+     * Sólo se registra: la suscripción no da Premium por sí sola, lo dan sus cobros aprobados.
+     * Estar "authorized" no implica haber pagado: se puede autorizar y cancelar antes del primer cobro,
+     * y MP manda este aviso con "authorized" cada vez que la suscripción cambia, aunque el cobro del mes falle.
      */
     private void procesarSuscripcion(String preapprovalId) throws MPException, MPApiException {
         PreapprovalClient client = new PreapprovalClient();
@@ -112,10 +112,6 @@ public class WebhookController {
 
         log.info("[WEBHOOK MP] Suscripción {}: estado={}, external_reference={}, creada={}",
                  preapprovalId, preapproval.getStatus(), preapproval.getExternalReference(), preapproval.getDateCreated());
-
-        if ("authorized".equals(preapproval.getStatus()) && preapproval.getDateCreated() != null) {
-            acreditar(preapproval.getExternalReference(), preapproval.getDateCreated(), "suscripción " + preapprovalId);
-        }
     }
 
     /** Cobro mensual de una suscripción: se acredita sólo si el pago asociado quedó aprobado. */
