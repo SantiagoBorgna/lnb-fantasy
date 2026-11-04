@@ -36,7 +36,10 @@ public class ShowdownService {
         return ShowdownEventoDto.builder()
                 .id(evento.getId())
                 .codigoInscripcion(evento.getCodigoInscripcion())
-                .estado(evento.getEstado())
+                // El cron actualiza el estado cada 10 min: el jugador ve el cierre apenas empieza el partido
+                .estado(evento.getEstado() == EstadoShowdown.ABIERTO && evento.partidoEmpezo()
+                        ? EstadoShowdown.EN_CURSO
+                        : evento.getEstado())
                 .localSigla(local.getSigla())
                 .localNombre(local.getNombre())
                 .visitanteSigla(visitante.getSigla())
@@ -64,9 +67,17 @@ public class ShowdownService {
         ShowdownEvento evento = eventoRepo.findByCodigoInscripcion(codigo)
                 .orElseThrow(() -> new IllegalArgumentException("Evento no encontrado"));
 
-        if (evento.getEstado() != EstadoShowdown.ABIERTO) {
-            throw new IllegalStateException("El evento ya no acepta inscripciones");
+        if (evento.getEstado() != EstadoShowdown.ABIERTO || evento.partidoEmpezo()) {
+            throw new IllegalStateException("El partido ya empezó: la inscripción está cerrada");
         }
+
+        // Una participación por persona: cada email entra una sola vez por evento
+        String email = request.getEmail().trim().toLowerCase(java.util.Locale.ROOT);
+        participanteRepo.findFirstByEventoIdAndEmailIgnoreCase(evento.getId(), email)
+                .filter(p -> !p.getUuidDispositivo().equals(request.getUuidDispositivo()))
+                .ifPresent(p -> {
+                    throw new IllegalStateException("Ese email ya está participando en este evento");
+                });
 
         // Recuperar jugadores
         JugadorReal base = jugadorRepo.findById(request.getBaseId()).orElseThrow();
@@ -98,7 +109,7 @@ public class ShowdownService {
 
         participante.setNombre(request.getNombre());
         participante.setApellido(request.getApellido());
-        participante.setEmail(request.getEmail());
+        participante.setEmail(email);
         participante.setCapitanId(request.getCapitanId());
         participante.setBase(base);
         participante.setEscolta(escolta);
@@ -212,6 +223,24 @@ public class ShowdownService {
                     .participantesCount(count)
                     .build();
         }).collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<com.fantasy.lnb.feature.showdown.dto.AdminShowdownParticipanteDto> getParticipantesAdmin(Long eventoId) {
+        if (!eventoRepo.existsById(eventoId)) {
+            throw new IllegalArgumentException("Evento no encontrado");
+        }
+
+        return participanteRepo.findAllByEventoIdOrderByPuntosTotalesDesc(eventoId)
+                .stream()
+                .map(p -> com.fantasy.lnb.feature.showdown.dto.AdminShowdownParticipanteDto.builder()
+                        .id(p.getId())
+                        .nombre(p.getNombre())
+                        .apellido(p.getApellido())
+                        .email(p.getEmail())
+                        .puntosTotales(p.getPuntosTotales())
+                        .build())
+                .collect(Collectors.toList());
     }
 
     public List<com.fantasy.lnb.feature.jornada.dto.PartidoDto> getPartidosDisponiblesParaShowdown() {

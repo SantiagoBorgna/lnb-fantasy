@@ -2,6 +2,7 @@ package com.fantasy.lnb.feature.showdown;
 
 import com.fantasy.lnb.feature.jornada.dto.PartidoDto;
 import com.fantasy.lnb.feature.showdown.dto.AdminShowdownDto;
+import com.fantasy.lnb.feature.showdown.dto.AdminShowdownParticipanteDto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -25,6 +26,11 @@ public class AdminShowdownController {
     @GetMapping("/partidos-disponibles")
     public ResponseEntity<List<PartidoDto>> getPartidosDisponibles() {
         return ResponseEntity.ok(showdownService.getPartidosDisponiblesParaShowdown());
+    }
+
+    @GetMapping("/{id}/participantes")
+    public ResponseEntity<List<AdminShowdownParticipanteDto>> getParticipantes(@PathVariable Long id) {
+        return ResponseEntity.ok(showdownService.getParticipantesAdmin(id));
     }
 
     @PostMapping

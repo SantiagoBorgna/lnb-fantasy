@@ -7,5 +7,6 @@ import java.util.Optional;
 public interface ShowdownParticipanteRepository extends JpaRepository<ShowdownParticipante, Long> {
     List<ShowdownParticipante> findAllByEventoIdOrderByPuntosTotalesDesc(Long eventoId);
     Optional<ShowdownParticipante> findByEventoIdAndUuidDispositivo(Long eventoId, String uuidDispositivo);
+    Optional<ShowdownParticipante> findFirstByEventoIdAndEmailIgnoreCase(Long eventoId, String email);
     int countByEventoId(Long eventoId);
 }
