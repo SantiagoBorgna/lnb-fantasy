@@ -14,6 +14,9 @@ import java.time.LocalDateTime;
 @Builder
 public class ShowdownEvento {
 
+    // fechaHora viene de GES en hora argentina; el servidor puede correr en otra zona
+    private static final java.time.ZoneId ZONA_PARTIDOS = java.time.ZoneId.of("America/Argentina/Buenos_Aires");
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -43,5 +46,14 @@ public class ShowdownEvento {
         if (this.estado == null) {
             this.estado = EstadoShowdown.ABIERTO;
         }
+    }
+
+    public boolean partidoEmpezo() {
+        LocalDateTime inicio = partido.getFechaHora();
+        // 00:00 es un horario sin confirmar en el fixture: el evento no cierra durante ese día
+        if (inicio.toLocalTime().equals(java.time.LocalTime.MIDNIGHT)) {
+            inicio = inicio.plusDays(1);
+        }
+        return !inicio.isAfter(LocalDateTime.now(ZONA_PARTIDOS));
     }
 }
