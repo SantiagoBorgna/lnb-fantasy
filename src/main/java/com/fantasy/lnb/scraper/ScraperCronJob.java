@@ -64,9 +64,12 @@ public class ScraperCronJob {
                 } else {
                         log.info("[CRON] Partidos pendientes: {}", pendientes.size());
 
-                        jornadasARecalcular.add(pendientes.get(0).getJornada().getId());
-
                         for (Partido partido : pendientes) {
+                                // Todas las jornadas con pendientes, no solo la del más antiguo: un
+                                // partido trabado de una jornada vieja no debe frenar los puntajes
+                                // en vivo de la jornada actual.
+                                jornadasARecalcular.add(partido.getJornada().getId());
+
                                 try {
                                         procesarPartido(partido);
                                 } catch (Exception e) {
