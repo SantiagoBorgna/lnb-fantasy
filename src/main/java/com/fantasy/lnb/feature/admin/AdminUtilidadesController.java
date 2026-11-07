@@ -6,6 +6,7 @@ import com.fantasy.lnb.feature.jornada.Jornada;
 import com.fantasy.lnb.feature.mercado.WaiverService;
 import com.fantasy.lnb.feature.premium.PremiumService;
 import com.fantasy.lnb.feature.showdown.ShowdownPuntuacionService;
+import com.fantasy.lnb.scraper.FixtureControlService;
 import com.fantasy.lnb.scraper.JornadaRecalculoService;
 import com.fantasy.lnb.scraper.JornadaTransicionCronJob;
 import com.fantasy.lnb.scraper.MvpJornadaService;
@@ -40,6 +41,7 @@ public class AdminUtilidadesController {
     private final LogoutService logoutService;
     private final JornadaRecalculoService jornadaRecalculoService;
     private final MvpJornadaService mvpJornadaService;
+    private final FixtureControlService fixtureControlService;
 
     @PostMapping("/crons/scraper-partidos")
     public ResponseEntity<Map<String, Object>> correrScraperPartidos() {
@@ -102,6 +104,15 @@ public class AdminUtilidadesController {
         Jornada jornada = mvpJornadaService.validarAplicable(jornadaId);
         return ejecutar("MVP de la jornada " + jornada.getNumero(),
                 () -> mvpJornadaService.aplicarMvpJornada(jornadaId));
+    }
+
+    /**
+     * Compara ahora el fixture de la liga con los partidos cargados. Solo lee: no
+     * cambia nada ni manda avisos.
+     */
+    @GetMapping("/fixture/diferencias")
+    public ResponseEntity<FixtureControlService.ResultadoControl> diferenciasFixture() {
+        return ResponseEntity.ok(fixtureControlService.controlar());
     }
 
     private ResponseEntity<Map<String, Object>> ejecutar(String nombre, Runnable job) {

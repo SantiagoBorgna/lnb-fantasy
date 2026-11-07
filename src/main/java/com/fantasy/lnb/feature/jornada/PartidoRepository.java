@@ -69,6 +69,32 @@ public interface PartidoRepository extends JpaRepository<Partido, Long> {
                @Param("desde") LocalDateTime desde,
                @Param("hasta") LocalDateTime hasta);
 
+     /**
+      * Partidos de las jornadas dadas, con sus equipos y jornada ya cargados para
+      * poder leerlos fuera de una transacción (por ejemplo, desde un cron).
+      */
+     @Query("""
+                   SELECT p FROM Partido p
+                   JOIN FETCH p.jornada
+                   JOIN FETCH p.equipoLocal
+                   JOIN FETCH p.equipoVisitante
+                   WHERE p.jornada.id IN :jornadaIds
+               """)
+     List<Partido> findConDetalleByJornadaIds(@Param("jornadaIds") Collection<Long> jornadaIds);
+
+     /** Partidos de cualquier jornada en un rango de fechas [desde, hasta), con el mismo detalle. */
+     @Query("""
+                   SELECT p FROM Partido p
+                   JOIN FETCH p.jornada
+                   JOIN FETCH p.equipoLocal
+                   JOIN FETCH p.equipoVisitante
+                   WHERE p.fechaHora >= :desde
+                   AND p.fechaHora < :hasta
+               """)
+     List<Partido> findConDetalleEntreFechas(
+               @Param("desde") LocalDateTime desde,
+               @Param("hasta") LocalDateTime hasta);
+
      List<Partido> findByEstado(EstadoPartido estado);
 
      List<Partido> findByEstadoIn(Collection<EstadoPartido> estados);
