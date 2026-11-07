@@ -5,7 +5,9 @@ import com.fantasy.lnb.feature.jornada.EstadoPartido;
 import com.fantasy.lnb.feature.jornada.Jornada;
 import com.fantasy.lnb.feature.jornada.JornadaRepository;
 import com.fantasy.lnb.feature.jornada.JornadaService;
+import com.fantasy.lnb.feature.jornada.Partido;
 import com.fantasy.lnb.feature.jornada.PartidoRepository;
+import com.fantasy.lnb.feature.notificaciones.AvisoAdminService;
 import com.fantasy.lnb.feature.notificaciones.PushNotificationService;
 
 import lombok.RequiredArgsConstructor;
@@ -16,6 +18,8 @@ import org.springframework.cache.CacheManager;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Component
@@ -33,6 +37,7 @@ public class JornadaTransicionCronJob {
         private final JornadaService jornadaService;
         private final JornadaCierreService jornadaCierreService;
         private final PushNotificationService pushNotificationService;
+        private final AvisoAdminService avisoAdmin;
         private final CacheManager cacheManager;
 
         /**
@@ -109,6 +114,8 @@ public class JornadaTransicionCronJob {
                                                                         jornada.getNumero(), e.getMessage(), e);
                                                 }
 
+                                                avisarSiCerroIncompleta(jornada);
+
                                                 limpiarCache("jornadas");
                                         });
                 } catch (Exception e) {
@@ -173,6 +180,35 @@ public class JornadaTransicionCronJob {
                 log.warn("[TRANSICION] J{} no se cierra todavía: {} partido(s) sin estadísticas cargadas. Se reintenta en 5 min.",
                                 jornada.getNumero(), sinProcesar);
                 return false;
+        }
+
+        /**
+         * Una jornada se cierra igual con partidos sin estadísticas pasada la espera
+         * máxima, y corregirla ya es manual. Afuera de la transacción del cierre: si el
+         * aviso falla, no lo revierte.
+         */
+        private void avisarSiCerroIncompleta(Jornada jornada) {
+                try {
+                        List<Partido> sinEstadisticas = partidoRepo
+                                        .findConDetalleByJornadaIds(List.of(jornada.getId())).stream()
+                                        .filter(p -> p.getEstado() != EstadoPartido.PROCESADO)
+                                        .toList();
+
+                        if (sinEstadisticas.isEmpty()) {
+                                return;
+                        }
+
+                        String partidos = sinEstadisticas.stream()
+                                        .map(p -> p.getEquipoLocal().getNombre() + " vs " + p.getEquipoVisitante().getNombre())
+                                        .collect(Collectors.joining(", "));
+
+                        avisoAdmin.avisar(
+                                        "J" + jornada.getNumero() + " cerró con " + sinEstadisticas.size() + " partido(s) sin estadísticas",
+                                        partidos + ". Revisalo y recalculá la jornada desde Utilidades.");
+                } catch (Exception e) {
+                        log.error("[TRANSICION] Falló el aviso de cierre incompleto de J{} (no bloqueante): {}",
+                                        jornada.getNumero(), e.getMessage(), e);
+                }
         }
 
         private void limpiarCache(String... nombres) {

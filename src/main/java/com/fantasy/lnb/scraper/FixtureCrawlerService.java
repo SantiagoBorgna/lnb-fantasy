@@ -15,8 +15,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -119,58 +121,23 @@ public class FixtureCrawlerService {
 
                 for (Element fila : filas) {
                         try {
-                                // 3. SELECTOR INFALIBLE: 'nombre-equipo' identifica sin ambigüedad
-                                // el <strong> del nombre — a diferencia de 'text-start'/'text-end',
-                                // que la celda de fecha comparte con la celda del equipo local y
-                                // hacía que el nombre local quedara pegado a la fecha del partido
-                                // (ej: "PEÑAROL (MDP) 30/09/2026 20:30").
-                                Elements nombresEquipos = fila.select("strong.nombre-equipo");
-                                String nombreLocal = nombresEquipos.size() > 0 ? nombresEquipos.get(0).text().trim() : "";
-                                String nombreVisitante = nombresEquipos.size() > 1 ? nombresEquipos.get(1).text().trim() : "";
-
-                                // Fallback por si la API cambió las clases
-                                if (nombreLocal.isEmpty() || nombreVisitante.isEmpty()) {
-                                        Elements celdasNombres = fila.select("td:has(strong)");
-                                        if (celdasNombres.size() >= 2) {
-                                                nombreLocal = celdasNombres.get(0).text().trim();
-                                                nombreVisitante = celdasNombres.get(1).text().trim();
-                                        } else {
-                                                continue; // No es una fila de partido
-                                        }
+                                FilaFixture leida = leerFila(fila);
+                                if (leida == null) {
+                                        continue; // No es una fila de partido
                                 }
 
-                                // Fecha
-                                String fechaTexto = fila.select("td:contains(/)").text().trim();
-                                if (fechaTexto.isEmpty()) {
-                                        fechaTexto = fila.select("td[class*='fecha-campo']").text().trim();
-                                }
+                                String nombreLocal = leida.nombreLocal();
+                                String nombreVisitante = leida.nombreVisitante();
+                                LocalDateTime fechaHora = leida.fechaHora();
+                                String hash = leida.hash();
+                                String urlFull = leida.url();
 
-                                String hrefPartido = fila.select("a[href*='" + liga.ruta("partido") + "']").attr("href");
-
-                                if (hrefPartido.isBlank())
-                                        continue;
-
-                                Matcher m = hashPattern().matcher(hrefPartido);
-                                if (!m.find())
-                                        continue;
-
-                                String hash = m.group(1);
-                                String urlFull = liga.urlAbsoluta(hrefPartido);
-
-                                if (fechaTexto.length() > 16) {
-                                        fechaTexto = fechaTexto.substring(0, 16);
-                                }
-
-                                LocalDateTime fechaHora;
-                                try {
-                                        fechaHora = LocalDateTime.parse(fechaTexto,
-                                                        DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));
-                                } catch (Exception e) {
+                                if (fechaHora == null) {
                                         // Sin fecha no hay forma de reconocer un partido ya cargado, y
                                         // guardarlo con la hora de la corrida lo dejaría con una fecha
                                         // falsa que después no coincide con la real.
                                         log.warn("[FIXTURE] Fecha no parseada: '{}' ({} vs {}). Se omite el partido.",
-                                                        fechaTexto, nombreLocal, nombreVisitante);
+                                                        leida.fechaTexto(), nombreLocal, nombreVisitante);
                                         errores++;
                                         continue;
                                 }
@@ -236,6 +203,101 @@ public class FixtureCrawlerService {
                 }
 
                 return new FixtureResultado(nuevos, actualizados, sinCambios, errores);
+        }
+
+        /**
+         * Lee del sitio de la liga los partidos publicados en un rango, sin guardar
+         * nada. El rango es (desde 00:00, hasta + 1 día 00:00]: un partido con la hora
+         * pendiente (00:00) de un día solo aparece si desde es el día anterior.
+         *
+         * @throws IOException si no se pudo leer el sitio
+         */
+        public List<PartidoPublicado> leerFixture(LocalDate desde, LocalDate hasta) throws IOException {
+                String url = liga.urlFixture() + "?handler=ProximosPartidos&fechaInicio=" + desde + "&fechaFin=" + hasta;
+
+                Document doc = Jsoup.connect(url)
+                                .userAgent(REAL_USER_AGENT)
+                                .timeout(TIMEOUT)
+                                .get();
+
+                return leerPublicados(doc.select("tr"));
+        }
+
+        /**
+         * Un partido que no se pudo interpretar se devuelve igual, con el equipo o la
+         * fecha en null, para poder avisar que hay una fila ilegible.
+         */
+        List<PartidoPublicado> leerPublicados(Elements filas) {
+                List<PartidoPublicado> publicados = new ArrayList<>();
+
+                for (Element fila : filas) {
+                        FilaFixture leida = leerFila(fila);
+                        if (leida != null) {
+                                publicados.add(new PartidoPublicado(
+                                                buscarEquipoPorNombre(leida.nombreLocal()),
+                                                buscarEquipoPorNombre(leida.nombreVisitante()),
+                                                leida.nombreLocal(),
+                                                leida.nombreVisitante(),
+                                                leida.fechaHora()));
+                        }
+                }
+                return publicados;
+        }
+
+        /**
+         * Interpreta una fila del fixture. La usan la sincronización y el control de
+         * diferencias, para que los dos entiendan lo mismo.
+         *
+         * @return null si la fila no es un partido; fechaHora en null si no se pudo leer
+         */
+        private FilaFixture leerFila(Element fila) {
+                // SELECTOR INFALIBLE: 'nombre-equipo' identifica sin ambigüedad
+                // el <strong> del nombre — a diferencia de 'text-start'/'text-end',
+                // que la celda de fecha comparte con la celda del equipo local y
+                // hacía que el nombre local quedara pegado a la fecha del partido
+                // (ej: "PEÑAROL (MDP) 30/09/2026 20:30").
+                Elements nombresEquipos = fila.select("strong.nombre-equipo");
+                String nombreLocal = nombresEquipos.size() > 0 ? nombresEquipos.get(0).text().trim() : "";
+                String nombreVisitante = nombresEquipos.size() > 1 ? nombresEquipos.get(1).text().trim() : "";
+
+                // Fallback por si la API cambió las clases
+                if (nombreLocal.isEmpty() || nombreVisitante.isEmpty()) {
+                        Elements celdasNombres = fila.select("td:has(strong)");
+                        if (celdasNombres.size() < 2) {
+                                return null;
+                        }
+                        nombreLocal = celdasNombres.get(0).text().trim();
+                        nombreVisitante = celdasNombres.get(1).text().trim();
+                }
+
+                String fechaTexto = fila.select("td:contains(/)").text().trim();
+                if (fechaTexto.isEmpty()) {
+                        fechaTexto = fila.select("td[class*='fecha-campo']").text().trim();
+                }
+
+                String hrefPartido = fila.select("a[href*='" + liga.ruta("partido") + "']").attr("href");
+                if (hrefPartido.isBlank()) {
+                        return null;
+                }
+
+                Matcher m = hashPattern().matcher(hrefPartido);
+                if (!m.find()) {
+                        return null;
+                }
+
+                if (fechaTexto.length() > 16) {
+                        fechaTexto = fechaTexto.substring(0, 16);
+                }
+
+                LocalDateTime fechaHora = null;
+                try {
+                        fechaHora = LocalDateTime.parse(fechaTexto, DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));
+                } catch (Exception e) {
+                        log.debug("[FIXTURE] Fecha no parseada: '{}'", fechaTexto);
+                }
+
+                return new FilaFixture(nombreLocal, nombreVisitante, fechaHora, fechaTexto, m.group(1),
+                                liga.urlAbsoluta(hrefPartido));
         }
 
         /**
@@ -338,5 +400,17 @@ public class FixtureCrawlerService {
          * @param errores      filas que no se pudieron procesar (equipo o fecha no resueltos)
          */
         public record FixtureResultado(int nuevos, int actualizados, int sinCambios, int errores) {
+        }
+
+        private record FilaFixture(String nombreLocal, String nombreVisitante, LocalDateTime fechaHora,
+                        String fechaTexto, String hash, String url) {
+        }
+
+        /**
+         * Un partido tal como lo publica la liga. El equipo o la fecha quedan en null
+         * si no se pudieron interpretar.
+         */
+        public record PartidoPublicado(EquipoReal local, EquipoReal visitante, String nombreLocal,
+                        String nombreVisitante, LocalDateTime fechaHora) {
         }
 }
