@@ -184,7 +184,10 @@ public class AdminMesService {
         return filas;
     }
 
-    /** Quinteto del líder en la última jornada jugada del mes en la que tenga plantel. */
+    /**
+     * Titulares del líder en la última jornada jugada del mes en la que tenga plantel,
+     * cada uno con su promedio de puntos fantasy en el mes (sin el x1.5 del capitán).
+     */
     private PunteroMesDto puntero(PosicionMesDto lider, List<Jornada> jugadas,
                                   List<PlantelJornada> planteles, List<EstadisticaPartido> stats) {
         Map<Long, PlantelJornada> suyosPorJornada = planteles.stream()
@@ -196,17 +199,14 @@ public class AdminMesService {
             PlantelJornada plantel = suyosPorJornada.get(jornada.getId());
             if (plantel == null) continue;
 
-            Map<Long, Double> puntosJornada = stats.stream()
-                    .filter(e -> e.getJornada().getId().equals(jornada.getId()))
-                    .collect(Collectors.toMap(e -> e.getJugadorReal().getId(),
-                            EstadisticaPartido::getPuntajeFantasyCalculado, (a, b) -> a));
+            Map<Long, Double> promedioMes = stats.stream()
+                    .collect(Collectors.groupingBy(e -> e.getJugadorReal().getId(),
+                            Collectors.averagingDouble(EstadisticaPartido::getPuntajeFantasyCalculado)));
 
             List<JugadorQuintetoDto> jugadores = plantel.getTitulares().stream()
-                    .map(pj -> {
-                        boolean capitan = pj.getRol() == RolPlantel.CAPITAN;
-                        double puntos = puntosJornada.getOrDefault(pj.getJugadorReal().getId(), 0.0);
-                        return JugadorQuintetoDto.desde(pj.getJugadorReal(), capitan ? puntos * 1.5 : puntos, capitan);
-                    })
+                    .map(pj -> JugadorQuintetoDto.desde(pj.getJugadorReal(),
+                            redondear(promedioMes.getOrDefault(pj.getJugadorReal().getId(), 0.0)),
+                            pj.getRol() == RolPlantel.CAPITAN))
                     .toList();
 
             return PunteroMesDto.builder()

@@ -76,11 +76,13 @@ class AdminMesServiceTest {
         assertEquals(180.0, r.getTabla().get(0).getPuntos());
         assertEquals(2, r.getTabla().get(1).getPosicion());
 
-        // Puntero: plantel de Ana en la jornada 6 (la última jugada), capitán x1.5
+        // Puntero: titulares de Ana en la jornada 6 (la última jugada), con su promedio del mes
         assertEquals(6, r.getPuntero().getJornadaNumero());
         assertEquals(180.0, r.getPuntero().getPuntajeMes());
-        assertEquals(45.0, r.getPuntero().getJugadores().stream()
+        assertEquals(25.0, r.getPuntero().getJugadores().stream()
                 .filter(j -> j.getEsCapitan()).findFirst().orElseThrow().getPuntosFantasy());
+        assertEquals(11.0, r.getPuntero().getJugadores().stream()
+                .filter(j -> !j.getEsCapitan()).findFirst().orElseThrow().getPuntosFantasy());
 
         // Promedios: mínimo = ceil(2/2) = 1
         assertEquals(1, r.getMinimoPartidos());
