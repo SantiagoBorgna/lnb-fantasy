@@ -61,20 +61,7 @@ public class AdminQuintetosService {
                         if (esCapitan) {
                             puntos *= 1.5;
                         }
-                        
-                        return JugadorQuintetoDto.builder()
-                            .id(pj.getJugadorReal().getId())
-                            .nombre(pj.getJugadorReal().getNombreCompleto())
-                            .apellido("") // nombreCompleto tiene todo
-                            .clubReal(pj.getJugadorReal().getEquipoReal() != null ? pj.getJugadorReal().getEquipoReal().getSigla() : "N/A")
-                            .posicion(pj.getJugadorReal().getPosicion())
-                            .puntosFantasy(puntos)
-                            .esCapitan(esCapitan)
-                            .numeroCamiseta(pj.getJugadorReal().getNumeroCamiseta())
-                            .modeloCamiseta(pj.getJugadorReal().getEquipoReal() != null ? pj.getJugadorReal().getEquipoReal().getModeloCamiseta() : 1)
-                            .colorPrincipal(pj.getJugadorReal().getEquipoReal() != null ? pj.getJugadorReal().getEquipoReal().getColorPrincipal() : "#FFFFFF")
-                            .colorSecundario(pj.getJugadorReal().getEquipoReal() != null ? pj.getJugadorReal().getEquipoReal().getColorSecundario() : "#000000")
-                            .build();
+                        return JugadorQuintetoDto.desde(pj.getJugadorReal(), puntos, esCapitan);
                     })
                     .collect(Collectors.toList());
         }
@@ -118,19 +105,7 @@ public class AdminQuintetosService {
                 
                 puntajeTotalIdeal += puntos;
 
-                quintetoIdealTeorico.add(JugadorQuintetoDto.builder()
-                        .id(mejorEnPos.getJugadorReal().getId())
-                        .nombre(mejorEnPos.getJugadorReal().getNombreCompleto())
-                        .apellido("")
-                        .clubReal(mejorEnPos.getJugadorReal().getEquipoReal() != null ? mejorEnPos.getJugadorReal().getEquipoReal().getSigla() : "N/A")
-                        .posicion(mejorEnPos.getJugadorReal().getPosicion())
-                        .puntosFantasy(puntos)
-                        .esCapitan(esCapitan)
-                        .numeroCamiseta(mejorEnPos.getJugadorReal().getNumeroCamiseta())
-                        .modeloCamiseta(mejorEnPos.getJugadorReal().getEquipoReal() != null ? mejorEnPos.getJugadorReal().getEquipoReal().getModeloCamiseta() : 1)
-                        .colorPrincipal(mejorEnPos.getJugadorReal().getEquipoReal() != null ? mejorEnPos.getJugadorReal().getEquipoReal().getColorPrincipal() : "#FFFFFF")
-                        .colorSecundario(mejorEnPos.getJugadorReal().getEquipoReal() != null ? mejorEnPos.getJugadorReal().getEquipoReal().getColorSecundario() : "#000000")
-                        .build());
+                quintetoIdealTeorico.add(JugadorQuintetoDto.desde(mejorEnPos.getJugadorReal(), puntos, esCapitan));
             }
         }
 

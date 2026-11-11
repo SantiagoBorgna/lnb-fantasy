@@ -53,6 +53,8 @@ public interface EstadisticaPartidoRepository
 
         List<EstadisticaPartido> findByJornada_Id(Long jornadaId);
 
+        List<EstadisticaPartido> findByJornada_IdIn(java.util.Collection<Long> jornadaIds);
+
         List<EstadisticaPartido> findByGesPartidoId(String gesPartidoId);
 
         void deleteByGesPartidoId(String gesPartidoId);
