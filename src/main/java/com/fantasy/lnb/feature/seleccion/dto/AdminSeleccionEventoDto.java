@@ -15,5 +15,6 @@ public record AdminSeleccionEventoDto(
         String fecha,
         Integer puntosLocal,
         Integer puntosVisitante,
-        int participantesCount) {
+        int participantesCount,
+        boolean mostrarBanner) {
 }

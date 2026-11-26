@@ -48,6 +48,10 @@ public class SeleccionEvento {
     @Column(nullable = false)
     private EstadoShowdown estado;
 
+    // Banner del inicio del juego: se ve hasta que el admin lo apaga (null = prendido,
+    // así los partidos creados antes de esta columna no cambian)
+    private Boolean mostrarBanner;
+
     private Integer puntosLocal;
     private Integer puntosVisitante;
 
@@ -64,6 +68,10 @@ public class SeleccionEvento {
 
     public boolean partidoEmpezo() {
         return !fechaHora.isAfter(LocalDateTime.now(ZONA_PARTIDOS));
+    }
+
+    public boolean bannerVisible() {
+        return !Boolean.FALSE.equals(mostrarBanner);
     }
 
     public EstadoShowdown estadoActual() {

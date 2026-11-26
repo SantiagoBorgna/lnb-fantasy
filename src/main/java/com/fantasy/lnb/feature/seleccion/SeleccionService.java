@@ -35,13 +35,22 @@ public class SeleccionService {
     private final SeleccionParticipanteRepository participanteRepo;
     private final SeleccionEstadisticaRepository estadisticaRepo;
 
-    /** El próximo evento con la inscripción abierta, para el banner del juego. */
+    /**
+     * Evento del banner del juego, entre los que tienen el banner prendido: el próximo con la
+     * inscripción abierta; si no hay, el último que ya empezó (para ir a ver los resultados).
+     */
     @Transactional(readOnly = true)
     public Optional<ShowdownEventoDto> getEventoActivo() {
-        return eventoRepo.findAllByOrderByFechaHoraAsc().stream()
+        List<SeleccionEvento> conBanner = eventoRepo.findAllByOrderByFechaHoraAsc().stream()
+                .filter(SeleccionEvento::bannerVisible)
+                .toList();
+        Optional<SeleccionEvento> abierto = conBanner.stream()
                 .filter(e -> e.estadoActual() == EstadoShowdown.ABIERTO)
-                .findFirst()
-                .map(this::aDto);
+                .findFirst();
+        Optional<SeleccionEvento> ultimoJugado = conBanner.stream()
+                .filter(e -> e.estadoActual() != EstadoShowdown.ABIERTO)
+                .reduce((a, b) -> b);
+        return abierto.or(() -> ultimoJugado).map(this::aDto);
     }
 
     @Transactional(readOnly = true)
