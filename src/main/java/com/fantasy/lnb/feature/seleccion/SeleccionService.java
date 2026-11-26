@@ -64,17 +64,7 @@ public class SeleccionService {
     public Long participar(String codigo, ParticiparShowdownRequest request) {
         SeleccionEvento evento = buscar(codigo);
 
-        if (evento.estadoActual() != EstadoShowdown.ABIERTO) {
-            throw new IllegalStateException("El partido ya empezó: la inscripción está cerrada");
-        }
-
-        // Una participación por persona: cada email entra una sola vez por evento
-        String email = request.getEmail().trim().toLowerCase(Locale.ROOT);
-        participanteRepo.findFirstByEventoIdAndEmailIgnoreCase(evento.getId(), email)
-                .filter(p -> !p.getUuidDispositivo().equals(request.getUuidDispositivo()))
-                .ifPresent(p -> {
-                    throw new IllegalStateException("Ese email ya está participando en este evento");
-                });
+        String email = validarInscripcion(evento, request.getEmail(), request.getUuidDispositivo());
 
         SeleccionJugador base = jugadorDelPartido(evento, request.getBaseId(), PosicionJugador.BASE);
         SeleccionJugador escolta = jugadorDelPartido(evento, request.getEscoltaId(), PosicionJugador.ESCOLTA);
@@ -114,6 +104,27 @@ public class SeleccionService {
         participante.setPivot(pivot);
 
         return participanteRepo.save(participante).getId();
+    }
+
+    /** Validación del primer paso (datos personales), antes de armar el equipo. */
+    @Transactional(readOnly = true)
+    public void verificarInscripcion(String codigo, String email, String uuidDispositivo) {
+        validarInscripcion(buscar(codigo), email, uuidDispositivo);
+    }
+
+    /** Inscripción abierta y email libre (o del mismo dispositivo, que puede rehacer su equipo). */
+    private String validarInscripcion(SeleccionEvento evento, String emailIngresado, String uuidDispositivo) {
+        if (evento.estadoActual() != EstadoShowdown.ABIERTO) {
+            throw new IllegalStateException("El partido ya empezó: la inscripción está cerrada");
+        }
+        // Una participación por persona: cada email entra una sola vez por evento
+        String email = emailIngresado.trim().toLowerCase(Locale.ROOT);
+        participanteRepo.findFirstByEventoIdAndEmailIgnoreCase(evento.getId(), email)
+                .filter(p -> !p.getUuidDispositivo().equals(uuidDispositivo))
+                .ifPresent(p -> {
+                    throw new IllegalStateException("Ese email ya está participando en este evento");
+                });
+        return email;
     }
 
     @Transactional(readOnly = true)

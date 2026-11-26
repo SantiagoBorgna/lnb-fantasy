@@ -44,6 +44,15 @@ public class SeleccionController {
         return ResponseEntity.ok(seleccionService.participar(codigo, request));
     }
 
+    /** Paso 1 del formulario: 409 si la inscripción cerró o el email ya participa. */
+    @GetMapping("/{codigo}/verificar-inscripcion")
+    public ResponseEntity<Void> verificarInscripcion(@PathVariable String codigo,
+                                                     @RequestParam String email,
+                                                     @RequestParam String uuidDispositivo) {
+        seleccionService.verificarInscripcion(codigo, email, uuidDispositivo);
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping("/{codigo}/ranking")
     public ResponseEntity<List<ShowdownParticipanteDto>> getRanking(@PathVariable String codigo,
                                                                     @RequestParam String uuidDispositivo) {
