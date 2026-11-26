@@ -120,6 +120,33 @@ class SeleccionInscripcionTest {
         assertThrows(IllegalStateException.class, () -> servicio.verificarInscripcion("arg-can", "nuevo@mail.com", "cel-1"));
     }
 
+    @Test
+    void elBannerSigueConElPartidoJugadoHastaQueSeApague() {
+        SeleccionEvento jugado = evento(ahora().minusHours(3));
+        jugado.setCodigoInscripcion("arg-bah");
+        SeleccionEvento masViejo = evento(ahora().minusDays(2));
+        masViejo.setCodigoInscripcion("viejo");
+        when(eventoRepo.findAllByOrderByFechaHoraAsc()).thenReturn(java.util.List.of(masViejo, jugado));
+
+        // Sin uno abierto, el último que ya empezó
+        assertEquals("arg-bah", servicio.getEventoActivo().orElseThrow().getCodigoInscripcion());
+
+        // Apagado a mano, pasa al anterior; con todos apagados no hay banner
+        jugado.setMostrarBanner(false);
+        assertEquals("viejo", servicio.getEventoActivo().orElseThrow().getCodigoInscripcion());
+        masViejo.setMostrarBanner(false);
+        assertTrue(servicio.getEventoActivo().isEmpty());
+    }
+
+    @Test
+    void elBannerPrefiereElPartidoConLaInscripcionAbierta() {
+        SeleccionEvento jugado = evento(ahora().minusHours(3));
+        jugado.setCodigoInscripcion("arg-bah");
+        when(eventoRepo.findAllByOrderByFechaHoraAsc()).thenReturn(java.util.List.of(jugado, evento));
+
+        assertEquals("arg-can", servicio.getEventoActivo().orElseThrow().getCodigoInscripcion());
+    }
+
     private static ParticiparShowdownRequest request(Long pivotId, Long capitanId) {
         ParticiparShowdownRequest r = new ParticiparShowdownRequest();
         r.setNombre("Juan");

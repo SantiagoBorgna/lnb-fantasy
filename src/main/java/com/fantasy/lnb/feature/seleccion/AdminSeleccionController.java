@@ -82,6 +82,11 @@ public class AdminSeleccionController {
         return adminService.editarEvento(id, request);
     }
 
+    @PutMapping("/eventos/{id}/banner")
+    public AdminSeleccionEventoDto cambiarBanner(@PathVariable Long id, @RequestParam boolean mostrar) {
+        return adminService.cambiarBanner(id, mostrar);
+    }
+
     @DeleteMapping("/eventos/{id}")
     public ResponseEntity<Void> eliminarEvento(@PathVariable Long id) {
         adminService.eliminarEvento(id);

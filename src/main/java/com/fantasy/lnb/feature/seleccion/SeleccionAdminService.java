@@ -99,6 +99,7 @@ public class SeleccionAdminService {
         SeleccionEvento evento = SeleccionEvento.builder()
                 .codigoInscripcion(UUID.randomUUID().toString().substring(0, 8))
                 .estado(EstadoShowdown.ABIERTO)
+                .mostrarBanner(true)
                 .build();
         aplicar(evento, request);
         return aDto(eventoRepo.save(evento));
@@ -114,6 +115,14 @@ public class SeleccionAdminService {
             throw new IllegalStateException("Ya hay inscriptos: no se pueden cambiar los equipos del partido");
         }
         aplicar(evento, request);
+        return aDto(eventoRepo.save(evento));
+    }
+
+    /** Prende o apaga el banner del inicio para este partido (no toca inscriptos ni resultados). */
+    @Transactional
+    public AdminSeleccionEventoDto cambiarBanner(Long id, boolean mostrar) {
+        SeleccionEvento evento = buscarEvento(id);
+        evento.setMostrarBanner(mostrar);
         return aDto(eventoRepo.save(evento));
     }
 
@@ -291,6 +300,7 @@ public class SeleccionAdminService {
                 e.getLocal().getId(), e.getLocal().getSigla(), e.getLocal().getNombre(),
                 e.getVisitante().getId(), e.getVisitante().getSigla(), e.getVisitante().getNombre(),
                 e.getFechaHora().toString(), e.getPuntosLocal(), e.getPuntosVisitante(),
-                e.getId() != null ? participanteRepo.countByEventoId(e.getId()) : 0);
+                e.getId() != null ? participanteRepo.countByEventoId(e.getId()) : 0,
+                e.bannerVisible());
     }
 }
