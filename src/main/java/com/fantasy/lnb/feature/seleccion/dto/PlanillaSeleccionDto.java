@@ -8,7 +8,8 @@ import java.util.List;
 
 /**
  * Planilla de un partido de la selección. El admin la manda con el resultado y las stats;
- * valoracion, fueMvp y puntajeFantasy los calcula el backend (se ignoran si vienen).
+ * valoracionManual es la valoración oficial (FIBA) si el admin la carga; valoracion (la usada para
+ * el MVP), fueMvp y puntajeFantasy los calcula el backend (se ignoran si vienen).
  */
 public record PlanillaSeleccionDto(
         @NotNull @Min(0) Integer puntosLocal,
@@ -34,6 +35,7 @@ public record PlanillaSeleccionDto(
             @Min(0) Integer taponesRecibidos,
             @Min(0) Integer faltasCometidas,
             @Min(0) Integer faltasRecibidas,
+            Integer valoracionManual,
             Integer valoracion,
             Boolean fueMvp,
             Double puntajeFantasy) {

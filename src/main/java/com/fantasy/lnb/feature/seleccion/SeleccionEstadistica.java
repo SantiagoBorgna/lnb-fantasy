@@ -43,6 +43,9 @@ public class SeleccionEstadistica {
     @Builder.Default @Column(nullable = false) private Integer faltasCometidas = 0;
     @Builder.Default @Column(nullable = false) private Integer faltasRecibidas = 0;
 
+    // Valoración oficial cargada por el admin (null = se calcula con la fórmula)
+    private Integer valoracionManual;
+
     // Calculados al guardar la planilla
     @Builder.Default @Column(nullable = false) private Integer valoracion = 0;
     @Builder.Default @Column(nullable = false) private Boolean equipoGano = false;

@@ -31,6 +31,11 @@ public class ShowdownJugadorStatsDto {
     private Integer tirosDeCampoFallados;
     private Integer tirosLibresFallados;
     
+    // Bonos del partido, para los sellos del modal (igual que en el juego base)
+    private Boolean dobleDoble;
+    private Boolean tripleDoble;
+    private Boolean fueMvp;
+
     private Double valFantasy;
     private Double puntosAportados;
 }

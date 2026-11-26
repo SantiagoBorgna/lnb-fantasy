@@ -231,6 +231,9 @@ public class SeleccionService {
                 .faltasCometidas(stat != null ? stat.getFaltasCometidas() : 0)
                 .tirosDeCampoFallados(stat != null ? stat.getTirosCampoFallados() : 0)
                 .tirosLibresFallados(stat != null ? stat.getTirosLibresFallados() : 0)
+                .dobleDoble(stat != null && SeleccionPuntuacion.categoriasConDiez(stat) == 2)
+                .tripleDoble(stat != null && SeleccionPuntuacion.categoriasConDiez(stat) >= 3)
+                .fueMvp(stat != null && stat.getFueMvp())
                 .valFantasy(valFantasy)
                 .puntosAportados(esCapitan ? valFantasy * SeleccionPuntuacion.MULTIPLICADOR_CAPITAN : valFantasy)
                 .build();
