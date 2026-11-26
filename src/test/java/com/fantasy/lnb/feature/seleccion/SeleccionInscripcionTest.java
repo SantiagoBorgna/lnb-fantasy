@@ -102,6 +102,24 @@ class SeleccionInscripcionTest {
         assertEquals("arg-can", servicio.getEventoActivo().orElseThrow().getCodigoInscripcion());
     }
 
+    @Test
+    void verificaElEmailAntesDeArmarElEquipo() {
+        SeleccionParticipante otro = SeleccionParticipante.builder().uuidDispositivo("cel-otro").build();
+        when(participanteRepo.findFirstByEventoIdAndEmailIgnoreCase(evento.getId(), "juan@mail.com")).thenReturn(Optional.of(otro));
+
+        var ex = assertThrows(IllegalStateException.class,
+                () -> servicio.verificarInscripcion("arg-can", " Juan@Mail.com ", "cel-1"));
+        assertTrue(ex.getMessage().contains("email"));
+        // El mismo dispositivo puede volver a entrar con su email
+        assertDoesNotThrow(() -> servicio.verificarInscripcion("arg-can", "juan@mail.com", "cel-otro"));
+    }
+
+    @Test
+    void laVerificacionTambienRechazaSiElPartidoEmpezo() {
+        evento.setFechaHora(ahora().minusMinutes(1));
+        assertThrows(IllegalStateException.class, () -> servicio.verificarInscripcion("arg-can", "nuevo@mail.com", "cel-1"));
+    }
+
     private static ParticiparShowdownRequest request(Long pivotId, Long capitanId) {
         ParticiparShowdownRequest r = new ParticiparShowdownRequest();
         r.setNombre("Juan");
