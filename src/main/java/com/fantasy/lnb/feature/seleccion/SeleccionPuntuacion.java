@@ -12,7 +12,8 @@ import java.util.stream.Collectors;
 
 /**
  * Puntajes de un partido de la selección con las mismas reglas que la liga (MotorPuntuacion).
- * La valoración (para el MVP) no viene de GES: se calcula con la fórmula clásica
+ * La valoración (para el MVP) es la que carga el admin desde la planilla oficial (FIBA);
+ * si la deja vacía se calcula con la fórmula clásica
  * (positivos - tiros fallados - pérdidas - tapones recibidos - faltas cometidas).
  */
 final class SeleccionPuntuacion {
@@ -34,7 +35,7 @@ final class SeleccionPuntuacion {
      * y el puntaje fantasy de cada planilla del partido.
      */
     static void calcular(SeleccionEvento evento, Collection<SeleccionEstadistica> planillas) {
-        planillas.forEach(e -> e.setValoracion(valoracion(e)));
+        planillas.forEach(e -> e.setValoracion(e.getValoracionManual() != null ? e.getValoracionManual() : valoracion(e)));
         int maxima = planillas.stream().mapToInt(SeleccionEstadistica::getValoracion).max().orElse(0);
 
         Long ganadorId = ganadorId(evento);
@@ -43,6 +44,11 @@ final class SeleccionPuntuacion {
             e.setFueMvp(maxima > 0 && e.getValoracion() == maxima);
             e.setPuntajeFantasy(MotorPuntuacion.calcular(aStatsDto(e), e.getEquipoGano(), e.getFueMvp()));
         }
+    }
+
+    static int categoriasConDiez(SeleccionEstadistica e) {
+        return MotorPuntuacion.categoriasConDiez(e.getPuntos(), e.getRebotesDefensivos() + e.getRebotesOfensivos(),
+                e.getAsistencias(), e.getRecuperaciones());
     }
 
     /** Suma del quinteto con el capitán x1.5. Un jugador sin planilla (no jugó) suma 0. */

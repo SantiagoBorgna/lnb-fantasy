@@ -45,6 +45,28 @@ class SeleccionPuntuacionTest {
     }
 
     @Test
+    void laValoracionCargadaAManoDefineElMvp() {
+        SeleccionEvento evento = evento(ahora().minusHours(2));
+        evento.setPuntosLocal(80);
+        evento.setPuntosVisitante(75);
+
+        // Por fórmula ganaría el de 10 puntos, pero la valoración oficial le da el MVP al otro
+        SeleccionEstadistica goleador = SeleccionEstadistica.builder()
+                .jugador(jugador(1L, ARG, PosicionJugador.BASE, 10)).puntos(10).valoracionManual(8).build();
+        SeleccionEstadistica otro = SeleccionEstadistica.builder()
+                .jugador(jugador(2L, CAN, PosicionJugador.BASE, 10)).puntos(4).valoracionManual(12).build();
+        SeleccionEstadistica sinCargar = SeleccionEstadistica.builder()
+                .jugador(jugador(3L, CAN, PosicionJugador.ALERO, 10)).puntos(6).build();
+
+        SeleccionPuntuacion.calcular(evento, List.of(goleador, otro, sinCargar));
+
+        assertEquals(8, goleador.getValoracion());
+        assertEquals(6, sinCargar.getValoracion());
+        assertFalse(goleador.getFueMvp());
+        assertTrue(otro.getFueMvp());
+    }
+
+    @Test
     void elCapitanSumaUnoPuntoCincoYQuienNoJugoSumaCero() {
         SeleccionParticipante p = SeleccionParticipante.builder()
                 .base(jugador(1L, ARG, PosicionJugador.BASE, 10))

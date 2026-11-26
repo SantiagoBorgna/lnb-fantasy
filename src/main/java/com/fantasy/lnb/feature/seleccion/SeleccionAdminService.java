@@ -249,6 +249,7 @@ public class SeleccionAdminService {
                 .taponesRecibidos(n(f.taponesRecibidos()))
                 .faltasCometidas(n(f.faltasCometidas()))
                 .faltasRecibidas(n(f.faltasRecibidas()))
+                .valoracionManual(f.valoracionManual())
                 .build();
     }
 
@@ -268,6 +269,7 @@ public class SeleccionAdminService {
                 e != null ? e.getTaponesRecibidos() : 0,
                 e != null ? e.getFaltasCometidas() : 0,
                 e != null ? e.getFaltasRecibidas() : 0,
+                e != null ? e.getValoracionManual() : null,
                 e != null ? e.getValoracion() : null,
                 e != null && e.getFueMvp(),
                 e != null ? e.getPuntajeFantasy() : null);

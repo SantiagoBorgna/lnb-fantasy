@@ -204,6 +204,9 @@ public class ShowdownService {
                     .faltasCometidas(stat != null ? stat.getFaltasCometidas() : 0)
                     .tirosDeCampoFallados(stat != null ? stat.getTirosCampoFallados() : 0)
                     .tirosLibresFallados(stat != null ? stat.getTirosLibresFallados() : 0)
+                    .dobleDoble(stat != null && categoriasConDiez(stat) == 2)
+                    .tripleDoble(stat != null && categoriasConDiez(stat) >= 3)
+                    .fueMvp(stat != null && Boolean.TRUE.equals(stat.getFueMvp()))
                     .valFantasy(valFantasy)
                     .puntosAportados(puntosAportados)
                     .build();
@@ -216,6 +219,11 @@ public class ShowdownService {
                 .build();
     }
     
+    private static int categoriasConDiez(com.fantasy.lnb.feature.estadisticas.EstadisticaPartido e) {
+        return com.fantasy.lnb.feature.estadisticas.MotorPuntuacion.categoriasConDiez(
+                e.getPuntos(), e.getRebotesDefensivos() + e.getRebotesOfensivos(), e.getAsistencias(), e.getRecuperaciones());
+    }
+
     // --- Admin Methods ---
 
     public List<com.fantasy.lnb.feature.showdown.dto.AdminShowdownDto> getTodosLosShowdowns() {
