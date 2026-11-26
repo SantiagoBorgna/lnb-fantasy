@@ -69,6 +69,7 @@ public class SecurityConfig {
                                                                 "/api/dt",
                                                                 "/api/dt/**",
                                                                 "/api/showdown/**",
+                                                                "/api/seleccion/**",
                                                                 "/api/onboarding/equipos")
                                                 .permitAll()
 
