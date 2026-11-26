@@ -65,7 +65,7 @@ public class ShowdownPuntuacionService {
                                 (p1, p2) -> p1 // por si hay duplicados
                         ));
 
-                List<ShowdownParticipante> participantes = participanteRepo.findAllByEventoIdOrderByPuntosTotalesDesc(evento.getId());
+                List<ShowdownParticipante> participantes = participanteRepo.findAllByEventoIdOrderByPuntosTotalesDescIdAsc(evento.getId());
                 
                 for (ShowdownParticipante p : participantes) {
                     double total = 0.0;

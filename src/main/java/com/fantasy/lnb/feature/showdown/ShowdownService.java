@@ -139,7 +139,7 @@ public class ShowdownService {
         ShowdownEvento evento = eventoRepo.findByCodigoInscripcion(codigo)
                 .orElseThrow(() -> new IllegalArgumentException("Evento no encontrado"));
 
-        return participanteRepo.findAllByEventoIdOrderByPuntosTotalesDesc(evento.getId())
+        return participanteRepo.findAllByEventoIdOrderByPuntosTotalesDescIdAsc(evento.getId())
                 .stream()
                 .map(p -> ShowdownParticipanteDto.builder()
                         .id(p.getId())
@@ -252,7 +252,7 @@ public class ShowdownService {
             throw new IllegalArgumentException("Evento no encontrado");
         }
 
-        return participanteRepo.findAllByEventoIdOrderByPuntosTotalesDesc(eventoId)
+        return participanteRepo.findAllByEventoIdOrderByPuntosTotalesDescIdAsc(eventoId)
                 .stream()
                 .map(p -> com.fantasy.lnb.feature.showdown.dto.AdminShowdownParticipanteDto.builder()
                         .id(p.getId())
