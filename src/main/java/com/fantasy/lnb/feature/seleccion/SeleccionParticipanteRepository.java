@@ -7,7 +7,8 @@ import java.util.List;
 import java.util.Optional;
 
 public interface SeleccionParticipanteRepository extends JpaRepository<SeleccionParticipante, Long> {
-    List<SeleccionParticipante> findAllByEventoIdOrderByPuntosTotalesDesc(Long eventoId);
+    // A igualdad de puntos, por orden de inscripción (el id es el orden de alta)
+    List<SeleccionParticipante> findAllByEventoIdOrderByPuntosTotalesDescIdAsc(Long eventoId);
     Optional<SeleccionParticipante> findByEventoIdAndUuidDispositivo(Long eventoId, String uuidDispositivo);
     Optional<SeleccionParticipante> findFirstByEventoIdAndEmailIgnoreCase(Long eventoId, String email);
     int countByEventoId(Long eventoId);

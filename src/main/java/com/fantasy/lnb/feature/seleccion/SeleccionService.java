@@ -130,7 +130,7 @@ public class SeleccionService {
     @Transactional(readOnly = true)
     public List<ShowdownParticipanteDto> getRanking(String codigo, String uuidDispositivo) {
         SeleccionEvento evento = buscar(codigo);
-        return participanteRepo.findAllByEventoIdOrderByPuntosTotalesDesc(evento.getId()).stream()
+        return participanteRepo.findAllByEventoIdOrderByPuntosTotalesDescIdAsc(evento.getId()).stream()
                 .map(p -> ShowdownParticipanteDto.builder()
                         .id(p.getId())
                         .nombre(p.getNombre())

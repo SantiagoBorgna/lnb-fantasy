@@ -128,7 +128,7 @@ public class SeleccionAdminService {
     @Transactional(readOnly = true)
     public List<AdminShowdownParticipanteDto> getParticipantes(Long eventoId) {
         buscarEvento(eventoId);
-        return participanteRepo.findAllByEventoIdOrderByPuntosTotalesDesc(eventoId).stream()
+        return participanteRepo.findAllByEventoIdOrderByPuntosTotalesDescIdAsc(eventoId).stream()
                 .map(p -> AdminShowdownParticipanteDto.builder()
                         .id(p.getId())
                         .nombre(p.getNombre())
@@ -189,7 +189,7 @@ public class SeleccionAdminService {
         estadisticaRepo.saveAll(nuevas);
 
         Map<Long, Double> puntajes = SeleccionPuntuacion.puntajePorJugador(nuevas);
-        List<SeleccionParticipante> participantes = participanteRepo.findAllByEventoIdOrderByPuntosTotalesDesc(eventoId);
+        List<SeleccionParticipante> participantes = participanteRepo.findAllByEventoIdOrderByPuntosTotalesDescIdAsc(eventoId);
         participantes.forEach(p -> p.setPuntosTotales(SeleccionPuntuacion.puntosDe(p, puntajes)));
         participanteRepo.saveAll(participantes);
 
