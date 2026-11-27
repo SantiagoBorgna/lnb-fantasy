@@ -2,6 +2,7 @@ package com.fantasy.lnb.feature.seleccion;
 
 import com.fantasy.lnb.feature.seleccion.dto.AdminSeleccionEventoDto;
 import com.fantasy.lnb.feature.seleccion.dto.PlanillaSeleccionDto;
+import com.fantasy.lnb.feature.seleccion.dto.ResumenSeleccionDto;
 import com.fantasy.lnb.feature.seleccion.dto.SeleccionEquipoDto;
 import com.fantasy.lnb.feature.seleccion.dto.SeleccionEventoRequest;
 import com.fantasy.lnb.feature.seleccion.dto.SeleccionJugadorDto;
@@ -208,6 +209,54 @@ public class SeleccionAdminService {
                 evento.getLocal().getSigla(), evento.getVisitante().getSigla(), nuevas.size(), participantes.size());
 
         return getPlanilla(eventoId);
+    }
+
+    // ── Historias del resultado ──────────────────────────────────────────────
+
+    /** Ganador(es) y quinteto ideal del partido, para exportar las historias. Solo con la planilla cargada. */
+    @Transactional(readOnly = true)
+    public ResumenSeleccionDto getResumen(Long eventoId) {
+        SeleccionEvento evento = buscarEvento(eventoId);
+        if (evento.getEstado() != EstadoShowdown.FINALIZADO) {
+            throw new IllegalStateException("Todavía no está cargada la planilla de este partido");
+        }
+        List<SeleccionEstadistica> planillas = estadisticaRepo.findAllByEventoId(eventoId);
+        Map<Long, Double> puntajes = SeleccionPuntuacion.puntajePorJugador(planillas);
+
+        // Los primeros del ranking (con empate son varios)
+        List<SeleccionParticipante> ranking = participanteRepo.findAllByEventoIdOrderByPuntosTotalesDescIdAsc(eventoId);
+        List<ResumenSeleccionDto.Ganador> ganadores = ranking.stream()
+                .filter(p -> p.getPuntosTotales().equals(ranking.get(0).getPuntosTotales()))
+                .map(p -> new ResumenSeleccionDto.Ganador(p.getId(), p.getNombre(), p.getApellido(), p.getPuntosTotales(),
+                        p.quinteto().stream().map(j -> {
+                            boolean capitan = j.getId().equals(p.getCapitanId());
+                            double pts = puntajes.getOrDefault(j.getId(), 0.0);
+                            return aJugadorHistoria(j, capitan ? pts * SeleccionPuntuacion.MULTIPLICADOR_CAPITAN : pts, capitan);
+                        }).toList()))
+                .toList();
+
+        // Quinteto ideal: el mejor puntaje de cada posición entre los que jugaron
+        List<ResumenSeleccionDto.Jugador> ideal = new ArrayList<>();
+        for (com.fantasy.lnb.feature.mercado.PosicionJugador posicion : List.of(
+                com.fantasy.lnb.feature.mercado.PosicionJugador.BASE, com.fantasy.lnb.feature.mercado.PosicionJugador.ESCOLTA,
+                com.fantasy.lnb.feature.mercado.PosicionJugador.ALERO, com.fantasy.lnb.feature.mercado.PosicionJugador.ALA_PIVOT,
+                com.fantasy.lnb.feature.mercado.PosicionJugador.PIVOT)) {
+            planillas.stream()
+                    .filter(e -> e.getJugador().getPosicion() == posicion)
+                    .max(java.util.Comparator.comparing(SeleccionEstadistica::getPuntajeFantasy)
+                            .thenComparing(SeleccionEstadistica::getValoracion))
+                    .ifPresent(e -> ideal.add(aJugadorHistoria(e.getJugador(), e.getPuntajeFantasy(), false)));
+        }
+
+        return new ResumenSeleccionDto(evento.getLocal().getNombre(), evento.getVisitante().getNombre(),
+                evento.getPuntosLocal(), evento.getPuntosVisitante(), ganadores, ideal);
+    }
+
+    private static ResumenSeleccionDto.Jugador aJugadorHistoria(SeleccionJugador j, double puntos, boolean capitan) {
+        SeleccionEquipo e = j.getEquipo();
+        return new ResumenSeleccionDto.Jugador(j.getNombreCompleto(), j.getNumeroCamiseta(), j.getPosicion().name(),
+                e.getSigla(), e.getColorPrincipal(), e.getColorSecundario(), e.getModeloCamiseta(),
+                Math.round(puntos * 100.0) / 100.0, capitan);
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
