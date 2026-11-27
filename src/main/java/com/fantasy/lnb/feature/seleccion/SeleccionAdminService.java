@@ -248,8 +248,19 @@ public class SeleccionAdminService {
                     .ifPresent(e -> ideal.add(aJugadorHistoria(e.getJugador(), e.getPuntajeFantasy(), false)));
         }
 
+        // Top 10 de la tabla final, con posiciones compartidas en los empates
+        List<ResumenSeleccionDto.Fila> top10 = new ArrayList<>();
+        for (int i = 0; i < Math.min(10, ranking.size()); i++) {
+            SeleccionParticipante p = ranking.get(i);
+            int posicion = i + 1;
+            if (i > 0 && p.getPuntosTotales().equals(ranking.get(i - 1).getPuntosTotales())) {
+                posicion = top10.get(i - 1).posicion();
+            }
+            top10.add(new ResumenSeleccionDto.Fila(posicion, p.getNombre(), p.getApellido(), p.getPuntosTotales()));
+        }
+
         return new ResumenSeleccionDto(evento.getLocal().getNombre(), evento.getVisitante().getNombre(),
-                evento.getPuntosLocal(), evento.getPuntosVisitante(), ganadores, ideal);
+                evento.getPuntosLocal(), evento.getPuntosVisitante(), ganadores, ideal, top10);
     }
 
     private static ResumenSeleccionDto.Jugador aJugadorHistoria(SeleccionJugador j, double puntos, boolean capitan) {

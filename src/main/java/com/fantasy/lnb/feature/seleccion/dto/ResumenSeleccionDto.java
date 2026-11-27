@@ -13,7 +13,12 @@ public record ResumenSeleccionDto(
         Integer puntosLocal,
         Integer puntosVisitante,
         List<Ganador> ganadores,
-        List<Jugador> quintetoIdeal) {
+        List<Jugador> quintetoIdeal,
+        List<Fila> top10) {
+
+    /** Puesto en la tabla final: con el mismo puntaje se comparte la posición (1, 1, 3...). */
+    public record Fila(int posicion, String nombre, String apellido, Double puntosTotales) {
+    }
 
     public record Ganador(Long participanteId, String nombre, String apellido, Double puntosTotales, List<Jugador> jugadores) {
     }

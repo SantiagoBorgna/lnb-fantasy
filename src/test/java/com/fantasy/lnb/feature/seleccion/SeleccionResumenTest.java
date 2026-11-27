@@ -44,6 +44,8 @@ class SeleccionResumenTest {
         assertTrue(capitan.esCapitan());
         assertEquals(30.0, capitan.puntosFantasy(), 0.001); // 20 x1.5
 
+        assertEquals(List.of(1, 1, 3), resumen.top10().stream().map(ResumenSeleccionDto.Fila::posicion).toList());
+
         assertEquals(5, resumen.quintetoIdeal().size());
         assertEquals("Jugador 2", resumen.quintetoIdeal().get(0).nombre()); // el base de 30
     }
