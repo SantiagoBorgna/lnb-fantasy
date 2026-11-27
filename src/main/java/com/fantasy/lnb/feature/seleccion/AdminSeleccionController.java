@@ -2,6 +2,7 @@ package com.fantasy.lnb.feature.seleccion;
 
 import com.fantasy.lnb.feature.seleccion.dto.AdminSeleccionEventoDto;
 import com.fantasy.lnb.feature.seleccion.dto.PlanillaSeleccionDto;
+import com.fantasy.lnb.feature.seleccion.dto.ResumenSeleccionDto;
 import com.fantasy.lnb.feature.seleccion.dto.SeleccionEquipoDto;
 import com.fantasy.lnb.feature.seleccion.dto.SeleccionEventoRequest;
 import com.fantasy.lnb.feature.seleccion.dto.SeleccionJugadorDto;
@@ -96,6 +97,11 @@ public class AdminSeleccionController {
     @GetMapping("/eventos/{id}/participantes")
     public List<AdminShowdownParticipanteDto> getParticipantes(@PathVariable Long id) {
         return adminService.getParticipantes(id);
+    }
+
+    @GetMapping("/eventos/{id}/resumen")
+    public ResumenSeleccionDto getResumen(@PathVariable Long id) {
+        return adminService.getResumen(id);
     }
 
     @GetMapping("/eventos/{id}/planilla")
