@@ -52,6 +52,10 @@ public class SeleccionEvento {
     // así los partidos creados antes de esta columna no cambian)
     private Boolean mostrarBanner;
 
+    // Premio para el ganador, cargado por el admin (ej. "1 mes de Premium gratis"); null = sin premio
+    @Column(length = 120)
+    private String premio;
+
     private Integer puntosLocal;
     private Integer puntosVisitante;
 

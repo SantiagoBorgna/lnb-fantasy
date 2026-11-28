@@ -19,4 +19,7 @@ public class ShowdownEventoDto {
     private String visitanteNombre;
 
     private String fecha;
+
+    // Premio del evento (solo el Relámpago Selección lo usa; null = sin premio)
+    private String premio;
 }
