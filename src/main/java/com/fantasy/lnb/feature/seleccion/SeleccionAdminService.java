@@ -283,6 +283,7 @@ public class SeleccionAdminService {
         evento.setLocal(buscarEquipo(request.localId()));
         evento.setVisitante(buscarEquipo(request.visitanteId()));
         evento.setFechaHora(request.fechaHora().withSecond(0).withNano(0));
+        evento.setPremio(request.premio() == null || request.premio().isBlank() ? null : request.premio().trim());
     }
 
     private SeleccionEquipo buscarEquipo(Long id) {
@@ -361,6 +362,7 @@ public class SeleccionAdminService {
                 e.getVisitante().getId(), e.getVisitante().getSigla(), e.getVisitante().getNombre(),
                 e.getFechaHora().toString(), e.getPuntosLocal(), e.getPuntosVisitante(),
                 e.getId() != null ? participanteRepo.countByEventoId(e.getId()) : 0,
-                e.bannerVisible());
+                e.bannerVisible(),
+                e.getPremio());
     }
 }

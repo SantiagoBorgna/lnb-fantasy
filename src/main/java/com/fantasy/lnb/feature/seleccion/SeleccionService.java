@@ -201,6 +201,7 @@ public class SeleccionService {
                 .visitanteSigla(evento.getVisitante().getSigla())
                 .visitanteNombre(evento.getVisitante().getNombre())
                 .fecha(evento.getFechaHora().toString())
+                .premio(evento.getPremio())
                 .build();
     }
 
